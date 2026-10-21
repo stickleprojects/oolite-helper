@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: oolite-helper
+Version: 0.1.0
+Summary: Context-aware keyboard shortcut helper for Oolite
+Requires-Python: >=3.10

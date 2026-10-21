@@ -40,4 +40,13 @@ Oolite ──(OXP world script)──▶ Latest.log ──(tail)──▶ Python
    ```
    ln -s "$PWD/oxp/CtxKeys.oxp" ~/Games/Oolite/GameData/AddOns/CtxKeys.oxp
    ```
-3. The helper window: to follow.
+3. Set up the helper in a venv (once). Tkinter comes from the system Python (`sudo apt install python3-tk` if it's missing):
+   ```
+   python3 -m venv .venv
+   .venv/bin/pip install -e .
+   ```
+4. Run the helper, before or after starting the game:
+   ```
+   .venv/bin/oolite-helper
+   ```
+   It opens full-size on the laptop screen (`--geometry 1920x1080+960+1080` by default) and never takes focus from the game. Right-click it to close.

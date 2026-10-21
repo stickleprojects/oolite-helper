@@ -1,0 +1,2 @@
+[console_scripts]
+oolite-helper = helper.app:main

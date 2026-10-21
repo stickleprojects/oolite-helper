@@ -27,8 +27,8 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
 ### Steps
 
 1. ✅ Launcher fix and data folders (see Environment).
-2. ⏳ Minimal add-on: confirm that `[ctxkeys]` lines appear in `Latest.log`.
-3. Helper window that follows the log. It should read messages through an interface that a TCP source can implement later.
+2. ✅ Minimal add-on: `[ctxkeys]` lines appear in `Latest.log`.
+3. ✅ Helper window that follows the log ([helper/](helper/)). `sources.LogSource.poll()` is the interface a TCP source will implement later; `state.GameState` turns messages into a context.
 4. Key lists generated from `keyconfig*.plist` and any user overrides.
 5. The full set of contexts: docked, flying, near station, red alert, hyperspace/galactic jump, menu screens.
 6. Later: the HUD panels, on top of phase 2.
@@ -50,6 +50,8 @@ All of these are confirmed present in the 1.92.1 binary: `startUp`, `startUpComp
 - Extracted AppImage (scratch only): `Resources/Config/keyconfig.plist`, `keyconfig2.plist`, `logcontrol.plist` under `usr/bin/`.
 
 ## Rules
+
+- **Python runs from the project venv**, `.venv/` (gitignored, built from the system Python for Tkinter). Install with `.venv/bin/pip install -e .`, run with `.venv/bin/oolite-helper`, and add any dependencies to `pyproject.toml`.
 
 - **Key bindings come from the game's files, never from memory.** Extract the AppImage (`--appimage-extract`) into a scratch folder, not into this repo, then read `keyconfig*.plist` and any user overrides (check `Settings/OoliteDefaults.plist`).
 - **Build in small, verified steps.** The game has to be run by Kieron, so ask them to run it and then check the log.

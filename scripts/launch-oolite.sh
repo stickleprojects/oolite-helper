@@ -32,4 +32,5 @@ EOF
 # GNUstep ignores a config file that anyone but its owner can write to.
 chmod 600 "$GNUSTEP_CONFIG_FILE"
 
-cd "$GAME_DATA" && exec "$APPIMAGE_PATH" "$@"
+# Not GameData: Oolite also searches a relative "AddOns", which would load add-ons twice.
+cd "$(dirname "$APPIMAGE_PATH")" && exec "$APPIMAGE_PATH" "$@"
