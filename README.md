@@ -30,7 +30,7 @@ A later version may receive the same messages over Oolite's debug console connec
 
 - Linux with X11 (developed on MATE)
 - Oolite 1.92.1 Linux AppImage
-- Python 3.10+ with Tkinter (`sudo apt install python3-tk` on Debian/Ubuntu)
+- Python 3.11+ with Tkinter (`sudo apt install python3-tk` on Debian/Ubuntu)
 - A second screen, or room for the window somewhere
 
 ## Setup
@@ -68,12 +68,33 @@ It starts the helper too, and the helper closes itself when the game exits. Poin
 To run the helper on its own:
 
 ```bash
-.venv/bin/oolite-helper [--geometry WxH+X+Y] [--stay]
+.venv/bin/oolite-helper [--stay] [window options]
 ```
 
-- `--geometry`: window size and position. The default, `1920x1080+960+1080`, is a 1920x1080 screen below a 3840-wide main screen. Use `xrandr` to find your screen's position.
-- `--stay`: keep the window open when the game exits.
-- Right-click the window to close it.
+`--stay` keeps the window open when the game exits. Right-click the window to close it.
+
+### Where the window goes
+
+By default the helper fills the first monitor that **isn't** your primary one, e.g. a laptop screen next to the monitor you play on. To change that, copy [config.example.toml](config.example.toml) to `~/.config/oolite-helper/config.toml`:
+
+```toml
+[window]
+screen = "DP-1"      # from `oolite-helper --list-screens`
+width = "33%"        # pixels or % of that screen
+height = "100%"
+anchor = "right"     # top-left, top, top-right, left, center, right, bottom-left, bottom, bottom-right
+margin = 0
+font_scale = 0.9
+```
+
+That example gives a strip down the right-hand third of a big monitor. The number of key columns (one to three) follows the window width. In a single column, the last sections may run off the bottom of a short window; they're ordered most important first.
+
+Each setting has a matching command-line option that overrides the file: `--screen`, `--width`, `--height`, `--anchor`, `--margin`, `--font-scale`. Use `--geometry WxH+X+Y` for exact placement.
+
+```bash
+.venv/bin/oolite-helper --list-screens
+.venv/bin/oolite-helper --screen DP-1 --width 40% --anchor right
+```
 
 ### Why the launcher?
 
@@ -89,7 +110,16 @@ On some systems the 1.92.1 AppImage's own start-up script fails: its bundled `li
 | `helper/state.py` | Turns messages into game state and a context |
 | `helper/contexts.py` | Which actions to show per context, and tips |
 | `helper/keys.py`, `helper/plist.py` | Reads Oolite's key config and descriptions |
+| `helper/screen.py`, `helper/config.py` | Window placement and the config file |
 | `scripts/launch-oolite.sh` | Game launcher that fixes the data folders and starts the helper |
+
+## Contributing
+
+Issues and pull requests are welcome. Changes to `main` go through pull requests.
+
+## License
+
+[MIT](LICENSE)
 
 ## Credits
 

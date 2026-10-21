@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "oolite-helper"
 version = "0.1.0"
 description = "Context-aware keyboard shortcut helper for Oolite"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Tkinter comes from the system Python (python3-tk), not pip.
 dependencies = []
 

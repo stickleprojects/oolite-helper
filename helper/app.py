@@ -8,13 +8,16 @@ import sys
 import tempfile
 import tkinter as tk
 
+from . import config
 from .contexts import ACTION_NOTES, sections, tip
 from .keys import load_keymap
+from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
 from .state import GameState
 
 POLL_MS = 200
-COLUMNS = 3
+MAX_COLUMNS = 3
+COLUMN_WIDTH = 600  # px a key panel needs at font scale 1.0
 BG = "#101418"
 PANEL = "#171d23"
 FG = "#e6e6e6"
@@ -26,10 +29,14 @@ MONO = "DejaVu Sans Mono"
 
 
 class HelperWindow:
-    def __init__(self, root, source, geometry, quit_with_game=True):
+    def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0):
         self.root = root
         self.source = source
         self.quit_with_game = quit_with_game
+        self.scale = font_scale
+        width = int(geometry.split("x", 1)[0])
+        self.columns = max(1, min(MAX_COLUMNS, int(width / (COLUMN_WIDTH * font_scale))))
+        self.desc_wrap = int(width / self.columns * 0.6)
         self.first_poll = True
         self.state = GameState()
         self.shown = None  # sections currently drawn
@@ -52,25 +59,33 @@ class HelperWindow:
 
         header = tk.Frame(root, bg=BG)
         header.pack(fill="x", padx=40, pady=(24, 8))
-        self.context_label = tk.Label(header, font=(SANS, 44, "bold"), fg=ACCENT, bg=BG)
-        self.context_label.pack(side="left")
-        self.detail_label = tk.Label(header, font=(SANS, 20), fg=DIM, bg=BG, justify="right")
-        self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
+        self.context_label = tk.Label(header, font=self.font(SANS, 44, "bold"), fg=ACCENT, bg=BG)
+        narrow = self.columns == 1  # stack the details under the heading
+        self.context_label.pack(side="top" if narrow else "left", anchor="w")
+        self.detail_label = tk.Label(header, font=self.font(SANS, 20), fg=DIM, bg=BG,
+                                     justify="left" if narrow else "right")
+        if narrow:
+            self.detail_label.pack(side="top", anchor="w")
+        else:
+            self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
 
-        self.tip_label = tk.Label(root, font=(SANS, 20), fg=FG, bg=BG, anchor="w",
-                                  justify="left", wraplength=1800)
+        self.tip_label = tk.Label(root, font=self.font(SANS, 20), fg=FG, bg=BG, anchor="w",
+                                  justify="left", wraplength=width - 80)
         self.tip_label.pack(fill="x", padx=40)
 
         self.body = tk.Frame(root, bg=BG)
         self.body.pack(fill="both", expand=True, padx=28)
-        for c in range(COLUMNS):
+        for c in range(self.columns):
             self.body.columnconfigure(c, weight=1, uniform="col")
 
-        self.status_label = tk.Label(root, font=(MONO, 12), fg=DIM, bg=BG, anchor="w")
+        self.status_label = tk.Label(root, font=self.font(MONO, 12), fg=DIM, bg=BG, anchor="w")
         self.status_label.pack(fill="x", padx=40, pady=(0, 12))
 
         self.render()
         self.tick()
+
+    def font(self, family, size, *style):
+        return (family, max(6, round(size * self.scale)), *style)
 
     def tick(self):
         messages = self.source.poll()
@@ -110,8 +125,9 @@ class HelperWindow:
             child.destroy()
         for i, (title, actions) in enumerate(wanted):
             panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
-            panel.grid(row=i // COLUMNS, column=i % COLUMNS, sticky="new", padx=12, pady=12)
-            tk.Label(panel, text=title.upper(), font=(SANS, 16, "bold"), fg=DIM,
+            panel.grid(row=i // self.columns, column=i % self.columns, sticky="new",
+                       padx=12, pady=12)
+            tk.Label(panel, text=title.upper(), font=self.font(SANS, 16, "bold"), fg=DIM,
                      bg=PANEL, anchor="w").grid(row=0, column=0, columnspan=2, sticky="w",
                                                 pady=(0, 6))
             row = 1
@@ -119,13 +135,14 @@ class HelperWindow:
                 keys = self.keymap.keys(action)
                 if not keys:
                     continue  # unbound in this setup
-                tk.Label(panel, text=keys, font=(MONO, 20, "bold"), fg=ACCENT, bg=PANEL,
+                tk.Label(panel, text=keys, font=self.font(MONO, 20, "bold"), fg=ACCENT, bg=PANEL,
                          anchor="w").grid(row=row, column=0, sticky="w", padx=(0, 18))
                 text = self.keymap.describe(action)
                 if action in ACTION_NOTES:
                     text += f" ({ACTION_NOTES[action]})"
-                tk.Label(panel, text=text, font=(SANS, 20), fg=FG, bg=PANEL, anchor="w",
-                         justify="left", wraplength=440).grid(row=row, column=1, sticky="w")
+                tk.Label(panel, text=text, font=self.font(SANS, 20), fg=FG, bg=PANEL,
+                         anchor="w", justify="left", wraplength=self.desc_wrap
+                         ).grid(row=row, column=1, sticky="w")
                 row += 1
 
 
@@ -143,13 +160,44 @@ def single_instance_lock():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Context-aware key helper for Oolite.")
+    parser = argparse.ArgumentParser(
+        description="Context-aware key helper for Oolite.",
+        epilog=f"Window settings can also go in {config.PATH} (see README).")
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
-    parser.add_argument("--geometry", default="1920x1080+960+1080",
-                        help="window size and position (default: the laptop screen)")
     parser.add_argument("--stay", action="store_true",
                         help="keep running when the game exits")
+    parser.add_argument("--list-screens", action="store_true",
+                        help="list the monitors xrandr reports and exit")
+    win = parser.add_argument_group("window placement (overrides the config file)")
+    win.add_argument("--screen", help="monitor name from --list-screens "
+                                      "(default: first non-primary monitor)")
+    win.add_argument("--width", help="pixels or percent of the screen, e.g. 40%%")
+    win.add_argument("--height", help="pixels or percent of the screen")
+    win.add_argument("--anchor", choices=ANCHORS, help="where on the screen to sit")
+    win.add_argument("--margin", type=int, help="pixels from the screen edges")
+    win.add_argument("--font-scale", type=float, help="text size multiplier, e.g. 0.8")
+    win.add_argument("--geometry", help="exact X geometry WxH+X+Y; overrides the others")
     args = parser.parse_args()
+
+    monitors = list_monitors()
+    if args.list_screens:
+        for m in monitors:
+            print(m)
+        return
+
+    settings = config.load_window_settings(overrides={
+        "screen": args.screen, "width": args.width, "height": args.height,
+        "anchor": args.anchor, "margin": args.margin, "font_scale": args.font_scale,
+        "geometry": args.geometry,
+    })
+    window_geometry = settings["geometry"]
+    if not window_geometry:
+        monitor = choose_monitor(monitors, settings["screen"])
+        if monitor is None:
+            raise SystemExit("No monitors found via xrandr; set geometry in the config "
+                             "file or use --geometry WxH+X+Y")
+        window_geometry = geometry(monitor, settings["width"], settings["height"],
+                                   settings["anchor"], settings["margin"])
 
     lock = single_instance_lock()
     if lock is None:
@@ -157,5 +205,6 @@ def main():
         return
 
     root = tk.Tk()
-    HelperWindow(root, LogSource(args.log), args.geometry, quit_with_game=not args.stay)
+    HelperWindow(root, LogSource(args.log), window_geometry,
+                 quit_with_game=not args.stay, font_scale=float(settings["font_scale"]))
     root.mainloop()

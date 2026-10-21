@@ -1,0 +1,44 @@
+"""User settings from ~/.config/oolite-helper/config.toml (all optional).
+
+    [window]
+    screen = "HDMI-1"     # xrandr name; default: first non-primary monitor
+    width = "40%"         # pixels or % of that screen
+    height = "100%"
+    anchor = "right"      # top-left, top, top-right, left, center, right,
+                          # bottom-left, bottom, bottom-right
+    margin = 0            # pixels from the screen edges
+    font_scale = 1.0
+    # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
+"""
+
+import os
+import tomllib
+
+PATH = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                    "oolite-helper", "config.toml")
+
+WINDOW_DEFAULTS = {
+    "screen": None,
+    "width": "100%",
+    "height": "100%",
+    "anchor": "top-left",
+    "margin": 0,
+    "font_scale": 1.0,
+    "geometry": None,
+}
+
+
+def load_window_settings(path=PATH, overrides=None):
+    """Defaults, then the config file's [window] table, then non-None overrides."""
+    settings = dict(WINDOW_DEFAULTS)
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+        unknown = set(data.get("window", {})) - set(WINDOW_DEFAULTS)
+        if unknown:
+            raise SystemExit(f"{path}: unknown [window] settings: {', '.join(sorted(unknown))}")
+        settings.update(data.get("window", {}))
+    for key, value in (overrides or {}).items():
+        if value is not None:
+            settings[key] = value
+    return settings
