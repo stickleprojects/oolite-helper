@@ -55,15 +55,24 @@ this._emitMarket = function (station) {
 	});
 };
 
-this._emitSystems = function () {
+this._emitSystems = function (onlyIfChanged) {
 	var fuel = player.ship.fuel;
 	var station = system.mainStation;
 	var market = station ? station.market : {};
 	var commodities = Object.keys(market);
 	var origin = system.info;
 	var nearby = SystemInfo.filteredSystems(this, function (info) {
-		return origin.distanceToSystem(info) <= fuel;
+		return info.systemID !== system.ID && origin.distanceToSystem(info) <= fuel;
 	});
+	var ids = nearby.map(function (info) { return info.systemID; }).sort(function (a, b) {
+		return a - b;
+	});
+	if (onlyIfChanged && this._lastReachableSystems &&
+			ids.length === this._lastReachableSystems.length &&
+			ids.every(function (id, index) { return id === this._lastReachableSystems[index]; }, this)) {
+		return;
+	}
+	this._lastReachableSystems = ids;
 	var systems = [];
 	for (var i = 0; i < nearby.length; i++) {
 		var info = nearby[i];
@@ -113,6 +122,7 @@ this._watchClearance = function (on) {
 /* Startup */
 
 this.startUp = function () {
+	this._lastReachableSystems = null;
 	this._emit("hello", { version: this.version });
 };
 
@@ -238,7 +248,7 @@ this.shipExitedWitchspace = function () {
 };
 
 this.shipScoopedFuel = function () {
-	this._emitSystems();
+	this._emitSystems(true);
 };
 
 this.infoSystemChanged = function () {

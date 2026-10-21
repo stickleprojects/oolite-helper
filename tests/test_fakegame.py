@@ -81,7 +81,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(state.manifest[0]["name"], "food")
         self.assertEqual(state.last_trade["type"], "sold")
         self.assertEqual(state.last_trade["units"], 1)
-        self.assertEqual(state.systems[1]["name"], "Zaonce")
+        self.assertEqual([system["name"] for system in state.systems], ["Zaonce"])
         self.assertEqual(state.fuel, 7)
         self.assertEqual(state.info_system, 8)
         self.assertEqual(state.target_system, 9)
