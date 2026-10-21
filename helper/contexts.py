@@ -230,9 +230,23 @@ def tip(state, keymap):
     text = TIPS.get(state.context)
     if state.context == "near station":
         text = CLEARANCE_TIPS.get(state.clearance, text)
-    if not text or not keymap:
+    text = text.format_map(_KeysLookup(keymap)) if text and keymap else ""
+    return "\n".join(line for line in (jump_blocker_tip(state), text) if line)
+
+
+def jump_blocker_tip(state):
+    """A warning while a nearby mass would make a hyperspace jump fail.
+
+    The add-on applies the game's rule (0.1 x mass > distance squared, within
+    scanner range: ShipEntity checkShipsInVicinityForWitchJumpExit).
+    """
+    blocker = state.jump_blocker
+    if not blocker or state.context not in ("flying", "near station", "jump countdown"):
         return ""
-    return text.format_map(_KeysLookup(keymap))
+    clear_at = blocker.get("clearAt")
+    distance = f"more than {clear_at / 1000:.1f} km" if clear_at else "further"
+    outcome = "This jump will fail" if state.context == "jump countdown" else "You can't jump yet"
+    return f"{outcome}: {blocker['by']} is too close. Fly {distance} away from it."
 
 
 class _KeysLookup(dict):

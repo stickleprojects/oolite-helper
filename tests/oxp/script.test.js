@@ -10,7 +10,7 @@ const scenarios = [
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.3","type":"hello"}'],
+		expected: ['{"version":"0.4","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
@@ -317,6 +317,23 @@ for (const useDebugConsole of [false, true]) {
 			'{"station":"Test Station","type":"docked"}',
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+		]);
+	});
+
+	test(`a nearby station that would block a jump is reported on change through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.shipLaunchedFromStation(fake.system.mainStation);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkJumpBlocker);
+		fake.logCalls.length = fake.debugMessages.length = 0;
+		timer.tick(); // 5 km away: blocked
+		timer.tick(); // unchanged: nothing new
+		fake.player.ship.position = { ...fake.player.ship.position, x: 8000 };
+		timer.tick(); // past 6.7 km: clear
+		fake.world.shipDockedWithStation(fake.system.mainStation);
+		assert.equal(timer.stopped, true);
+		assert.deepEqual(fake.messages().slice(0, 2), [
+			'{"by":"Test Station","clearAt":6747,"type":"jump_blocker"}',
+			'{"by":null,"clearAt":null,"type":"jump_blocker"}',
 		]);
 	});
 

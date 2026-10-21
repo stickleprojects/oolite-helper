@@ -36,6 +36,7 @@ class GameState:
         self.countdown_kind = None
         self.countdown_ends = None  # time.monotonic() when the jump happens
         self.jump_failed = None  # reason the last jump failed, until the next try
+        self.jump_blocker = None  # {"by", "clearAt"} while a nearby mass would block a jump
         self.market_station = None
         self.market = None
         self.credits = None
@@ -65,12 +66,15 @@ class GameState:
             self.alert = msg.get("alert")
         elif kind == "docked":
             self.docked = True
+            self.jump_blocker = None
             self.in_aegis = False
             self.autopilot = False
             self.clearance = None
             self.end_countdown()
         elif kind == "launching":
             self.docked = False
+        elif kind == "jump_blocker":
+            self.jump_blocker = msg if msg.get("by") else None
         elif kind == "gui":
             self.gui = msg.get("to")
         elif kind == "view":

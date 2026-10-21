@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.3";
+this.version = "0.4";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -153,6 +153,36 @@ this._watchClearance = function (on) {
 	}
 };
 
+// A hyperspace jump fails ("blocked") if, when the countdown ends, any ship
+// within scanner range has 0.1 x mass > distance squared (ShipEntity
+// checkShipsInVicinityForWitchJumpExit, 1.92.1). Check once a second in
+// flight so the helper can warn before the player tries; report changes only.
+this._watchJumpBlocker = function (on) {
+	if (on && !this._blockerTimer) {
+		this._lastBlocker = null;
+		this._blockerTimer = new Timer(this, this._checkJumpBlocker, 1, 1);
+	} else if (!on && this._blockerTimer) {
+		this._blockerTimer.stop();
+		this._blockerTimer = null;
+	}
+};
+
+this._checkJumpBlocker = function () {
+	var ship = player.ship;
+	var blockers = system.filteredEntities(this, function (entity) {
+		return entity.isShip && entity !== ship &&
+			0.1 * entity.mass > ship.position.squaredDistanceTo(entity.position);
+	}, ship, 25600);
+	var blocker = blockers.length ? blockers[0] : null;  // nearest first
+	var name = blocker ? blocker.displayName : null;
+	if (name === this._lastBlocker) return;
+	this._lastBlocker = name;
+	this._emit("jump_blocker", {
+		by: name,
+		clearAt: blocker ? Math.round(Math.sqrt(0.1 * blocker.mass)) : null
+	});
+};
+
 /* Startup */
 
 this.startUp = function () {
@@ -168,6 +198,7 @@ this.startUpComplete = function () {
 	});
 	if (!player.ship.docked) {
 		this._emitAegis(null);
+		this._watchJumpBlocker(true);
 	} else {
 		this._emitMarket();
 	}
@@ -193,6 +224,7 @@ this.viewDirectionChanged = function (to, from) {
 
 this.shipDockedWithStation = function (station) {
 	this._watchClearance(false);
+	this._watchJumpBlocker(false);
 	this._emit("docked", { station: station.displayName });
 	this._emitMarket(station);
 	this._emitSystems();
@@ -204,6 +236,7 @@ this.shipWillLaunchFromStation = function (station) {
 
 this.shipLaunchedFromStation = function (station) {
 	this._emitAegis(station);  // launching leaves you inside the aegis
+	this._watchJumpBlocker(true);
 };
 
 this.shipEnteredStationAegis = function (station) {
@@ -302,6 +335,7 @@ this.shipScoopedFuel = function () {
 // save (handleGameOver), which runs startUp again, so "hello" ends this state.
 this.shipDied = function (whom, why) {
 	this._watchClearance(false);
+	this._watchJumpBlocker(false);
 	this._emit("died", {
 		cause: why || null,
 		by: whom ? (whom.displayName || whom.name || null) : null
