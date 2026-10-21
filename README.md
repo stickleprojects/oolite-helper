@@ -107,7 +107,7 @@ Each setting has a matching command-line option that overrides the file: `--scre
 
 ### Why the launcher?
 
-On some systems the 1.92.1 AppImage's own start-up script fails: its bundled `libsystemd` breaks the host's `mkdir` and `mktemp`. Oolite then logs to stdout (no `Latest.log`) and puts its settings in `~/GNUstep`. The launcher works around this. It runs the AppImage in "legacy" mode, sets Oolite's `OO_*` folder variables, and writes a GNUstep config, so everything (log, add-ons, saves, settings) lives in `GameData/` next to the AppImage.
+On some systems, notably Ubuntu 26.04, whose default Rust coreutils link against `libsystemd`, the 1.92.1 AppImage's own start-up script fails: its bundled, older `libsystemd` breaks the host's `mkdir` and `mktemp`. Reported upstream as [OoliteProject/oolite#769](https://github.com/OoliteProject/oolite/issues/769). Oolite then logs to stdout (no `Latest.log`) and puts its settings in `~/GNUstep`. The launcher works around this. It runs the AppImage in "legacy" mode, sets Oolite's `OO_*` folder variables, and writes a GNUstep config, so everything (log, add-ons, saves, settings) lives in `GameData/` next to the AppImage.
 
 ## Project layout
 
