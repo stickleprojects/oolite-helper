@@ -11,7 +11,16 @@ A second-screen helper for the space game [Oolite](https://oolite.space/). It sh
 
 The keys come from **your own game settings**: the game's built-in key config, your keyboard layout, and any keys you've changed in Oolite's Keyboard Configuration screen. If you remap something, the helper shows the new key.
 
-> Status: working and in daily use on Linux with Oolite 1.92.1. Screenshots are coming ([#2](https://github.com/stickleprojects/oolite-helper/issues/2)).
+![Near a station: the game on the left, the helper on the right. The station has put the docking request in a queue, and the helper shows "Clearance: requested" with the docking keys.](docs/near-station.png)
+
+*Above: waiting for docking clearance (the station has put you at queue position 11). The game is on the left and the helper's second screen is on the right.*
+
+| | |
+|---|---|
+| ![Jump countdown](docs/countdown.png) **Jump countdown**: time left, and how to cancel | ![Galactic chart](docs/chart.png) **Chart in flight**: chart keys and screen switching |
+| ![Docked, status screen](docs/docked.png) **Docked**: station screens and menu keys | ![Market screen](docs/market.png) **Market**: buying and selling keys |
+
+> Status: working and in daily use on Linux with Oolite 1.92.1. All screenshots are from real play.
 
 ## How it works
 
