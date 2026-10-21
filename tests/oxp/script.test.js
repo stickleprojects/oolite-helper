@@ -320,20 +320,29 @@ for (const useDebugConsole of [false, true]) {
 		]);
 	});
 
-	test(`a nearby station that would block a jump is reported on change through ${transport}`, () => {
+	test(`jump blockers and mass locks are reported on change through ${transport}`, () => {
 		const fake = createFakeOolite({ debugConsole: useDebugConsole });
 		fake.world.shipLaunchedFromStation(fake.system.mainStation);
-		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkJumpBlocker);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkFlight);
 		fake.logCalls.length = fake.debugMessages.length = 0;
-		timer.tick(); // 5 km away: blocked
+		const ship = fake.player.ship;
+		timer.tick(); // 5 km from the station: blocked and locked
 		timer.tick(); // unchanged: nothing new
-		fake.player.ship.position = { ...fake.player.ship.position, x: 8000 };
-		timer.tick(); // past 6.7 km: clear
+		ship.position = { ...ship.position, x: 8000 };
+		timer.tick(); // past 6.7 km: the jump is clear, the drive still locked
+		ship.position = { ...ship.position, x: 30000 };
+		timer.tick(); // off the scanner: clear
+		ship.position = { ...ship.position, x: -1e9 + 5020000 };
+		timer.tick(); // 20 km above the planet: locked by it
 		fake.world.shipDockedWithStation(fake.system.mainStation);
 		assert.equal(timer.stopped, true);
-		assert.deepEqual(fake.messages().slice(0, 2), [
+		assert.deepEqual(fake.messages().slice(0, 6), [
 			'{"by":"Test Station","clearAt":6747,"type":"jump_blocker"}',
+			'{"by":"Test Station","type":"mass_lock"}',
 			'{"by":null,"clearAt":null,"type":"jump_blocker"}',
+			'{"by":null,"type":"mass_lock"}',
+			'{"by":"planet","type":"mass_lock"}',
+			'{"station":"Test Station","type":"docked"}',
 		]);
 	});
 

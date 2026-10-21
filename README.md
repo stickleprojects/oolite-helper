@@ -7,6 +7,7 @@ A second-screen helper for the space game [Oolite](https://oolite.space/). It sh
 - **Near a station**: docking keys, your clearance status (none, requested, granted, timing out, not required) and docking tips
 - **Red alert**: combat and escape keys
 - **Jump countdown**: seconds left and how to cancel
+- **Torus drive locked**: what's holding the mass lock (a ship on the scanner, or the planet)
 - **Too close to jump**: a warning while a station or big ship is near enough to block a hyperspace jump, with how far to fly; a failed jump says why
 - **Menu screens in flight**: the keys for that screen
 
@@ -53,6 +54,7 @@ Each add-on line in the log looks like `HH:MM:SS.mmm [ctxkeys]: {json}`, and eve
 | `countdown` | A jump countdown starts | `kind` (`standard`, `galactic`), `seconds` |
 | `countdown_end` | A countdown is cancelled, a jump fails, or the jump starts | `reason` (`cancelled`, `jumped`, or the game's failure reason), `cause` (when jumped) |
 | `jump_blocker` | In flight, checked each second: the nearest ship that would block a jump changes | `by` (its name, or `null` when clear), `clearAt` (metres beyond which it stops blocking) |
+| `mass_lock` | In flight, checked each second: what locks the torus drive changes | `by` (a ship's name, `planet`, `sun`, or `null` when free) |
 | `arrived` | The ship leaves witchspace | `system`, `alert` |
 | `market` | Docking, startup while docked, or opening the market screen while docked | `galaxy`, `systemID`, `systemName`, `gameClock`, `station`, `market`, `credits`, `cargoSpace`, `fuel`, `manifest` |
 | `bought`, `sold` | Cargo is bought or sold | `galaxy`, `systemID`, `systemName`, `gameClock`, `commodity`, `units`, `price` (per unit) |

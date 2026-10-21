@@ -107,3 +107,20 @@ def test_a_nearby_mass_warns_before_and_during_a_jump():
     assert tip(state, None).startswith("This jump will fail")
     state.apply({"type": "jump_blocker", "by": None, "clearAt": None})
     assert tip(state, None) == ""
+
+
+def test_mass_lock_says_what_holds_the_torus_drive():
+    from helper.contexts import tip
+    from helper.state import GameState
+
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 2})
+    state.apply({"type": "mass_lock", "by": "Python Trader"})
+    assert tip(state, None).startswith("torus drive is mass locked: Python Trader is on your")
+    state.apply({"type": "mass_lock", "by": "planet"})
+    assert "close to the planet" in tip(state, None)
+    state.apply({"type": "mass_lock", "by": None})
+    assert tip(state, None) == ""
+    state.apply({"type": "mass_lock", "by": "planet"})
+    state.apply({"type": "docked"})
+    assert state.mass_lock is None

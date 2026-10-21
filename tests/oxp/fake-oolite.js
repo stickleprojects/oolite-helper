@@ -61,6 +61,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/Doc/CHANGELOG.TXT
 	// entity.isShip, entity.mass, entity.position (OOJSEntity.m),
 	// Vector3D.squaredDistanceTo (OOJSVector.m), and
+	// entity.scanClass, ship.isCloaked (OOJSShip.m), planet.radius (OOJSPlanet.m),
+	// system.planets, system.sun, and
 	// system.filteredEntities(this, predicate, relativeTo, range), nearest first:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
 	// Docking clearance expiry resets the status to NONE:
@@ -89,6 +91,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	});
 	const station = strictObject("station", {
 		isShip: true,
+		scanClass: "CLASS_STATION",
+		isCloaked: false,
 		mass: 455223200, // a Coriolis station: blocks jumps within about 6.7 km
 		position: vector(0),
 		displayName: "Test Station",
@@ -166,6 +170,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		ID: 7,
 		info: systemInfos[0],
 		entities: [station],
+		planets: [{ isSun: false, radius: 5000000, position: vector(-1e9) }],
+		sun: { isSun: true, radius: 1e8, position: vector(1e12) },
 		filteredEntities(_this, predicate, relativeTo, range) {
 			return [...this.entities, player.ship]
 				.filter((entity) => relativeTo.position.squaredDistanceTo(entity.position) <= range ** 2)
