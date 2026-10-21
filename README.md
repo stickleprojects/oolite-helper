@@ -49,4 +49,4 @@ Oolite ──(OXP world script)──▶ Latest.log ──(tail)──▶ Python
    ```
    .venv/bin/oolite-helper
    ```
-   It opens full-size on the laptop screen (`--geometry 1920x1080+960+1080` by default) and never takes focus from the game. Right-click it to close.
+   It opens full-size on the laptop screen (`--geometry 1920x1080+960+1080` by default) and never takes focus from the game. It closes itself when the game exits (`--stay` to keep it open); right-click closes it too.

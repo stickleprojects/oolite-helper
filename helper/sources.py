@@ -13,6 +13,8 @@ DEFAULT_LOG = os.path.expanduser("~/Games/Oolite/GameData/Logs/Latest.log")
 
 # e.g. 16:33:52.857 [ctxkeys]: {"version":"0.1","type":"hello"}
 LINE_RE = re.compile(r"^\S+ \[ctxkeys\]: (\{.*\})\s*$")
+# Oolite's last line on a normal exit, e.g. "Closing log at 2026-10-21 16:31:26 +1100."
+CLOSE_PREFIX = "Closing log at "
 
 
 class LogSource:
@@ -39,6 +41,9 @@ class LogSource:
         lines = (self._partial + chunk).split("\n")
         self._partial = lines.pop()  # incomplete last line, if any
         for line in lines:
+            if line.startswith(CLOSE_PREFIX):
+                messages.append({"type": "closed"})
+                continue
             m = LINE_RE.match(line)
             if m:
                 try:

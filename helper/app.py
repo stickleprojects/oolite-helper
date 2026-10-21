@@ -16,9 +16,13 @@ DIM = "#7a8590"
 
 
 class HelperWindow:
-    def __init__(self, root, source, geometry):
+    def __init__(self, root, source, geometry, quit_with_game=True):
         self.root = root
         self.source = source
+        self.quit_with_game = quit_with_game
+        # The first poll replays the existing log; a "closed" there is an old
+        # game ending, not this one.
+        self.first_poll = True
         self.state = GameState()
         self.recent = deque(maxlen=12)
 
@@ -51,6 +55,10 @@ class HelperWindow:
                 self.recent.clear()
             self.state.apply(msg)
             self.recent.append(json.dumps(msg))
+            if msg.get("type") == "closed" and self.quit_with_game and not self.first_poll:
+                self.root.destroy()
+                return
+        self.first_poll = False
         if messages:
             self.render()
         self.root.after(POLL_MS, self.tick)
@@ -68,8 +76,10 @@ def main():
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
     parser.add_argument("--geometry", default="1920x1080+960+1080",
                         help="window size and position (default: the laptop screen)")
+    parser.add_argument("--stay", action="store_true",
+                        help="keep running when the game exits")
     args = parser.parse_args()
 
     root = tk.Tk()
-    HelperWindow(root, LogSource(args.log), args.geometry)
+    HelperWindow(root, LogSource(args.log), args.geometry, quit_with_game=not args.stay)
     root.mainloop()
