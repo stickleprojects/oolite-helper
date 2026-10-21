@@ -10,6 +10,16 @@ ECONOMIES = (
     "Average agricultural",
     "Poor agricultural",
 )
+GOVERNMENTS = (
+    "Anarchy",
+    "Feudal",
+    "Multi-Government",
+    "Dictatorship",
+    "Communist",
+    "Confederacy",
+    "Democracy",
+    "Corporate State",
+)
 
 
 def chart_advice(state):
@@ -21,10 +31,14 @@ def chart_advice(state):
     economy = selected.get("economy")
     economy_name = (ECONOMIES[economy] if isinstance(economy, int)
                     and 0 <= economy < len(ECONOMIES) else f"Economy {economy}")
+    government = selected.get("government")
+    government_name = (GOVERNMENTS[government] if isinstance(government, int)
+                       and 0 <= government < len(GOVERNMENTS)
+                       else f"Government {government}")
     lines = [
         f"{selected.get('name', 'Selected system')} — "
         f"{selected.get('distance', 0):.1f} ly",
-        f"{economy_name} · Government {selected.get('government', '?')} · "
+        f"{economy_name} · {government_name} · "
         f"Tech level {selected.get('techLevel', '?')}",
     ]
 

@@ -119,7 +119,7 @@ class ScenarioTests(unittest.TestCase):
 
         expected = (
             "Target — 5.5 ly\n"
-            "Rich agricultural · Government 6 · Tech level 12\n"
+            "Rich agricultural · Democracy · Tech level 12\n"
             "Sell from hold: Food ×2 (90.0 cr/unit, +20.0 vs here), "
             "Computers ×1 (73.0 cr/unit, +3.0 vs here)\n"
             "Buy here: Food (+20.0 cr/unit), Computers (+3.0 cr/unit)\n"
