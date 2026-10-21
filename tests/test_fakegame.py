@@ -145,6 +145,10 @@ class ScenarioTests(unittest.TestCase):
             self.assertEqual(len(store.data["market_events"]), 500)
             self.assertEqual(len(store.data["trade_events"]), 500)
             self.assertEqual(store.data["cost_basis"]["food"]["units"], 600)
+            reopened = MarketStore(Path(directory) / "markets.json")
+            self.assertEqual(len(reopened.data["markets"]), 1)
+            self.assertEqual(len(reopened.data["market_events"]), 500)
+            self.assertEqual(len(reopened.data["trade_events"]), 500)
 
     def test_truncated_log_new_trade_is_not_deduplicated(self):
         with tempfile.TemporaryDirectory() as directory:

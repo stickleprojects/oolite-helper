@@ -21,6 +21,10 @@ class MarketStore:
         if self.path.exists():
             with self.path.open(encoding="utf-8") as file:
                 self.data = json.load(file)
+        previous_markets = self.data.get("markets", [])
+        previous_market_events = self.data.get("market_events", [])
+        previous_trade_events = self.data.get("trade_events", [])
+        had_source_events = "source_events" in self.data
         self.data.setdefault("markets", [])
         self.data.setdefault("cost_basis", {})
         self.data.pop("source_events", None)
@@ -30,6 +34,13 @@ class MarketStore:
             if isinstance(market, dict)
         }.values())
         self.data["trade_events"] = self.data.get("trade_events", [])[-MAX_TRADE_EVENTS:]
+        if self.path.exists() and (
+            previous_markets != self.data["markets"]
+            or previous_market_events != self.data["market_events"]
+            or previous_trade_events != self.data["trade_events"]
+            or had_source_events
+        ):
+            self._save()
 
     def apply(self, message):
         kind = message.get("type")
