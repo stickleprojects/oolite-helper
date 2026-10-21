@@ -170,3 +170,13 @@ def test_death_clears_flight_state_until_a_game_loads():
     state.apply({"type": "ready", "docked": True, "alert": 0})
     assert state.context == "docked"
     assert state.details == []
+
+
+def test_galaxy_comes_from_systems_and_market_messages():
+    state = GameState()
+    state.apply({"type": "systems", "galaxy": 2, "fuel": 7, "systems": []})
+    assert state.galaxy == 2
+    state.apply({"type": "systems", "fuel": 7, "systems": []})  # older add-on: keep it
+    assert state.galaxy == 2
+    state.apply({"type": "market", "galaxy": 3, "market": {}})
+    assert state.galaxy == 3

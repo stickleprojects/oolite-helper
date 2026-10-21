@@ -71,9 +71,10 @@ CHAR_NAMES = {9: "tab", 13: "enter", 27: "esc", 32: "space"}
 
 
 class Keymap:
-    def __init__(self, bindings, descriptions):
+    def __init__(self, bindings, descriptions, commodities=None):
         self.bindings = bindings  # action -> list of entry dicts
         self.descriptions = descriptions  # action -> text
+        self.commodities = commodities or {}  # commodity key -> display name
 
     def keys(self, action):
         """Display text for an action's keys, e.g. "Shift+L", or "" if unbound."""
@@ -81,6 +82,14 @@ class Keymap:
 
     def describe(self, action):
         return self.descriptions.get(action, action.removeprefix("key_").replace("_", " "))
+
+    def commodity(self, key):
+        """A commodity's name as the game shows it, e.g. "gem_stones" -> "Gem-Stones"."""
+        return self.commodities.get(key) or commodity_fallback(key)
+
+
+def commodity_fallback(key):
+    return key.replace("_", " ").title()
 
 
 def is_on(value):
@@ -151,7 +160,9 @@ def load_keymap(appimage=APPIMAGE, settings_path=SETTINGS):
 
     prefix = "oolite-keydesc-"
     descriptions = {k[len(prefix) :]: v for k, v in texts.items() if k.startswith(prefix)}
-    return Keymap(bindings, descriptions)
+    names = "commodity-name "
+    commodities = {k[len(names) :]: v for k, v in texts.items() if k.startswith(names)}
+    return Keymap(bindings, descriptions, commodities)
 
 
 def _extracted_config(appimage):

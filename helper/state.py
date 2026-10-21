@@ -32,6 +32,7 @@ class GameState:
         self.manifest = None
         self.last_trade = None
         self.systems = []
+        self.galaxy = None
         self.info_system = None
         self.target_system = None
         self.chart_system = None
@@ -82,6 +83,7 @@ class GameState:
             self.end_countdown()
             self.alert = msg.get("alert")
         elif kind == "market":
+            self.galaxy = msg.get("galaxy", self.galaxy)
             self.market_station = msg.get("station")
             self.market = msg.get("market")
             self.credits = msg.get("credits")
@@ -91,6 +93,7 @@ class GameState:
         elif kind in ("bought", "sold"):
             self.last_trade = msg
         elif kind == "systems":
+            self.galaxy = msg.get("galaxy", self.galaxy)
             self.fuel = msg.get("fuel")
             self.systems = msg.get("systems", [])
         elif kind == "chart_target":

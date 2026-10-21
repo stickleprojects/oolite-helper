@@ -1,0 +1,20 @@
+{
+  // Workspace colour so this window is recognisable at a glance (amber and green = oolite-helper)
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#8A5A12",
+    "titleBar.activeForeground": "#FFFFFF",
+    "titleBar.inactiveBackground": "#5A3A12",
+    "titleBar.inactiveForeground": "#FFFFFFAA",
+    "activityBar.background": "#5A3A12",
+    "activityBar.foreground": "#8BE0A4",
+    "activityBar.inactiveForeground": "#FFFFFF99",
+    "activityBarBadge.background": "#3FA866",
+    "activityBarBadge.foreground": "#000000",
+    "statusBar.background": "#8A5A12",
+    "statusBar.foreground": "#FFFFFF",
+    "statusBarItem.remoteBackground": "#3FA866",
+    "statusBarItem.remoteForeground": "#000000",
+    "tab.activeBorderTop": "#3FA866"
+  },
+  "window.title": "🛰️ oolite-helper — ${activeEditorShort}"
+}
