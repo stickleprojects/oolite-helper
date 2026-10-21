@@ -4,7 +4,7 @@ Run the add-on tests with Node.js 18 or newer; they use only Node's built-in
 test runner and `vm` module:
 
 ```sh
-node --test tests/oxp/
+node --test tests/oxp/script.test.js
 ```
 
 `fake-oolite.js` defines the Oolite properties used by the add-on in one place.
@@ -19,3 +19,5 @@ The property stub cites the Oolite 1.92.1 JavaScript bindings inline:
 - [`OOJSPlayerShip.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayerShip.m)
 - [`OOJSShip.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m)
 - [`OOJSStation.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m)
+- [`OOJSSystem.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m)
+- [`StationEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/StationEntity.m) confirms expired clearance is reset to `DOCKING_CLEARANCE_STATUS_NONE`.

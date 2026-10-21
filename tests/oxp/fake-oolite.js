@@ -40,6 +40,10 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
 	// station.requiresDockingClearance:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m
+	// system.name:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
+	// Docking clearance expiry resets the status to NONE:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/StationEntity.m
 	const station = strictObject("station", {
 		displayName: "Test Station",
 		requiresDockingClearance: true,
