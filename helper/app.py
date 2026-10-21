@@ -8,7 +8,7 @@ import sys
 import tempfile
 import tkinter as tk
 
-from .contexts import sections
+from .contexts import ACTION_NOTES, sections, tip
 from .keys import load_keymap
 from .sources import DEFAULT_LOG, LogSource
 from .state import GameState
@@ -19,6 +19,7 @@ BG = "#101418"
 PANEL = "#171d23"
 FG = "#e6e6e6"
 ACCENT = "#ffb000"
+RED = "#ff4040"
 DIM = "#7a8590"
 SANS = "DejaVu Sans"
 MONO = "DejaVu Sans Mono"
@@ -53,8 +54,12 @@ class HelperWindow:
         header.pack(fill="x", padx=40, pady=(24, 8))
         self.context_label = tk.Label(header, font=(SANS, 44, "bold"), fg=ACCENT, bg=BG)
         self.context_label.pack(side="left")
-        self.detail_label = tk.Label(header, font=(SANS, 20), fg=DIM, bg=BG)
+        self.detail_label = tk.Label(header, font=(SANS, 20), fg=DIM, bg=BG, justify="right")
         self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
+
+        self.tip_label = tk.Label(root, font=(SANS, 20), fg=FG, bg=BG, anchor="w",
+                                  justify="left", wraplength=1800)
+        self.tip_label.pack(fill="x", padx=40)
 
         self.body = tk.Frame(root, bg=BG)
         self.body.pack(fill="both", expand=True, padx=28)
@@ -79,15 +84,20 @@ class HelperWindow:
                 self.root.destroy()
                 return
         self.first_poll = False
-        if messages:
+        if messages or self.state.countdown_left is not None:  # countdown ticks live
             self.render()
         self.root.after(POLL_MS, self.tick)
 
     def render(self):
-        self.context_label.config(text=self.state.context.upper())
+        context = self.state.context
+        self.context_label.config(text=context.upper(),
+                                  fg=RED if context == "red alert" else ACCENT)
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
-        self.detail_label.config(text=f"Screen: {screen}    View: {view}")
+        lines = ["    ".join(self.state.details), f"Screen: {screen}    View: {view}"]
+        self.detail_label.config(text="\n".join(l for l in lines if l))
+        tip_text = tip(self.state, self.keymap) if self.keymap else ""
+        self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
         self.status_label.config(text=self.keymap_error or self.last_message)
 
         wanted = sections(self.state) if self.keymap else []
@@ -111,8 +121,11 @@ class HelperWindow:
                     continue  # unbound in this setup
                 tk.Label(panel, text=keys, font=(MONO, 20, "bold"), fg=ACCENT, bg=PANEL,
                          anchor="w").grid(row=row, column=0, sticky="w", padx=(0, 18))
-                tk.Label(panel, text=self.keymap.describe(action), font=(SANS, 20), fg=FG,
-                         bg=PANEL, anchor="w").grid(row=row, column=1, sticky="w")
+                text = self.keymap.describe(action)
+                if action in ACTION_NOTES:
+                    text += f" ({ACTION_NOTES[action]})"
+                tk.Label(panel, text=text, font=(SANS, 20), fg=FG, bg=PANEL, anchor="w",
+                         justify="left", wraplength=440).grid(row=row, column=1, sticky="w")
                 row += 1
 
 

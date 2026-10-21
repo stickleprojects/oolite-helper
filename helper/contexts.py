@@ -76,6 +76,41 @@ SCREEN_SECTIONS = {
 }
 
 
+# Tips per context. {key_x} is replaced with that action's real keys. Each one
+# is backed by the game source (PlayerEntityControls.m, 1.92.1).
+TIPS = {
+    # performDockingRequest: is called with the primary target only.
+    "near station": "{key_docking_clearance_request} asks your current target, so target "
+                    "the station first ({key_ident_system} with it ahead, or {key_next_target}).",
+    # The hyperspace key during a countdown calls cancelWitchspaceCountdown.
+    "jump countdown": "Press {key_hyperspace} again to cancel the countdown.",
+}
+
+
+# Short qualifiers shown after an action's description, for keys that share a
+# binding with another action and only apply in one mode.
+ACTION_NOTES = {
+    # Only read in pollAutopilotControls; otherwise the same key is thrust.
+    "key_docking_music": "while docking computer is on",
+}
+
+
+def tip(state, keymap):
+    text = TIPS.get(state.context)
+    if not text:
+        return ""
+    return text.format_map(_KeysLookup(keymap))
+
+
+class _KeysLookup(dict):
+    def __init__(self, keymap):
+        super().__init__()
+        self.keymap = keymap
+
+    def __missing__(self, action):
+        return self.keymap.keys(action) or "(unbound)"
+
+
 def sections(state):
     """List of (title, [action, ...]) for the current state."""
     context = state.context
@@ -91,7 +126,7 @@ def sections(state):
     if context == "red alert":
         return [COMBAT, ESCAPE, FLIGHT, VIEWS]
     if context == "near station":
-        return [DOCKING, FLIGHT, VIEWS, FLIGHT_SCREENS]
+        return [DOCKING, FLIGHT, TARGETING, VIEWS, FLIGHT_SCREENS]
     if context == "flying":
         return [FLIGHT, VIEWS, TARGETING, TRAVEL, FLIGHT_SCREENS, MISC]
     return []

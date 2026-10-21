@@ -30,7 +30,15 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
 2. ✅ Minimal add-on: `[ctxkeys]` lines appear in `Latest.log`.
 3. ✅ Helper window that follows the log ([helper/](helper/)). `sources.LogSource.poll()` is the interface a TCP source will implement later; `state.GameState` turns messages into a context.
 4. ✅ Key lists. On startup, [helper/keys.py](helper/keys.py) extracts `keyconfig2.plist` and `descriptions.plist` from the AppImage into `~/.cache/oolite-helper/` (refreshed when the AppImage changes). It then applies the `keyboard-code` layout and `KeyConfigOverrides` from `Settings/OoliteDefaults.plist`. [helper/plist.py](helper/plist.py) parses the OpenStep plists. [helper/contexts.py](helper/contexts.py) lists only action names per context; keys and wording always come from the files.
-5. The remaining contexts: near station, red alert, jump countdown. Their sections already exist in `contexts.py`; `GameState.context` needs to produce them from new add-on events.
+5. ⏳ Near station, red alert and jump countdown (add-on v0.2: aegis, alert, clearance, autopilot and countdown events). Tested with fake messages; a live check in the game is still needed. Precedence in `GameState.context`: docked > menu > jump countdown > red alert > near station > flying.
+
+### Game facts checked in the 1.92.1 source
+
+These are cited in `contexts.py` TIPS/ACTION_NOTES:
+- The docking clearance key asks the **primary target** (`performDockingRequest:primeTarget`), so the station must be targeted first. Some stations don't require clearance (`requiresDockingClearance`).
+- Pressing the hyperspace key during a countdown cancels it.
+- `key_docking_music` shares `s` with decrease thrust; it's only read in `pollAutopilotControls`, i.e. while the docking computer is on.
+- Properties: `player.alertCondition`, `player.dockingClearanceStatus`, `player.ship.withinStationAegis`, `player.ship.viewDirection`, `station.requiresDockingClearance`.
 6. Later: the HUD panels, on top of phase 2.
 
 ### Event handlers
