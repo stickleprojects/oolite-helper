@@ -98,3 +98,36 @@ def test_nearest_systems_need_fuel_information():
     state = chart_state(systems=[{"name": "Lave", "distance": 1.0, "economy": 5}])
     state.fuel = None
     assert "Nearest agricultural: none in range" in chart_advice(state)
+
+
+def test_legality_strings_from_the_game():
+    # station.market gives legality as strings (seen in 1.92.1 at Tionisla).
+    advice = chart_advice(
+        chart_state(
+            {"samplePrices": {"food": 90, "firearms": 900, "narcotics": 900}},
+            market={
+                "food": {
+                    "price": 69,
+                    "quantity": 8,
+                    "legality_export": "0",
+                    "legality_import": "0",
+                },
+                "firearms": {
+                    "price": 567,
+                    "quantity": 23,
+                    "legality_export": "1",
+                    "legality_import": "0",
+                },
+                "narcotics": {
+                    "price": 536,
+                    "quantity": 40,
+                    "legality_export": "2",
+                    "legality_import": "0",
+                },
+            },
+        )
+    )
+    assert line(advice, "Buy here") == (
+        "Buy here: Narcotics (+36.4 cr/unit, illegal), "
+        "Firearms (+33.3 cr/unit, illegal), Food (+2.1 cr/unit)"
+    )
