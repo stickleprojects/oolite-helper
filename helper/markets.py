@@ -248,14 +248,18 @@ class MarketStore:
             return None
         try:
             seen = max(datetime.fromisoformat(market["seen_at"]) for market in self.data["markets"])
-            now = self.now().astimezone(UTC)
-            seconds = max(0, int((now - seen).total_seconds()))
         except (KeyError, TypeError, ValueError):
             return None
-        if seconds < 60:
-            return "just now"
-        if seconds < 3600:
-            return f"{seconds // 60}m ago"
-        if seconds < 86400:
-            return f"{seconds // 3600}h ago"
-        return f"{seconds // 86400}d ago"
+        return age_text(seen, self.now())
+
+
+def age_text(seen, now):
+    """How long ago a datetime was, e.g. "just now", "5m ago", "2h ago", "3d ago"."""
+    seconds = max(0, int((now.astimezone(UTC) - seen).total_seconds()))
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{seconds // 60}m ago"
+    if seconds < 86400:
+        return f"{seconds // 3600}h ago"
+    return f"{seconds // 86400}d ago"

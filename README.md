@@ -54,7 +54,7 @@ Each add-on line in the log looks like `HH:MM:SS.mmm [ctxkeys]: {json}`, and eve
 | `arrived` | The ship leaves witchspace | `system`, `alert` |
 | `market` | Docking, startup while docked, or opening the market screen while docked | `galaxy`, `systemID`, `systemName`, `gameClock`, `station`, `market`, `credits`, `cargoSpace`, `fuel`, `manifest` |
 | `bought`, `sold` | Cargo is bought or sold | `galaxy`, `systemID`, `systemName`, `gameClock`, `commodity`, `units`, `price` (per unit) |
-| `systems` | Startup, docking, arrival, and fuel scooping that changes which systems are in range | `fuel`, `systems` (each with `id`, `name`, `distance`, `economy`, `government`, `techLevel`, `samplePrices`) |
+| `systems` | Startup, docking, arrival, and fuel scooping that changes which systems are in range | `galaxy`, `fuel`, `systems` (each with `id`, `name`, `distance`, `economy`, `government`, `techLevel`, `samplePrices`) |
 | `chart_target` | Startup, arrival, and a new system selected on the chart | `infoSystem`, `targetSystem`, `currentSystem`, `system` (as in `systems`), `originMarket`, `manifest` |
 | `died` | The player's ship is destroyed | `cause` (damage type), `by` (killer's name, or `null`) |
 
@@ -77,7 +77,7 @@ Example message lines:
 {"type":"market","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123456,"station":"Lave Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}]}
 {"type":"bought","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123458,"commodity":"food","units":2,"price":42}
 {"type":"sold","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123460,"commodity":"computers","units":1,"price":735}
-{"type":"systems","fuel":7,"systems":[{"id":8,"name":"Zaonce","distance":6.5,"economy":8,"government":9,"techLevel":10,"samplePrices":{"food":48,"computers":738}}]}
+{"type":"systems","galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Zaonce","distance":6.5,"economy":8,"government":9,"techLevel":10,"samplePrices":{"food":48,"computers":738}}]}
 {"type":"chart_target","infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Zaonce","distance":6.5,"economy":3,"government":5,"techLevel":10,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}]}
 {"type":"died","cause":"energy damage","by":"Krait"}
 ```
@@ -134,6 +134,7 @@ To run the helper on its own:
 Left-click the tabs under the heading to switch views. Clicking the helper doesn't take keyboard focus from the game, so you can carry on flying.
 - **Keys** shows the keys for what you're doing now.
 - **All keys** shows every key, grouped as on the game's keyboard configuration screen; click a group to show it.
+- **Trade** lists every commodity with its price here, the best price within fuel range (a remembered real price with its age, or the game's estimate marked "est."), where that is, and the margin. Click a column heading to sort by it, and again to reverse. Illegal goods are in red; goods out of stock here are marked "(none)". In flight, "Here" is the remembered market for the system you're in.
 
 Red alert, a jump countdown or the ship being destroyed always switch to **Keys**, and your chosen tab comes back afterwards.
 

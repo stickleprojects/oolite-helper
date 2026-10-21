@@ -101,7 +101,7 @@ this._emitSystems = function (onlyIfChanged) {
 			samplePrices: prices
 		});
 	}
-	this._emit("systems", { fuel: fuel, systems: systems });
+	this._emit("systems", { galaxy: galaxyNumber, fuel: fuel, systems: systems });
 };
 
 this._emitChartTarget = function () {

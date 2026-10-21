@@ -10,8 +10,9 @@ import tkinter as tk
 import traceback
 
 from . import config
+from .browser import commodity_rows, sort_rows
 from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, sections, tip
-from .keys import load_keymap
+from .keys import commodity_fallback, load_keymap
 from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
@@ -29,7 +30,16 @@ DIM = "#7a8590"
 SANS = "DejaVu Sans"
 MONO = "DejaVu Sans Mono"
 
-TABS = (("keys", "Keys"), ("all", "All keys"))
+TABS = (("keys", "Keys"), ("all", "All keys"), ("trade", "Trade"))
+# Trade table columns: (sort key, title, sorted high-to-low on the first click)
+TRADE_COLUMNS = (
+    ("commodity", "Commodity", False),
+    ("here", "Here", True),
+    ("best", "Best in range", True),
+    ("where", "Where", False),
+    ("margin", "Margin", True),
+)
+GREEN = "#5fd068"
 # Contexts that switch the view back to Keys whatever tab is chosen; the chosen
 # tab comes back when they end.
 URGENT = ("red alert", "jump countdown", "ship destroyed")
@@ -58,6 +68,7 @@ class HelperWindow:
         self.shown = None  # what the body currently shows
         self.tab = "keys"  # the tab the player chose
         self.all_group = 0  # group shown on the All keys tab
+        self.trade_sort = ("margin", True)  # column, high-to-low
         self.last_message = ""
         self.error = None  # last unexpected error, shown until messages flow again
 
@@ -198,7 +209,12 @@ class HelperWindow:
         for name, label in self.tab_labels.items():
             active = name == tab
             label.config(fg=BG if active else DIM, bg=ACCENT if active else PANEL)
-        if not self.keymap:
+        if tab == "trade":
+            rows = commodity_rows(
+                self.state, self.market_store.data["markets"], self.market_store.now()
+            )
+            wanted = ("trade", self.trade_sort, tuple(sort_rows(rows, *self.trade_sort)))
+        elif not self.keymap:
             wanted = None
         elif tab == "all":
             wanted = ("all", self.all_group)
@@ -207,7 +223,9 @@ class HelperWindow:
         if wanted != self.shown:
             for child in self.body.winfo_children():
                 child.destroy()
-            if wanted and wanted[0] == "all":
+            if wanted and wanted[0] == "trade":
+                self.draw_trade(wanted[2])
+            elif wanted and wanted[0] == "all":
                 self.draw_all_keys(self.all_group)
             elif wanted:
                 self.draw_sections(wanted)
@@ -223,6 +241,64 @@ class HelperWindow:
     def choose_group(self, index):
         self.all_group = index
         self.render()
+
+    def sort_trade(self, key, high_first):
+        column, descending = self.trade_sort
+        self.trade_sort = (key, not descending) if column == key else (key, high_first)
+        self.render()
+
+    def commodity_name(self, key):
+        return self.keymap.commodity(key) if self.keymap else commodity_fallback(key)
+
+    def draw_trade(self, rows):
+        """Each commodity's price here against the best price within fuel range."""
+        panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
+        panel.grid(row=0, column=0, columnspan=self.columns, sticky="new", padx=12, pady=12)
+        if not rows:
+            tk.Label(
+                panel,
+                text="No market data yet. Dock at a station, or wait for the systems in "
+                "fuel range to arrive.",
+                font=self.font(SANS, 18),
+                fg=DIM,
+                bg=PANEL,
+            ).grid(row=0, column=0, sticky="w")
+            return
+        column, descending = self.trade_sort
+        for c, (key, title, high_first) in enumerate(TRADE_COLUMNS):
+            arrow = (" ▼" if descending else " ▲") if key == column else ""
+            header = tk.Label(
+                panel,
+                text=title + arrow,
+                font=self.font(SANS, 16, "bold"),
+                fg=ACCENT if key == column else DIM,
+                bg=PANEL,
+            )
+            header.grid(row=0, column=c, sticky="w", padx=(0, 28), pady=(0, 6))
+            # Left-click only, like the tabs: focus stays with the game.
+            header.bind("<Button-1>", lambda e, k=key, h=high_first: self.sort_trade(k, h))
+        for r, row in enumerate(rows, start=1):
+            name = self.commodity_name(row.commodity) + ("  illegal" if row.illegal else "")
+            margin = row.margin
+            cells = (
+                (name, RED if row.illegal else FG, SANS),
+                (
+                    _price(row.here, row.here_note if row.stock else "none"),
+                    FG if row.stock else DIM,
+                    MONO,
+                ),
+                (_price(row.best, row.best_note), FG, MONO),
+                (_where(row), FG, SANS),
+                (
+                    "" if margin is None else f"{margin / 10:+.1f}",
+                    GREEN if margin and margin > 0 else DIM,
+                    MONO,
+                ),
+            )
+            for c, (text, colour, family) in enumerate(cells):
+                tk.Label(panel, text=text, font=self.font(family, 18), fg=colour, bg=PANEL).grid(
+                    row=r, column=c, sticky="w", padx=(0, 28)
+                )
 
     def draw_sections(self, wanted):
         for i, (title, actions) in enumerate(wanted):
@@ -294,6 +370,19 @@ class HelperWindow:
             ).grid(row=row, column=1, sticky="w")
             row += 1
         return panel
+
+
+def _price(decicredits, note):
+    if decicredits is None:
+        return "—"
+    text = f"{decicredits / 10:.1f}"
+    return f"{text} ({note})" if note else text
+
+
+def _where(row):
+    if not row.where:
+        return ""
+    return f"{row.where} {row.distance:.1f} ly" if row.distance is not None else row.where
 
 
 def single_instance_lock():

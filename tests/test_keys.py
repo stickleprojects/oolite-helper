@@ -129,3 +129,9 @@ def test_modifier_saved_forms_count_as_on(on):
 @pytest.mark.parametrize("off", ["false", "NO", "0", 0, False, None])
 def test_modifier_saved_forms_count_as_off(off):
     assert keys.format_entry({"key": "k", "shift": off}) == "K"
+
+
+def test_commodity_names_come_from_descriptions_with_a_fallback():
+    keymap = keys.Keymap({}, {}, {"gem_stones": "Gem-Stones"})
+    assert keymap.commodity("gem_stones") == "Gem-Stones"
+    assert keymap.commodity("liquor_wines") == "Liquor Wines"
