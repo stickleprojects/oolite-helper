@@ -3,5 +3,5 @@
   {"after": 2, "msg": {"type": "bought", "commodity": "food", "units": 2, "price": 42}},
   {"after": 2, "msg": {"type": "sold", "commodity": "computers", "units": 1, "price": 735}},
   {"after": 2, "msg": {"type": "systems", "fuel": 7, "systems": [{"id": 8, "name": "Zaonce", "distance": 6.5, "economy": 8, "government": 9, "techLevel": 10, "samplePrices": {"food": 48, "computers": 738}}]}},
-  {"after": 1, "msg": {"type": "chart_target", "infoSystem": 8, "targetSystem": 9}}
+  {"after": 1, "msg": {"type": "chart_target", "infoSystem": 8, "targetSystem": 9, "system": {"id": 8, "name": "Zaonce", "distance": 6.5, "economy": 3, "government": 5, "techLevel": 10, "samplePrices": {"food": 48, "computers": 738}}, "originPrices": {"food": 42, "computers": 735}, "manifest": [{"name": "food", "unit": "tonnes", "quantity": 2, "displayName": "Food"}]}}
 ]

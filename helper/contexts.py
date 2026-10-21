@@ -4,6 +4,8 @@ Only action names live here. The keys themselves and their descriptions always
 come from the player's keymap (see keys.py).
 """
 
+from .trade import chart_advice
+
 STATION_SCREENS = ("Station", [
     "key_launch_ship", "key_gui_screen_status", "key_gui_chart_screens",
     "key_gui_system_data", "key_gui_market", "key_gui_screen_equipship",
@@ -111,10 +113,12 @@ CLEARANCE_TIPS = {
 
 
 def tip(state, keymap):
+    if state.gui in ("GUI_SCREEN_SHORT_RANGE_CHART", "GUI_SCREEN_LONG_RANGE_CHART"):
+        return chart_advice(state)
     text = TIPS.get(state.context)
     if state.context == "near station":
         text = CLEARANCE_TIPS.get(state.clearance, text)
-    if not text:
+    if not text or not keymap:
         return ""
     return text.format_map(_KeysLookup(keymap))
 

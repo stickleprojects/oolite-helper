@@ -111,7 +111,7 @@ class HelperWindow:
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
         lines = ["    ".join(self.state.details), f"Screen: {screen}    View: {view}"]
         self.detail_label.config(text="\n".join(l for l in lines if l))
-        tip_text = tip(self.state, self.keymap) if self.keymap else ""
+        tip_text = tip(self.state, self.keymap)
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
         self.status_label.config(text=self.keymap_error or self.last_message)
 

@@ -96,9 +96,39 @@ this._emitSystems = function (onlyIfChanged) {
 };
 
 this._emitChartTarget = function () {
+	var systemID = player.ship.infoSystem;
+	var infos = SystemInfo.filteredSystems(this, function (info) {
+		return info.systemID === systemID;
+	});
+	var info = infos.length ? infos[0] : null;
+	var station = system.mainStation;
+	var market = station ? station.market : {};
+	var commodities = Object.keys(market);
+	var selected = null;
+	var originPrices = {};
+	if (info) {
+		var prices = {};
+		for (var i = 0; i < commodities.length; i++) {
+			var commodity = commodities[i];
+			prices[commodity] = info.samplePrice(commodity);
+			originPrices[commodity] = market[commodity].price;
+		}
+		selected = {
+			id: info.systemID,
+			name: info.name,
+			distance: system.info.distanceToSystem(info),
+			economy: info.economy,
+			government: info.government,
+			techLevel: info.techlevel,
+			samplePrices: prices
+		};
+	}
 	this._emit("chart_target", {
-		infoSystem: player.ship.infoSystem,
-		targetSystem: player.ship.targetSystem
+		infoSystem: systemID,
+		targetSystem: player.ship.targetSystem,
+		system: selected,
+		originPrices: originPrices,
+		manifest: player.ship.manifest.list
 	});
 };
 
