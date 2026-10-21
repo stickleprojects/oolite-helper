@@ -6,7 +6,8 @@ ALERT_RED = 3
 
 
 class GameState:
-    def __init__(self):
+    def __init__(self, clock=None):
+        self._clock = clock if clock is not None else time.monotonic
         self.reset()
 
     def reset(self):
@@ -56,7 +57,7 @@ class GameState:
             self.alert = msg.get("level")
         elif kind == "countdown":
             self.countdown_kind = msg.get("kind")
-            self.countdown_ends = time.monotonic() + float(msg.get("seconds") or 0)
+            self.countdown_ends = self._clock() + float(msg.get("seconds") or 0)
         elif kind == "countdown_end":
             self.end_countdown()
         elif kind == "arrived":
@@ -74,7 +75,7 @@ class GameState:
     def countdown_left(self):
         if self.countdown_ends is None:
             return None
-        return max(0, self.countdown_ends - time.monotonic())
+        return max(0, self.countdown_ends - self._clock())
 
     @property
     def context(self):
