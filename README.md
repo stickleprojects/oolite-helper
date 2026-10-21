@@ -82,6 +82,17 @@ To run the helper on its own:
 
 `--stay` keeps the window open when the game exits. Right-click the window to close it.
 
+### Demo mode (no Oolite needed)
+
+The fake game writes one of the scripted timelines to a log file. In separate terminals, run:
+
+```bash
+python -m tests.fakegame scenarios/docking.yaml --log /tmp/fake.log --speed 2
+.venv/bin/oolite-helper --log /tmp/fake.log --stay
+```
+
+The helper follows the scenario just as it follows Oolite's log; `--speed` changes the timeline speed. Try `jump`, `combat`, `menus`, `restart` or `quit` instead of `docking`. The scenario files are JSON-compatible YAML so the fake game needs no extra Python dependencies. The game does not need to be running, but the helper still reads key bindings and descriptions from the installed Oolite AppImage.
+
 ### Where the window goes
 
 By default the helper fills the first monitor that **isn't** your primary one, e.g. a laptop screen next to the monitor you play on. To change that, copy [config.example.toml](config.example.toml) to `~/.config/oolite-helper/config.toml`:

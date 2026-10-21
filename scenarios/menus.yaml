@@ -1,0 +1,7 @@
+[
+  {"after": 0, "msg": {"type": "ready", "docked": false, "view": "VIEW_FORWARD", "alert": 1}},
+  {"after": 2, "msg": {"type": "gui", "to": "GUI_SCREEN_MARKET", "from": "GUI_SCREEN_MAIN"}},
+  {"after": 2, "msg": {"type": "view", "to": "VIEW_AFT", "from": "VIEW_FORWARD"}},
+  {"after": 3, "msg": {"type": "gui", "to": "GUI_SCREEN_MAIN", "from": "GUI_SCREEN_MARKET"}},
+  {"after": 2, "msg": {"type": "view", "to": "VIEW_FORWARD", "from": "VIEW_AFT"}}
+]

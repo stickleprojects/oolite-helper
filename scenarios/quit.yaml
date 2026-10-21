@@ -1,0 +1,4 @@
+[
+  {"after": 0, "msg": {"type": "ready", "docked": false, "view": "VIEW_FORWARD", "alert": 1}},
+  {"after": 5, "close": true}
+]

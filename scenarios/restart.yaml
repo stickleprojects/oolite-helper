@@ -1,0 +1,7 @@
+[
+  {"after": 0, "msg": {"type": "ready", "docked": false, "view": "VIEW_FORWARD", "alert": 1}},
+  {"after": 3, "msg": {"type": "alert", "level": 3}},
+  {"after": 3, "rotate": true},
+  {"after": 0, "msg": {"type": "ready", "docked": true, "view": "VIEW_FORWARD", "alert": 0}},
+  {"after": 2, "msg": {"type": "gui", "to": "GUI_SCREEN_STATUS", "from": "GUI_SCREEN_MAIN"}}
+]
