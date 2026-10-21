@@ -58,7 +58,8 @@ class HelperWindow:
     def render(self):
         self.context_label.config(text=self.state.context.replace("_", " ").upper())
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
-        self.detail_label.config(text=f"Screen: {screen}")
+        view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
+        self.detail_label.config(text=f"Screen: {screen}    View: {view}")
         self.log_label.config(text="\n".join(reversed(self.recent)))
 
 

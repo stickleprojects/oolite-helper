@@ -24,11 +24,16 @@ this.startUp = function () {
 };
 
 this.startUpComplete = function () {
-	this._emit("ready", { docked: player.ship.docked });
+	this._emit("ready", { docked: player.ship.docked, view: player.ship.viewDirection });
 };
 
 this.guiScreenChanged = function (to, from) {
 	this._emit("gui", { to: to, from: from });
+};
+
+// F1-F4 in flight: forward/aft/port/starboard. The GUI screen stays MAIN.
+this.viewDirectionChanged = function (to, from) {
+	this._emit("view", { to: to, from: from });
 };
 
 this.shipDockedWithStation = function (station) {

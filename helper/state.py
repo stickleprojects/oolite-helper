@@ -8,6 +8,7 @@ class GameState:
     def reset(self):
         self.docked = None
         self.gui = None
+        self.view = None
 
     def apply(self, msg):
         kind = msg.get("type")
@@ -15,12 +16,15 @@ class GameState:
             self.reset()
         elif kind == "ready":
             self.docked = msg.get("docked")
+            self.view = msg.get("view")
         elif kind == "docked":
             self.docked = True
         elif kind == "launching":
             self.docked = False
         elif kind == "gui":
             self.gui = msg.get("to")
+        elif kind == "view":
+            self.view = msg.get("to")
 
     @property
     def context(self):
