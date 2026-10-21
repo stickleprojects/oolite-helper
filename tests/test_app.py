@@ -116,3 +116,35 @@ def test_urgent_contexts_show_keys_then_the_chosen_tab_returns(tmp_path):
     assert w.visible_tab() == "all"
     w.state.apply({"type": "died", "cause": "energy damage", "by": None})
     assert w.visible_tab() == "keys"
+
+
+def test_trade_detail_picks_the_best_offer_and_caps_the_quantity(tmp_path):
+    w = window(FakeSource(), tmp_path)
+    w.keymap = None
+    w.trade_commodity, w.trade_destination, w.trade_quantity = "furs", None, 99
+    w.state.apply({"type": "ready", "docked": True})
+    w.state.apply(
+        {
+            "type": "market",
+            "galaxy": 0,
+            "systemID": 7,
+            "credits": 1000,
+            "cargoSpace": {"available": 20, "capacity": 20},
+            "market": {"furs": {"price": 700, "quantity": 5}},
+        }
+    )
+    w.state.apply(
+        {
+            "type": "systems",
+            "galaxy": 0,
+            "fuel": 7,
+            "systems": [
+                {"id": 8, "name": "Zaonce", "distance": 6.5, "samplePrices": {"furs": 800}},
+                {"id": 9, "name": "Diso", "distance": 3.0, "samplePrices": {"furs": 750}},
+            ],
+        }
+    )
+    _, commodity, row, offers, offer, limit, quantity, steps = w.trade_detail()
+    assert (commodity, offer.name, quantity, limit.most) == ("furs", "Zaonce", 5, 5)
+    w.trade_destination = 9
+    assert w.trade_detail()[4].name == "Diso"

@@ -136,6 +136,8 @@ Left-click the tabs under the heading to switch views. Clicking the helper doesn
 - **All keys** shows every key, grouped as on the game's keyboard configuration screen; click a group to show it.
 - **Trade** lists every commodity with its price here, the best price within fuel range (a remembered real price with its age, or the game's estimate marked "est."), where that is, and the margin. Click a column heading to sort by it, and again to reverse. Illegal goods are in red; goods out of stock here are marked "(none)". In flight, "Here" is the remembered market for the system you're in.
 
+  Click a commodity to open it: every system in fuel range with its price, margin, distance, economy and government (⚠ for Anarchy and Feudal, the dangerous ones). Click a system to choose where to sell. The quantity buttons (−10, −1, +1, +10, Max) are capped by what's on sale, your credits and, for goods sold in tons, free cargo space; the line beside them says which limit applies. Below that are the cost, cargo used and expected profit, and the keys to press in the game, using your own key settings. The helper never presses keys for you.
+
 Red alert, a jump countdown or the ship being destroyed always switch to **Keys**, and your chosen tab comes back afterwards.
 
 ### Demo mode (no Oolite needed)
