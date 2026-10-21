@@ -180,3 +180,15 @@ def test_galaxy_comes_from_systems_and_market_messages():
     assert state.galaxy == 2
     state.apply({"type": "market", "galaxy": 3, "market": {}})
     assert state.galaxy == 3
+
+
+def test_a_blocked_jump_says_why_until_the_next_try():
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
+    state.apply({"type": "countdown_end", "reason": "blocked"})
+    assert any(note.startswith("Jump blocked") for note in state.details)
+    state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
+    assert not any("blocked" in note for note in state.details)
+    state.apply({"type": "countdown_end", "reason": "cancelled"})
+    assert state.jump_failed is None

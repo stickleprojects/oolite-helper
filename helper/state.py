@@ -3,6 +3,17 @@
 import time
 
 ALERT_RED = 3
+# playerJumpFailed reasons (PlayerEntity.m witchJumpChecklist:, 1.92.1) and what to do.
+JUMP_FAILED = {
+    # checkShipsInVicinityForWitchJumpExit: blocked while 0.1 x mass > distance squared
+    # (about 7 km from a Coriolis station); nothing off the scanner blocks.
+    "blocked": "Jump blocked: a station or big ship is too close. Fly until it's off "
+    "the scanner, then try again",
+    "too far": "Jump failed: the target is out of range",
+    "insufficient fuel": "Jump failed: not enough fuel",
+    "malfunction": "Jump failed: the hyperdrive is damaged",
+    "no target": "Jump failed: no target system",
+}
 
 
 class GameState:
@@ -24,6 +35,7 @@ class GameState:
         self.autopilot = False
         self.countdown_kind = None
         self.countdown_ends = None  # time.monotonic() when the jump happens
+        self.jump_failed = None  # reason the last jump failed, until the next try
         self.market_station = None
         self.market = None
         self.credits = None
@@ -77,10 +89,13 @@ class GameState:
         elif kind == "countdown":
             self.countdown_kind = msg.get("kind")
             self.countdown_ends = self._clock() + float(msg.get("seconds") or 0)
+            self.jump_failed = None
         elif kind == "countdown_end":
             self.end_countdown()
+            self.jump_failed = msg.get("reason") if msg.get("reason") in JUMP_FAILED else None
         elif kind == "arrived":
             self.end_countdown()
+            self.jump_failed = None
             self.alert = msg.get("alert")
         elif kind == "market":
             self.galaxy = msg.get("galaxy", self.galaxy)
@@ -149,6 +164,8 @@ class GameState:
         if self.countdown_left is not None:
             jump = "Galactic jump" if self.countdown_kind == "galactic" else "Jump"
             notes.append(f"{jump} in {self.countdown_left:.0f}s")
+        if self.jump_failed and not self.docked:
+            notes.append(JUMP_FAILED[self.jump_failed])
         if self.in_aegis and not self.docked:
             if self.requires_clearance is False:
                 notes.append(f"{self.station or 'Station'}: clearance not required")

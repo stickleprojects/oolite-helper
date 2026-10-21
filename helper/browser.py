@@ -209,8 +209,9 @@ def trade_steps(keys, name, quantity, most, offer, state, holding=0):
             )
         launch = f"Launch {keys('key_launch_ship')}, fly" if docked else "Fly"
         steps.append(
-            f"{launch} clear of other ships, then {keys('key_hyperspace')} jumps to "
-            f"{offer.name} after a countdown (press it again to cancel)"
+            f"{launch} until the station is off the scanner (closer, it blocks the jump), "
+            f"then {keys('key_hyperspace')} jumps to {offer.name} after a countdown "
+            "(press it again to cancel)"
         )
         steps.append(
             f"At {offer.name}: target the station ({keys('key_ident_system')} with it ahead, "

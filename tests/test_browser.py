@@ -200,8 +200,8 @@ def test_steps_cover_buying_targeting_the_jump_docking_and_selling():
     assert steps == [
         "Market 8 → ↑ / ↓ to Furs → Shift+→ buys the most you can (5)",
         "Chart 6 → move the cursor to Zaonce (on the galactic chart you can type its name)",
-        "Launch 1, fly clear of other ships, then H jumps to Zaonce after a countdown "
-        "(press it again to cancel)",
+        "Launch 1, fly until the station is off the scanner (closer, it blocks the jump), "
+        "then H jumps to Zaonce after a countdown (press it again to cancel)",
         "At Zaonce: target the station (R with it ahead, or +), Shift+L for clearance, "
         "C for the docking computer",
         "Docked at Zaonce: Market 8 → Furs → Shift+← sells all",
@@ -217,9 +217,9 @@ def test_steps_press_once_per_unit_and_skip_the_chart_when_already_targeted():
 def test_steps_after_buying_start_from_the_cargo_held():
     steps = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(target=8), holding=14)
     assert steps[0] == "You hold 14 Furs."
-    assert steps[1].startswith("Launch 1, fly clear")
+    assert steps[1].startswith("Launch 1, fly until")
     in_flight = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(target=8, docked=False), holding=14)
-    assert in_flight[1].startswith("Fly clear")
+    assert in_flight[1].startswith("Fly until")
 
 
 def test_steps_at_the_destination_are_just_selling():
