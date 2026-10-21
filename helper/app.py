@@ -11,6 +11,7 @@ import tkinter as tk
 from . import config
 from .contexts import ACTION_NOTES, sections, tip
 from .keys import load_keymap
+from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
 from .state import GameState
@@ -39,6 +40,8 @@ class HelperWindow:
         self.desc_wrap = int(width / self.columns * 0.6)
         self.first_poll = True
         self.state = GameState()
+        self.market_store = MarketStore()
+        self.shown_market_age = None
         self.shown = None  # sections currently drawn
         self.last_message = ""
 
@@ -93,13 +96,16 @@ class HelperWindow:
         # opened log) is an old game's ending, not a live exit.
         replay = self.first_poll or any(m.get("type") == "session" for m in messages)
         for msg in messages:
+            self.market_store.apply(msg)
+            msg.pop("_source_id", None)
             self.state.apply(msg)
             self.last_message = json.dumps(msg)
             if msg.get("type") == "closed" and self.quit_with_game and not replay:
                 self.root.destroy()
                 return
         self.first_poll = False
-        if messages or self.state.countdown_left is not None:  # countdown ticks live
+        if messages or self.state.countdown_left is not None \
+                or self.market_store.price_age != self.shown_market_age:
             self.render()
         self.root.after(POLL_MS, self.tick)
 
@@ -110,6 +116,10 @@ class HelperWindow:
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
         lines = ["    ".join(self.state.details), f"Screen: {screen}    View: {view}"]
+        market_age = self.market_store.price_age
+        if market_age:
+            lines.append(f"Market prices: {market_age}")
+        self.shown_market_age = market_age
         self.detail_label.config(text="\n".join(l for l in lines if l))
         tip_text = tip(self.state, self.keymap) if self.keymap else ""
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)

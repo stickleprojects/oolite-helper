@@ -1,9 +1,11 @@
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from helper.contexts import tip
+from helper.markets import MarketStore
 from helper.sources import LogSource
 from helper.state import GameState
 from tests.fakegame import LogWriter, load_scenario, run_scenario
@@ -85,6 +87,31 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(state.fuel, 7)
         self.assertEqual(state.info_system, 8)
         self.assertEqual(state.target_system, 9)
+
+    def test_trade_scenario_persists_markets_and_cost_basis(self):
+        now = datetime(2026, 10, 21, 7, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "markets.json"
+            store = MarketStore(path, now=lambda: now)
+            messages = [step["msg"] for step in
+                        load_scenario(ROOT / "scenarios" / "trade.yaml") if "msg" in step]
+            for replay in range(2):
+                for index, message in enumerate(messages):
+                    store.apply({**message, "_source_id": f"fake-log:{index}"})
+
+            stored = MarketStore(path, now=lambda: now + timedelta(hours=2))
+            self.assertEqual(len(stored.data["markets"]), 2)
+            market = stored.data["markets"][0]
+            self.assertEqual(
+                (market["galaxy"], market["system_id"], market["system_name"],
+                 market["game_clock"], market["station"]),
+                (0, 7, "Lave", 123456, "Lave Station"),
+            )
+            self.assertEqual(market["prices"]["food"]["quantity"], 8)
+            self.assertEqual(stored.data["markets"][1]["prices"]["food"]["quantity"], 6)
+            self.assertEqual(stored.data["cost_basis"]["food"],
+                             {"units": 3, "total_cost": 138, "average_price": 46})
+            self.assertEqual(stored.price_age, "2h ago")
 
     def test_every_scenario_step_uses_helper_message_contract(self):
         expected_contexts = {

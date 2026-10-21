@@ -12,7 +12,7 @@ import re
 from .paths import LOG as DEFAULT_LOG
 
 # e.g. 16:33:52.857 [ctxkeys]: {"version":"0.1","type":"hello"}
-LINE_RE = re.compile(r"^\S+ \[ctxkeys\]: (\{.*\})\s*$")
+LINE_RE = re.compile(r"^(\S+) \[ctxkeys\]: (\{.*\})\s*$")
 # Oolite's last line on a normal exit, e.g. "Closing log at 2026-10-21 16:31:26 +1100."
 CLOSE_PREFIX = "Closing log at "
 
@@ -29,6 +29,8 @@ class LogSource:
         self._file = None
         self._inode = None
         self._partial = ""
+        self._line_number = 0
+        self._source_key = None
 
     def poll(self):
         # A new file means a new game run, so start the state again.
@@ -41,13 +43,17 @@ class LogSource:
         lines = (self._partial + chunk).split("\n")
         self._partial = lines.pop()  # incomplete last line, if any
         for line in lines:
+            self._line_number += 1
             if line.startswith(CLOSE_PREFIX):
                 messages.append({"type": "closed"})
                 continue
             m = LINE_RE.match(line)
             if m:
                 try:
-                    messages.append(json.loads(m.group(1)))
+                    message = json.loads(m.group(2))
+                    message["_source_id"] = (
+                        f"{self._source_key}:{self._line_number}:{m.group(1)}")
+                    messages.append(message)
                 except json.JSONDecodeError:
                     pass
         return messages
@@ -66,5 +72,7 @@ class LogSource:
             self._file = open(self.path, encoding="utf-8", errors="replace")
             self._inode = st.st_ino
             self._partial = ""
+            self._line_number = 0
+            self._source_key = f"{os.path.abspath(self.path)}:{st.st_ino}"
             return True
         return False
