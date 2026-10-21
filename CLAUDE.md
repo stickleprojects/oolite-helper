@@ -43,7 +43,7 @@ These are cited in `contexts.py` TIPS/ACTION_NOTES:
 
 ### Event handlers
 
-All of these are confirmed present in the 1.92.1 binary: `startUp`, `startUpComplete`, `shipEnteredStationAegis`, `shipExitedStationAegis`, `shipDockedWithStation`, `shipWillLaunchFromStation`, `shipLaunchedFromStation`, `alertConditionChanged`, `shipWillEnterWitchspace`, `shipWillExitWitchspace`, `shipExitedWitchspace`, `shipTargetAcquired`, `shipTargetLost`, `shipTargetDestroyed`, `guiScreenWillChange`, `guiScreenChanged`, `playerStartedJumpCountdown`, `playerCancelledJumpCountdown`, `playerJumpFailed`, `shipEnteredPlanetaryVicinity`, `shipExitedPlanetaryVicinity`, `playerStartedAutoPilot`, `playerCancelledAutoPilot`, `playerRequestedDockingClearance`, `playerDockingClearanceGranted`, `missionScreenOpportunity`.
+All of these are confirmed present in the 1.92.1 binary: `startUp`, `startUpComplete`, `shipEnteredStationAegis`, `shipExitedStationAegis`, `shipDockedWithStation`, `shipWillLaunchFromStation`, `shipLaunchedFromStation`, `alertConditionChanged`, `shipWillEnterWitchspace`, `shipWillExitWitchspace`, `shipExitedWitchspace`, `shipScoopedFuel`, `shipTargetAcquired`, `shipTargetLost`, `shipTargetDestroyed`, `guiScreenWillChange`, `guiScreenChanged`, `infoSystemChanged`, `playerBoughtCargo`, `playerSoldCargo`, `playerStartedJumpCountdown`, `playerCancelledJumpCountdown`, `playerJumpFailed`, `shipEnteredPlanetaryVicinity`, `shipExitedPlanetaryVicinity`, `playerStartedAutoPilot`, `playerCancelledAutoPilot`, `playerRequestedDockingClearance`, `playerDockingClearanceGranted`, `missionScreenOpportunity`.
 
 ## Environment
 

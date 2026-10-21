@@ -29,9 +29,11 @@ Oolite + CtxKeys.oxp ──JSON lines──▶ Latest.log ──follow──▶ 
   (game events)                                              (keys for the current context)
 ```
 
-1. **[oxp/CtxKeys.oxp](oxp/CtxKeys.oxp)** is an Oolite add-on. Its world script listens for game events (docking, station aegis, alert level, docking clearance, jump countdowns, screen and view changes). It writes each event to the game log as a JSON line, e.g. `[ctxkeys]: {"type":"aegis","inside":true,...}`.
+1. **[oxp/CtxKeys.oxp](oxp/CtxKeys.oxp)** is an Oolite add-on. Its world script listens for game events (docking, station aegis, alert level, docking clearance, jump countdowns, screen and view changes, and trade/chart events). It writes each event to the game log as a JSON line, e.g. `[ctxkeys]: {"type":"aegis","inside":true,...}`.
 2. **[helper/](helper/)** follows `Latest.log`, works out the current context and draws the matching key list. The window has no title bar, sits on a second screen and never takes focus from the game.
 3. On startup the helper reads the key bindings and the game's own key descriptions from the AppImage. It caches them until the AppImage changes, then applies your layout and key changes from the game's settings.
+
+The add-on also reports trade and chart data: `market` includes the docked station's raw commodity-keyed market (price, quantity, quantity unit and numeric import/export legality), credits, available/total cargo space, fuel and cargo manifest; `bought` and `sold` include the commodity, units and per-unit price; `systems` lists systems within current fuel range with distance, economy, government, tech level and a `samplePrices` map keyed by commodity; `chart_target` contains the info-screen system and jump target. Market and sample prices, and the `price` in cargo events, use Oolite's decicredit scale (10 decicredits = 1 credit); cargo-event prices are per unit. Distances and fuel are in light-years. The source interfaces are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
 
 A later version may receive the same messages over Oolite's debug console connection instead of the log. That would allow live data for a fuller HUD, as [oolite-mqtt-bridge](https://github.com/maikschulz/oolite-mqtt-bridge) does.
 
