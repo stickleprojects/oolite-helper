@@ -5,6 +5,7 @@ call. LogSource follows Latest.log; a debug-console TCP source can be added
 later with the same interface.
 """
 
+import contextlib
 import json
 import os
 import re
@@ -46,10 +47,8 @@ class LogSource:
                 continue
             m = LINE_RE.match(line)
             if m:
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     messages.append(json.loads(m.group(1)))
-                except json.JSONDecodeError:
-                    pass
         return messages
 
     def _reopen_if_needed(self):

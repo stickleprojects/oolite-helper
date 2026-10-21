@@ -20,8 +20,12 @@ def load_scenario(path):
         if not isinstance(step, dict) or "after" not in step:
             raise ValueError(f"step {index + 1} must be an object with an 'after' value")
         delay = step["after"]
-        if isinstance(delay, bool) or not isinstance(delay, (int, float)) \
-                or not math.isfinite(delay) or delay < 0:
+        if (
+            isinstance(delay, bool)
+            or not isinstance(delay, (int, float))
+            or not math.isfinite(delay)
+            or delay < 0
+        ):
             raise ValueError(f"step {index + 1} has an invalid 'after' value")
         if "rotate" in step:
             valid = step["rotate"] is True and set(step) == {"after", "rotate"}
@@ -72,8 +76,12 @@ class LogWriter:
 
 
 def run_scenario(steps, log_path, speed=1):
-    if isinstance(speed, bool) or not isinstance(speed, (int, float)) \
-            or not math.isfinite(speed) or speed <= 0:
+    if (
+        isinstance(speed, bool)
+        or not isinstance(speed, (int, float))
+        or not math.isfinite(speed)
+        or speed <= 0
+    ):
         raise ValueError("speed must be a positive number")
     writer = LogWriter(log_path)
     try:
@@ -96,8 +104,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scenario", type=Path)
     parser.add_argument("--log", type=Path, required=True, help="path to the helper log")
-    parser.add_argument("--speed", type=float, default=1,
-                        help="timeline speed multiplier (default: 1)")
+    parser.add_argument(
+        "--speed", type=float, default=1, help="timeline speed multiplier (default: 1)"
+    )
     args = parser.parse_args()
     try:
         run_scenario(load_scenario(args.scenario), args.log, args.speed)

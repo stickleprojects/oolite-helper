@@ -15,14 +15,14 @@ def test_loads_nested_dicts_arrays_and_string_forms():
 
 def test_loads_escapes_and_comments():
     assert plist.loads(
-        r'''{
+        r"""{
             // a line comment
             newline = "line\nnext";
             escaped = "quote: \" slash: \\ tab:\t";
             /* block
                comment */
             bare = word;
-        }'''
+        }"""
     ) == {
         "newline": "line\nnext",
         "escaped": 'quote: " slash: \\ tab:\t',
@@ -42,10 +42,10 @@ def test_loads_real_trimmed_keyconfig_fixture():
 @pytest.mark.parametrize(
     ("source", "message", "line"),
     [
-        ('{\n key = value;\n bad = @;\n}', "unexpected character", 3),
+        ("{\n key = value;\n bad = @;\n}", "unexpected character", 3),
         ('{\n key = "unterminated\n}', "unterminated string", 3),
-        ('{\n /* unterminated', "unterminated comment", 2),
-        ('{}\nextra', "trailing content", 2),
+        ("{\n /* unterminated", "unterminated comment", 2),
+        ("{}\nextra", "trailing content", 2),
     ],
 )
 def test_parse_errors_report_the_line(source, message, line):
@@ -56,7 +56,11 @@ def test_parse_errors_report_the_line(source, message, line):
 
 def test_loads_gnustep_extended_scalars():
     assert plist.loads("{ a = <*BY>; b = <*BN>; c = <*I42>; d = <*R1.5>; e = <0aff>; }") == {
-        "a": "YES", "b": "NO", "c": "42", "d": "1.5", "e": b"\x0a\xff",
+        "a": "YES",
+        "b": "NO",
+        "c": "42",
+        "d": "1.5",
+        "e": b"\x0a\xff",
     }
 
 

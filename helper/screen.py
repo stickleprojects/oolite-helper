@@ -4,12 +4,20 @@ import re
 import subprocess
 from dataclasses import dataclass
 
-ANCHORS = ("top-left", "top", "top-right", "left", "center", "right",
-           "bottom-left", "bottom", "bottom-right")
+ANCHORS = (
+    "top-left",
+    "top",
+    "top-right",
+    "left",
+    "center",
+    "right",
+    "bottom-left",
+    "bottom",
+    "bottom-right",
+)
 
 # e.g. " 1: +eDP-1 1920/293x1080/165+960+1080  eDP-1"
-_MONITOR_RE = re.compile(
-    r"^\s*\d+:\s+\+?(\*?)(\S+)\s+(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)")
+_MONITOR_RE = re.compile(r"^\s*\d+:\s+\+?(\*?)(\S+)\s+(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)")
 
 
 @dataclass
@@ -28,8 +36,9 @@ class Monitor:
 
 def list_monitors():
     try:
-        out = subprocess.run(["xrandr", "--listmonitors"], capture_output=True,
-                             text=True, check=True).stdout
+        out = subprocess.run(
+            ["xrandr", "--listmonitors"], capture_output=True, text=True, check=True
+        ).stdout
     except (OSError, subprocess.CalledProcessError):
         return []
     monitors = []

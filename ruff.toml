@@ -1,11 +1,17 @@
-# Lint rules enforced in CI. Kept deliberately small for now: stricter rules
-# and `ruff format --check` follow in the formatting clean-up (see #12).
+# Lint and format rules enforced in CI (`ruff check .` and `ruff format --check .`).
 target-version = "py311"
 line-length = 100
 
 [lint]
 select = [
-    "E4", "E7", "E9",  # pycodestyle errors
-    "F",               # pyflakes
-    "I",               # import sorting
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import sorting
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "SIM",     # simplify
+    "C4",      # comprehensions
+]
+ignore = [
+    "SIM115",  # long-lived handles (lock file, followed log) can't use `with`
 ]

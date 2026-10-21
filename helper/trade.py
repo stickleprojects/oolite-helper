@@ -29,12 +29,17 @@ def chart_advice(state):
         return ""
 
     economy = selected.get("economy")
-    economy_name = (ECONOMIES[economy] if isinstance(economy, int)
-                    and 0 <= economy < len(ECONOMIES) else f"Economy {economy}")
+    economy_name = (
+        ECONOMIES[economy]
+        if isinstance(economy, int) and 0 <= economy < len(ECONOMIES)
+        else f"Economy {economy}"
+    )
     government = selected.get("government")
-    government_name = (GOVERNMENTS[government] if isinstance(government, int)
-                       and 0 <= government < len(GOVERNMENTS)
-                       else f"Government {government}")
+    government_name = (
+        GOVERNMENTS[government]
+        if isinstance(government, int) and 0 <= government < len(GOVERNMENTS)
+        else f"Government {government}"
+    )
     tech = selected.get("techLevel")
     # techlevel is 0-based; the game shows it plus one (PlayerEntity.m, system data screen)
     tech_text = tech + 1 if isinstance(tech, int) else "?"
@@ -73,11 +78,14 @@ def _trade_lines(state, estimates):
         rank = (margin is not None, (margin or destination_price) * quantity)
         held.append((rank, cargo, destination_price, margin))
     held.sort(key=lambda item: item[0], reverse=True)
-    lines = ["Sell from hold: " + (
-        ", ".join(_cargo_estimate(cargo, price, margin)
-                  for _, cargo, price, margin in held[:3])
-        if held else "no higher estimated prices"
-    )]
+    lines = [
+        "Sell from hold: "
+        + (
+            ", ".join(_cargo_estimate(cargo, price, margin) for _, cargo, price, margin in held[:3])
+            if held
+            else "no higher estimated prices"
+        )
+    ]
 
     buys = []
     for commodity, destination_price in estimates.items():
@@ -89,19 +97,25 @@ def _trade_lines(state, estimates):
             illegal = bool(entry.get("legality_export") or entry.get("legality_import"))
             buys.append((destination_price - origin_price, commodity, illegal))
     buys.sort(reverse=True)
-    lines.append("Buy here: " + (
-        ", ".join(
-            f"{commodity.replace('_', ' ').title()} (+{_credits(margin)} cr/unit"
-            f"{', illegal' if illegal else ''})"
-            for margin, commodity, illegal in buys[:3]
-        ) if buys else "no higher estimated prices"
-    ))
+    lines.append(
+        "Buy here: "
+        + (
+            ", ".join(
+                f"{commodity.replace('_', ' ').title()} (+{_credits(margin)} cr/unit"
+                f"{', illegal' if illegal else ''})"
+                for margin, commodity, illegal in buys[:3]
+            )
+            if buys
+            else "no higher estimated prices"
+        )
+    )
     return lines
 
 
 def _nearest_lines(state):
     reachable = [
-        system for system in state.systems
+        system
+        for system in state.systems
         if state.fuel is not None and system.get("distance", state.fuel + 1) <= state.fuel
     ]
     lines = []
@@ -110,8 +124,9 @@ def _nearest_lines(state):
         ("Industrial", lambda value: isinstance(value, int) and 0 <= value <= 3),
     ):
         candidates = [system for system in reachable if predicate(system.get("economy"))]
-        candidates.sort(key=lambda system: (system.get("distance", float("inf")),
-                                            system.get("name", "")))
+        candidates.sort(
+            key=lambda system: (system.get("distance", float("inf")), system.get("name", ""))
+        )
         nearest = candidates[0] if candidates else None
         if nearest:
             world = f"{nearest.get('name', 'Unknown')} ({nearest.get('distance', 0):.1f} ly)"

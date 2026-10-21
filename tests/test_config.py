@@ -13,9 +13,7 @@ def test_config_file_then_cli_override_precedence(tmp_path):
         '[window]\nwidth = "40%"\nanchor = "right"\nfont_scale = 0.8\n',
         encoding="utf-8",
     )
-    result = config.load_window_settings(
-        path, {"width": "800", "anchor": None, "font_scale": 1.2}
-    )
+    result = config.load_window_settings(path, {"width": "800", "anchor": None, "font_scale": 1.2})
     assert result == {
         **config.WINDOW_DEFAULTS,
         "width": "800",

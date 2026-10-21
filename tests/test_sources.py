@@ -6,7 +6,7 @@ from helper.sources import LogSource
 def line(message):
     import json
 
-    return f'12:00:00.000 [ctxkeys]: {json.dumps(message)}\n'
+    return f"12:00:00.000 [ctxkeys]: {json.dumps(message)}\n"
 
 
 def test_missing_file_then_new_file(tmp_path):

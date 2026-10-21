@@ -37,7 +37,7 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install -e ".[dev]"
+          .venv/bin/pip install -e ".[dev]" pytest ruff==0.17.1
           .venv/bin/python -c "import tkinter, helper.app; print('tk', tkinter.TkVersion)"
 
       - name: Add-on syntax check

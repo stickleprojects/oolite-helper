@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,21 +28,36 @@ class ScenarioTests(unittest.TestCase):
         expected = [
             ("docked", [], ""),
             ("flying", [], ""),
-            ("near station", ["Clearance: none"],
-             "K asks your current target, so target the station first (K with it ahead, or K)."),
-            ("near station", ["Clearance: requested"],
-             "Waiting for clearance. Pressing K again cancels the request."),
-            ("near station", ["Clearance: granted"],
-             "Cleared to dock. Pressing K again cancels clearance."),
-            ("near station", ["Clearance: timing out"],
-             "Clearance is about to expire: press K now to extend it."),
-            ("near station", ["Clearance: none"],
-             "K asks your current target, so target the station first (K with it ahead, or K)."),
+            (
+                "near station",
+                ["Clearance: none"],
+                "K asks your current target, so target the station first (K with it ahead, or K).",
+            ),
+            (
+                "near station",
+                ["Clearance: requested"],
+                "Waiting for clearance. Pressing K again cancels the request.",
+            ),
+            (
+                "near station",
+                ["Clearance: granted"],
+                "Cleared to dock. Pressing K again cancels clearance.",
+            ),
+            (
+                "near station",
+                ["Clearance: timing out"],
+                "Clearance is about to expire: press K now to extend it.",
+            ),
+            (
+                "near station",
+                ["Clearance: none"],
+                "K asks your current target, so target the station first (K with it ahead, or K).",
+            ),
             ("docked", [], ""),
         ]
         steps = load_scenario(ROOT / "scenarios" / "docking.yaml")
         self.assertEqual(len(steps), len(expected))
-        for step, (context, details, expected_tip) in zip(steps, expected):
+        for step, (context, details, expected_tip) in zip(steps, expected, strict=True):
             state.apply(step["msg"])
             self.assertEqual(state.context, context)
             self.assertEqual(state.details, details)
@@ -51,22 +66,30 @@ class ScenarioTests(unittest.TestCase):
     def test_jump_messages_update_context_details_and_tip(self):
         state = GameState()
         expected_contexts = [
-            "flying", "menu", "flying", "jump countdown",
-            "flying", "jump countdown", "flying", "flying",
+            "flying",
+            "menu",
+            "flying",
+            "jump countdown",
+            "flying",
+            "jump countdown",
+            "flying",
+            "flying",
         ]
         steps = load_scenario(ROOT / "scenarios" / "jump.yaml")
         self.assertEqual(len(steps), len(expected_contexts))
         with patch("helper.state.time.monotonic", return_value=100):
-            for step, context in zip(steps, expected_contexts):
+            for step, context in zip(steps, expected_contexts, strict=True):
                 state.apply(step["msg"])
                 self.assertEqual(state.context, context)
                 if context == "jump countdown":
                     countdown = step["msg"]
-                    expected_detail = ("Galactic jump in 20s" if countdown["kind"] == "galactic"
-                                       else "Jump in 15s")
+                    expected_detail = (
+                        "Galactic jump in 20s" if countdown["kind"] == "galactic" else "Jump in 15s"
+                    )
                     self.assertEqual(state.details[0], expected_detail)
-                    self.assertEqual(tip(state, self.keymap),
-                                     "Press K again to cancel the countdown.")
+                    self.assertEqual(
+                        tip(state, self.keymap), "Press K again to cancel the countdown."
+                    )
                 else:
                     self.assertEqual(state.details, [])
                     self.assertEqual(tip(state, self.keymap), "")
@@ -94,33 +117,43 @@ class ScenarioTests(unittest.TestCase):
     def test_chart_advice_estimates_trades_and_nearest_economies(self):
         state = GameState()
         state.apply({"type": "gui", "to": "GUI_SCREEN_LONG_RANGE_CHART"})
-        state.apply({
-            "type": "systems",
-            "fuel": 7,
-            "systems": [
-                {"name": "Near Ag", "distance": 2.2, "economy": 5},
-                {"name": "Far Ag", "distance": 6.0, "economy": 4},
-                {"name": "Near Industrial", "distance": 3.1, "economy": 1},
-                {"name": "Out of range", "distance": 7.1, "economy": 0},
-            ],
-        })
-        state.apply({
-            "type": "chart_target",
-            "infoSystem": 42,
-            "targetSystem": 42,
-            "system": {
-                "id": 42, "name": "Target", "distance": 5.5, "economy": 5,
-                "government": 6, "techLevel": 12,
-                "samplePrices": {"food": 900, "computers": 730},
-            },
-            "currentSystem": 7,
-            "originMarket": {"food": {"price": 700, "quantity": 5},
-                             "computers": {"price": 700, "quantity": 5}},
-            "manifest": [
-                {"name": "food", "displayName": "Food", "quantity": 2},
-                {"name": "computers", "displayName": "Computers", "quantity": 1},
-            ],
-        })
+        state.apply(
+            {
+                "type": "systems",
+                "fuel": 7,
+                "systems": [
+                    {"name": "Near Ag", "distance": 2.2, "economy": 5},
+                    {"name": "Far Ag", "distance": 6.0, "economy": 4},
+                    {"name": "Near Industrial", "distance": 3.1, "economy": 1},
+                    {"name": "Out of range", "distance": 7.1, "economy": 0},
+                ],
+            }
+        )
+        state.apply(
+            {
+                "type": "chart_target",
+                "infoSystem": 42,
+                "targetSystem": 42,
+                "system": {
+                    "id": 42,
+                    "name": "Target",
+                    "distance": 5.5,
+                    "economy": 5,
+                    "government": 6,
+                    "techLevel": 12,
+                    "samplePrices": {"food": 900, "computers": 730},
+                },
+                "currentSystem": 7,
+                "originMarket": {
+                    "food": {"price": 700, "quantity": 5},
+                    "computers": {"price": 700, "quantity": 5},
+                },
+                "manifest": [
+                    {"name": "food", "displayName": "Food", "quantity": 2},
+                    {"name": "computers", "displayName": "Computers", "quantity": 1},
+                ],
+            }
+        )
 
         expected = (
             "Target — 5.5 ly\n"
@@ -134,12 +167,15 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(tip(state, self.keymap), expected)
 
     def test_trade_scenario_persists_markets_and_cost_basis(self):
-        now = datetime(2026, 10, 21, 7, tzinfo=timezone.utc)
+        now = datetime(2026, 10, 21, 7, tzinfo=UTC)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "markets.json"
             store = MarketStore(path, now=lambda: now)
-            messages = [step["msg"] for step in
-                        load_scenario(ROOT / "scenarios" / "trade.yaml") if "msg" in step]
+            messages = [
+                step["msg"]
+                for step in load_scenario(ROOT / "scenarios" / "trade.yaml")
+                if "msg" in step
+            ]
             for _ in range(2):
                 for message in messages:
                     store.apply(message)
@@ -148,20 +184,34 @@ class ScenarioTests(unittest.TestCase):
             self.assertEqual(len(stored.data["markets"]), 1)
             market = stored.data["markets"][0]
             self.assertEqual(
-                (market["galaxy"], market["system_id"], market["system_name"],
-                 market["game_clock"], market["station"]),
+                (
+                    market["galaxy"],
+                    market["system_id"],
+                    market["system_name"],
+                    market["game_clock"],
+                    market["station"],
+                ),
                 (0, 7, "Lave", 123466, "Lave Station"),
             )
             self.assertEqual(market["prices"]["food"]["quantity"], 6)
-            self.assertEqual(stored.data["cost_basis"]["food"],
-                             {"units": 3, "total_cost": 138, "average_price": 46})
+            self.assertEqual(
+                stored.data["cost_basis"]["food"],
+                {"units": 3, "total_cost": 138, "average_price": 46},
+            )
             self.assertEqual(stored.price_age, "2h ago")
 
     def test_trade_dedupe_uses_game_event_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             store = MarketStore(Path(directory) / "markets.json")
-            first = {"type": "bought", "galaxy": 0, "systemID": 7, "gameClock": 10,
-                     "commodity": "food", "units": 2, "price": 42}
+            first = {
+                "type": "bought",
+                "galaxy": 0,
+                "systemID": 7,
+                "gameClock": 10,
+                "commodity": "food",
+                "units": 2,
+                "price": 42,
+            }
             store.apply(first)
             store.apply(first)
             self.assertEqual(store.data["cost_basis"]["food"]["units"], 2)
@@ -175,15 +225,28 @@ class ScenarioTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             store = MarketStore(Path(directory) / "markets.json")
             for clock in range(600):
-                store.apply({
-                    "type": "market", "galaxy": 0, "systemID": 7,
-                    "systemName": "Lave", "gameClock": clock, "station": "Lave Station",
-                    "market": {"food": {"price": 42, "quantity": clock}},
-                })
-                store.apply({
-                    "type": "bought", "galaxy": 0, "systemID": 7, "gameClock": clock,
-                    "commodity": "food", "units": 1, "price": 42,
-                })
+                store.apply(
+                    {
+                        "type": "market",
+                        "galaxy": 0,
+                        "systemID": 7,
+                        "systemName": "Lave",
+                        "gameClock": clock,
+                        "station": "Lave Station",
+                        "market": {"food": {"price": 42, "quantity": clock}},
+                    }
+                )
+                store.apply(
+                    {
+                        "type": "bought",
+                        "galaxy": 0,
+                        "systemID": 7,
+                        "gameClock": clock,
+                        "commodity": "food",
+                        "units": 1,
+                        "price": 42,
+                    }
+                )
 
             self.assertEqual(len(store.data["markets"]), 1)
             self.assertEqual(store.data["markets"][0]["game_clock"], 599)
@@ -199,8 +262,15 @@ class ScenarioTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "Latest.log"
             market_path = Path(directory) / "markets.json"
-            first = {"type": "bought", "galaxy": 0, "systemID": 7, "gameClock": 10,
-                     "commodity": "food", "units": 2, "price": 42}
+            first = {
+                "type": "bought",
+                "galaxy": 0,
+                "systemID": 7,
+                "gameClock": 10,
+                "commodity": "food",
+                "units": 2,
+                "price": 42,
+            }
             second = {**first, "gameClock": 11}
             path.write_text(
                 f"12:00:00.000 [ctxkeys]: {json.dumps(first)}\n" + "x" * 200,
@@ -211,9 +281,7 @@ class ScenarioTests(unittest.TestCase):
             try:
                 for message in source.poll():
                     store.apply(message)
-                path.write_text(
-                    f"12:00:00.000 [ctxkeys]: {json.dumps(second)}\n", encoding="utf-8"
-                )
+                path.write_text(f"12:00:00.000 [ctxkeys]: {json.dumps(second)}\n", encoding="utf-8")
                 for message in source.poll():
                     store.apply(message)
             finally:
@@ -224,23 +292,37 @@ class ScenarioTests(unittest.TestCase):
     def test_market_manifest_reconciles_saved_cost_basis(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "markets.json"
-            path.write_text(json.dumps({
-                "markets": [],
-                "cost_basis": {
-                    "food": {"units": 5, "total_cost": 500, "average_price": 100},
-                    "computers": {"units": 2, "total_cost": 40, "average_price": 20},
-                },
-            }), encoding="utf-8")
+            path.write_text(
+                json.dumps(
+                    {
+                        "markets": [],
+                        "cost_basis": {
+                            "food": {"units": 5, "total_cost": 500, "average_price": 100},
+                            "computers": {"units": 2, "total_cost": 40, "average_price": 20},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
             store = MarketStore(path)
-            store.apply({
-                "type": "market", "galaxy": 0, "systemID": 7, "gameClock": 20,
-                "station": "Lave Station", "market": {"food": {"price": 42}},
-                "manifest": [{"name": "food", "quantity": 3}],
-            })
+            store.apply(
+                {
+                    "type": "market",
+                    "galaxy": 0,
+                    "systemID": 7,
+                    "gameClock": 20,
+                    "station": "Lave Station",
+                    "market": {"food": {"price": 42}},
+                    "manifest": [{"name": "food", "quantity": 3}],
+                }
+            )
 
-            self.assertEqual(store.data["cost_basis"], {
-                "food": {"units": 3, "total_cost": 300, "average_price": 100},
-            })
+            self.assertEqual(
+                store.data["cost_basis"],
+                {
+                    "food": {"units": 3, "total_cost": 300, "average_price": 100},
+                },
+            )
 
     def test_every_scenario_step_uses_helper_message_contract(self):
         expected_contexts = {
@@ -289,10 +371,13 @@ class ScenarioTests(unittest.TestCase):
     def test_run_scenario_handles_close_step_and_rejects_bad_speed(self):
         with tempfile.TemporaryDirectory() as directory:
             log_path = Path(directory) / "Latest.log"
-            run_scenario([
-                {"after": 0, "msg": {"type": "ready", "docked": False, "alert": 1}},
-                {"after": 0, "close": True},
-            ], log_path)
+            run_scenario(
+                [
+                    {"after": 0, "msg": {"type": "ready", "docked": False, "alert": 1}},
+                    {"after": 0, "close": True},
+                ],
+                log_path,
+            )
             self.assertIn("Closing log at ", log_path.read_text(encoding="utf-8"))
             with self.assertRaises(ValueError):
                 run_scenario([], log_path, speed=0)

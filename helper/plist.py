@@ -107,7 +107,7 @@ class _Parser:
         end = self.s.find(">", self.i)
         if end < 0:
             raise self.error("unterminated <...>")
-        body = self.s[self.i + 1:end]
+        body = self.s[self.i + 1 : end]
         if body.startswith("*"):
             kind, text = body[1:2], body[2:].strip()
             if kind == "B" and text in ("Y", "N"):
