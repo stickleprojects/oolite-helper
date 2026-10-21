@@ -103,7 +103,7 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(state.market["food"]["price"], 42)
         self.assertEqual(state.credits, 1200.5)
         self.assertEqual(state.cargo_space, {"available": 18, "capacity": 35})
-        self.assertEqual(state.manifest[0]["name"], "food")
+        self.assertEqual(state.manifest[0]["commodity"], "food")
         self.assertEqual(state.last_trade["type"], "sold")
         self.assertEqual(state.last_trade["units"], 1)
         self.assertEqual([system["name"] for system in state.systems], ["Zaonce"])
@@ -149,8 +149,8 @@ class ScenarioTests(unittest.TestCase):
                     "computers": {"price": 700, "quantity": 5},
                 },
                 "manifest": [
-                    {"name": "food", "displayName": "Food", "quantity": 2},
-                    {"name": "computers", "displayName": "Computers", "quantity": 1},
+                    {"commodity": "food", "displayName": "Food", "quantity": 2},
+                    {"commodity": "computers", "displayName": "Computers", "quantity": 1},
                 ],
             }
         )
@@ -313,7 +313,7 @@ class ScenarioTests(unittest.TestCase):
                     "gameClock": 20,
                     "station": "Lave Station",
                     "market": {"food": {"price": 42}},
-                    "manifest": [{"name": "food", "quantity": 3}],
+                    "manifest": [{"commodity": "food", "quantity": 3}],
                 }
             )
 

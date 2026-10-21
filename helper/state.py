@@ -84,6 +84,7 @@ class GameState:
             self.alert = msg.get("alert")
         elif kind == "market":
             self.galaxy = msg.get("galaxy", self.galaxy)
+            self.current_system = msg.get("systemID", self.current_system)
             self.market_station = msg.get("station")
             self.market = msg.get("market")
             self.credits = msg.get("credits")

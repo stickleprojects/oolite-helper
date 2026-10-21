@@ -10,7 +10,14 @@ import tkinter as tk
 import traceback
 
 from . import config
-from .browser import buy_limit, commodity_offers, commodity_rows, sort_rows, trade_steps
+from .browser import (
+    buy_limit,
+    commodity_offers,
+    commodity_rows,
+    held,
+    sort_rows,
+    trade_steps,
+)
 from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, sections, tip
 from .keys import commodity_fallback, load_keymap
 from .markets import MarketStore
@@ -288,8 +295,8 @@ class HelperWindow:
             quantity,
             limit.most,
             offer,
-            self.state.target_system,
-            bool(self.state.docked),
+            self.state,
+            held(self.state, commodity),
         )
         return ("detail", commodity, row, offers, offer, limit, quantity, tuple(steps))
 

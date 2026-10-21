@@ -81,9 +81,9 @@ def test_sell_from_hold_ranks_by_total_profit():
                 "computers": {"price": 880, "quantity": 9},
             },
             manifest=[
-                {"name": "computers", "displayName": "Computers", "quantity": 1},
-                {"name": "food", "displayName": "Food", "quantity": 10},
-                {"name": "furs", "displayName": "Furs", "quantity": 1},
+                {"commodity": "computers", "displayName": "Computers", "quantity": 1},
+                {"commodity": "food", "displayName": "Food", "quantity": 10},
+                {"commodity": "furs", "displayName": "Furs", "quantity": 1},
             ],
         )
     )

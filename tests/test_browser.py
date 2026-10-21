@@ -1,6 +1,13 @@
 from datetime import UTC, datetime
 
-from helper.browser import buy_limit, commodity_offers, commodity_rows, sort_rows, trade_steps
+from helper.browser import (
+    buy_limit,
+    commodity_offers,
+    commodity_rows,
+    held,
+    sort_rows,
+    trade_steps,
+)
 from helper.state import GameState
 
 NOW = datetime(2026, 10, 21, 12, tzinfo=UTC)
@@ -161,8 +168,14 @@ KEYS = {
     "key_gui_arrow_left": "←",
     "key_gui_arrow_up": "↑",
     "key_gui_arrow_down": "↓",
-    "key_gui_market": "F8 / 8",
-    "key_gui_chart_screens": "F6 / 6",
+    "key_gui_market": "8",
+    "key_gui_chart_screens": "6",
+    "key_launch_ship": "1",
+    "key_hyperspace": "H",
+    "key_ident_system": "R",
+    "key_next_target": "+",
+    "key_docking_clearance_request": "Shift+L",
+    "key_autopilot": "C",
 }.get
 
 
@@ -176,23 +189,50 @@ def zaonce(system_id=8):
     return commodity_offers(s, [], NOW, "furs")[0]
 
 
-def test_steps_use_the_players_keys_and_shift_for_the_most():
-    steps = trade_steps(KEYS, "Furs", 5, 5, zaonce(), target_system=3, docked=True)
+def at(target=3, docked=True, current=7):
+    s = state(docked=docked, current=current)
+    s.target_system = target
+    return s
+
+
+def test_steps_cover_buying_targeting_the_jump_docking_and_selling():
+    steps = trade_steps(KEYS, "Furs", 5, 5, zaonce(), at())
     assert steps == [
-        "Market F8 / 8 → ↑ / ↓ to Furs → Shift+→ buys the most you can (5)",
-        "Chart F6 / 6 → move the cursor to Zaonce (on the galactic chart you can type its name)",
-        "At Zaonce: Market F8 / 8 → Furs → Shift+← sells all",
+        "Market 8 → ↑ / ↓ to Furs → Shift+→ buys the most you can (5)",
+        "Chart 6 → move the cursor to Zaonce (on the galactic chart you can type its name)",
+        "Launch 1, fly clear of other ships, then H jumps to Zaonce after a countdown "
+        "(press it again to cancel)",
+        "At Zaonce: target the station (R with it ahead, or +), Shift+L for clearance, "
+        "C for the docking computer",
+        "Docked at Zaonce: Market 8 → Furs → Shift+← sells all",
     ]
 
 
 def test_steps_press_once_per_unit_and_skip_the_chart_when_already_targeted():
-    steps = trade_steps(KEYS, "Furs", 3, 5, zaonce(), target_system=8, docked=True)
+    steps = trade_steps(KEYS, "Furs", 3, 5, zaonce(), at(target=8))
     assert steps[0].endswith("→ ×3")
     assert not any(step.startswith("Chart") for step in steps)
 
 
-def test_steps_say_to_dock_first_and_when_nothing_can_be_bought():
-    steps = trade_steps(KEYS, "Furs", 0, 0, zaonce(), target_system=8, docked=False)
-    assert steps[0].startswith("Dock at a station")
-    assert steps[1].startswith("Nothing to buy")
-    assert len(steps) == 2
+def test_steps_after_buying_start_from_the_cargo_held():
+    steps = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(target=8), holding=14)
+    assert steps[0] == "You hold 14 Furs."
+    assert steps[1].startswith("Launch 1, fly clear")
+    in_flight = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(target=8, docked=False), holding=14)
+    assert in_flight[1].startswith("Fly clear")
+
+
+def test_steps_at_the_destination_are_just_selling():
+    steps = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(current=8), holding=14)
+    assert steps == ["You hold 14 Furs.", "Docked at Zaonce: Market 8 → Furs → Shift+← sells all"]
+
+
+def test_steps_say_when_nothing_can_be_bought():
+    steps = trade_steps(KEYS, "Furs", 0, 0, zaonce(), at(docked=False))
+    assert steps == ["Nothing to buy: Furs isn't affordable or on sale here."]
+
+
+def test_held_counts_the_commodity_in_the_manifest():
+    s = state()
+    s.manifest = [{"commodity": "furs", "quantity": 14, "unit": "t"}, {"commodity": "food"}]
+    assert (held(s, "furs"), held(s, "food"), held(s, "gold")) == (14, 0, 0)

@@ -137,7 +137,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			cargoSpaceCapacity: 35,
 			manifest: strictObject("manifest", {
 				list: [
-					{ name: "food", unit: "tonnes", quantity: 2, displayName: "Food" },
+					{ commodity: "food", unit: "t", quantity: 2, displayName: "Food" },
 				],
 			}),
 			infoSystem: 8,

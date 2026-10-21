@@ -240,6 +240,7 @@ this.playerBoughtCargo = function (commodity, units, price) {
 	data.units = units;
 	data.price = price;
 	this._emit("bought", data);
+	this._emitMarket(); // credits, stock and hold have changed
 };
 
 this.playerSoldCargo = function (commodity, units, price) {
@@ -248,6 +249,7 @@ this.playerSoldCargo = function (commodity, units, price) {
 	data.units = units;
 	data.price = price;
 	this._emit("sold", data);
+	this._emitMarket(); // credits, stock and hold have changed
 };
 
 this.playerStartedAutoPilot = function (station) {

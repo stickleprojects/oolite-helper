@@ -162,35 +162,62 @@ def unit(entry):
     return UNITS.get(str(entry.get("quantity_unit", "0")), "t") if isinstance(entry, dict) else "t"
 
 
-def trade_steps(keys, name, quantity, most, offer, target_system, docked):
+def held(state, commodity):
+    """Units of a commodity in the player's hold, from the last manifest."""
+    return sum(
+        item.get("quantity") or 0
+        for item in state.manifest or []
+        if isinstance(item, dict) and item.get("commodity") == commodity
+    )
+
+
+def trade_steps(keys, name, quantity, most, offer, state, holding=0):
     """What to press in the game to make the trade, using the player's own keys.
 
     Buying and selling read the GUI arrow keys, Shift for all (PlayerEntityControls.m,
     1.92.1); key_market_buy_one and friends are loaded but never checked there.
+    Steps already done (bought, destination targeted, launched) are left out.
     """
     right = _first(keys("key_gui_arrow_right"))
     left = _first(keys("key_gui_arrow_left"))
     move = f"{_first(keys('key_gui_arrow_up'))} / {_first(keys('key_gui_arrow_down'))}"
     market = keys("key_gui_market")
+    docked = bool(state.docked)
     steps = []
-    if not docked:
-        steps.append("Dock at a station: you can only buy while docked.")
-    if quantity <= 0:
+    if holding:
+        steps.append(f"You hold {holding} {name}.")
+    if quantity > 0:
+        more = " more" if holding else ""
+        buy = (
+            f"Shift+{right} buys the most you can ({quantity}{more})"
+            if quantity == most
+            else f"{right} ×{quantity}{more}"
+        )
+        if not docked:
+            steps.append("Dock at a station: you can only buy while docked.")
+        steps.append(f"Market {market} → {move} to {name} → {buy}")
+    elif not holding:
         steps.append(f"Nothing to buy: {name} isn't affordable or on sale here.")
         return steps
-    buy = (
-        f"Shift+{right} buys the most you can ({quantity})"
-        if quantity == most
-        else f"{right} ×{quantity}"
-    )
-    steps.append(f"Market {market} → {move} to {name} → {buy}")
-    if offer is not None and offer.system_id != target_system:
+    if offer is None:
+        return steps
+    if offer.system_id != state.current_system:
+        if offer.system_id != state.target_system:
+            steps.append(
+                f"Chart {keys('key_gui_chart_screens')} → move the cursor to {offer.name} "
+                "(on the galactic chart you can type its name)"
+            )
+        launch = f"Launch {keys('key_launch_ship')}, fly" if docked else "Fly"
         steps.append(
-            f"Chart {keys('key_gui_chart_screens')} → move the cursor to {offer.name} "
-            "(on the galactic chart you can type its name)"
+            f"{launch} clear of other ships, then {keys('key_hyperspace')} jumps to "
+            f"{offer.name} after a countdown (press it again to cancel)"
         )
-    if offer is not None:
-        steps.append(f"At {offer.name}: Market {market} → {name} → Shift+{left} sells all")
+        steps.append(
+            f"At {offer.name}: target the station ({keys('key_ident_system')} with it ahead, "
+            f"or {keys('key_next_target')}), {keys('key_docking_clearance_request')} for "
+            f"clearance, {keys('key_autopilot')} for the docking computer"
+        )
+    steps.append(f"Docked at {offer.name}: Market {market} → {name} → Shift+{left} sells all")
     return steps
 
 
