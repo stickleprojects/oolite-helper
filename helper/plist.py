@@ -1,7 +1,9 @@
 """Minimal parser for OpenStep-style ASCII property lists, as Oolite uses.
 
 Handles dictionaries { k = v; }, arrays ( a, b ), quoted and bare strings,
-and // and /* */ comments. All scalars come back as str.
+and // and /* */ comments. All scalars come back as str, including GNUstep's
+extended forms: <*BY>/<*BN> as "YES"/"NO", <*I12> as "12", <*R1.5> as "1.5".
+<hex data> comes back as bytes.
 """
 
 import re
@@ -71,6 +73,8 @@ class _Parser:
             return self.array()
         if c == '"':
             return self.quoted()
+        if c == "<":
+            return self.angled()
         m = _BARE.match(self.s, self.i)
         if not m:
             raise self.error("unexpected character")
@@ -98,6 +102,27 @@ class _Parser:
                 self.i += 1
         self.i += 1
         return items
+
+    def angled(self):
+        end = self.s.find(">", self.i)
+        if end < 0:
+            raise self.error("unterminated <...>")
+        body = self.s[self.i + 1:end]
+        if body.startswith("*"):
+            kind, text = body[1:2], body[2:].strip()
+            if kind == "B" and text in ("Y", "N"):
+                value = "YES" if text == "Y" else "NO"
+            elif kind in ("I", "R", "D") and text:
+                value = text
+            else:
+                raise self.error(f"unknown value <{body}>")
+        else:
+            try:
+                value = bytes.fromhex(body)
+            except ValueError:
+                raise self.error("bad <hex data>") from None
+        self.i = end + 1
+        return value
 
     def quoted(self):
         self.i += 1  # opening quote

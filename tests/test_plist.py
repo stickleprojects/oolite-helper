@@ -52,3 +52,15 @@ def test_parse_errors_report_the_line(source, message, line):
     with pytest.raises(plist.PlistError, match=message) as exc:
         plist.loads(source)
     assert f"line {line}" in str(exc.value)
+
+
+def test_loads_gnustep_extended_scalars():
+    assert plist.loads("{ a = <*BY>; b = <*BN>; c = <*I42>; d = <*R1.5>; e = <0aff>; }") == {
+        "a": "YES", "b": "NO", "c": "42", "d": "1.5", "e": b"\x0a\xff",
+    }
+
+
+@pytest.mark.parametrize("source", ["{ a = <*BX>; }", "{ a = <zz>; }", "{ a = <*BY; }"])
+def test_bad_angled_values_raise(source):
+    with pytest.raises(plist.PlistError):
+        plist.loads(source)
