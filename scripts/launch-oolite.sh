@@ -9,6 +9,12 @@
 APPIMAGE_PATH="${OOLITE_APPIMAGE:-$HOME/Games/Oolite/oolite-1.92.1-x86_64.AppImage}"
 GAME_DATA="${OOLITE_GAMEDATA:-$(dirname "$APPIMAGE_PATH")/GameData}"
 
+# Fail early, before the helper is started, if the AppImage isn't there.
+if [[ ! -x "$APPIMAGE_PATH" ]]; then
+    echo "launch-oolite: no executable AppImage at $APPIMAGE_PATH (set OOLITE_APPIMAGE)" >&2
+    exit 1
+fi
+
 export OO_DIRTYPE=legacy
 export OO_LOGSDIR="$GAME_DATA/Logs"
 export OO_SAVEDIR="$GAME_DATA/SavedGames"
