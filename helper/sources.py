@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-DEFAULT_LOG = os.path.expanduser("~/Games/Oolite/GameData/Logs/Latest.log")
+from .paths import LOG as DEFAULT_LOG
 
 # e.g. 16:33:52.857 [ctxkeys]: {"version":"0.1","type":"hello"}
 LINE_RE = re.compile(r"^\S+ \[ctxkeys\]: (\{.*\})\s*$")

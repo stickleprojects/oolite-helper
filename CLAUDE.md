@@ -62,8 +62,8 @@ All of these are confirmed present in the 1.92.1 binary: `startUp`, `startUpComp
 VS Code is a snap, so anything it starts (including Claude's shell) can't mount the AppImage over FUSE. Start the game and the helper as user systemd units instead, with the sandbox disabled:
 
 ```
-systemd-run --user --unit=oolite-game --collect --setenv=DISPLAY=$DISPLAY --setenv=XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority} /mnt/NTFSData/code/oolite-helper/scripts/launch-oolite.sh
-systemd-run --user --unit=oolite-helper --collect --setenv=DISPLAY=$DISPLAY --setenv=XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority} /mnt/NTFSData/code/oolite-helper/.venv/bin/oolite-helper
+systemd-run --user --unit=oolite-game --collect --setenv=DISPLAY=$DISPLAY --setenv=XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority} scripts/launch-oolite.sh
+systemd-run --user --unit=oolite-helper --collect --setenv=DISPLAY=$DISPLAY --setenv=XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority} .venv/bin/oolite-helper
 ```
 
 Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To check the helper's display, run `scrot -a 960,1080,1920,1080 -o <file>`.

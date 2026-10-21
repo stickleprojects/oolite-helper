@@ -10,10 +10,8 @@ import os
 import subprocess
 
 from . import plist
+from .paths import APPIMAGE, SETTINGS
 
-APPIMAGE = os.environ.get(
-    "OOLITE_APPIMAGE", os.path.expanduser("~/Games/Oolite/oolite-1.92.1-x86_64.AppImage"))
-SETTINGS = os.path.expanduser("~/Games/Oolite/GameData/Settings/OoliteDefaults.plist")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
                      "oolite-helper")
 CONFIG_IN_APPIMAGE = "usr/bin/Resources/Config"
