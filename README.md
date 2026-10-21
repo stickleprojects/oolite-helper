@@ -33,7 +33,43 @@ Oolite + CtxKeys.oxp ──JSON lines──▶ Latest.log ──follow──▶ 
 2. **[helper/](helper/)** follows `Latest.log`, works out the current context and draws the matching key list. The window has no title bar, sits on a second screen and never takes focus from the game.
 3. On startup the helper reads the key bindings and the game's own key descriptions from the AppImage. It caches them until the AppImage changes, then applies your layout and key changes from the game's settings.
 
-The add-on also reports trade and chart data: `market` includes the docked station's raw commodity-keyed market (price, quantity, quantity unit and numeric import/export legality), credits, available/total cargo space, fuel and cargo manifest; `bought` and `sold` include the commodity, units and per-unit price. Market and cargo messages include the galaxy, system ID and name, and in-game clock. The helper saves every observed market snapshot, including when it was seen, to `~/.local/share/oolite-helper/markets.json` (or `$XDG_DATA_HOME/oolite-helper/markets.json`) and shows the age of the latest remembered prices. Purchases and sales update a per-commodity weighted-average cost basis; sales reduce the quantity and remaining basis at that average. `systems` lists systems within current fuel range with distance, economy, government, tech level and a `samplePrices` map keyed by commodity; `chart_target` contains the info-screen system and jump target, the current system ID, the selected system's details and sample prices, the current system's main-station market in the same form as `market` (`originMarket`), and the cargo manifest. On either chart, the helper shows the selected system's economy, government and tech level (one-based, as the game shows it), estimates sale margins for your cargo and purchase margins here (skipping goods that are out of stock and marking illegal ones), and lists the nearest agricultural and industrial systems in fuel range. Market and sample prices, and the `price` in cargo events, use Oolite's decicredit scale (10 decicredits = 1 credit); cargo-event prices are per unit. Distances and fuel are in light-years. The source interfaces are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`System.infoForSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
+### Messages
+
+Each add-on line in the log looks like `HH:MM:SS.mmm [ctxkeys]: {json}`, and every message has a `type`.
+
+| Type | Sent when | Fields |
+|---|---|---|
+| `hello` | A game starts or is loaded (`startUp`), including the reload after death | `version` |
+| `ready` | The game has finished loading (`startUpComplete`) | `docked`, `view`, `alert` |
+| `gui` | The screen changes | `to`, `from` (`GUI_SCREEN_*`) |
+| `view` | The view direction changes | `to`, `from` (`VIEW_*`) |
+| `docked` | The ship docks | `station` |
+| `launching` | A launch starts | `station` |
+| `aegis` | Entering or leaving a station's aegis; also after launching, after a jump, and at startup in flight | `inside`, `station`, `requiresClearance`, `clearance` |
+| `clearance` | Docking clearance is requested, granted, expires, is cancelled or refused, or changes while you're in the aegis (checked once a second) | `status` (`DOCKING_CLEARANCE_STATUS_*`), `event` (`requested`, `granted`, `expired`, `cancelled`, `refused`, `changed`) |
+| `autopilot` | The docking computer is switched on or off | `on` |
+| `alert` | The alert condition changes | `level` (0 docked, 1 green, 2 yellow, 3 red) |
+| `countdown` | A jump countdown starts | `kind` (`standard`, `galactic`), `seconds` |
+| `countdown_end` | A countdown is cancelled, a jump fails, or the jump starts | `reason` (`cancelled`, `jumped`, or the game's failure reason), `cause` (when jumped) |
+| `arrived` | The ship leaves witchspace | `system`, `alert` |
+| `market` | Docking, startup while docked, or opening the market screen while docked | `galaxy`, `systemID`, `systemName`, `gameClock`, `station`, `market`, `credits`, `cargoSpace`, `fuel`, `manifest` |
+| `bought`, `sold` | Cargo is bought or sold | `galaxy`, `systemID`, `systemName`, `gameClock`, `commodity`, `units`, `price` (per unit) |
+| `systems` | Startup, docking, arrival, and fuel scooping that changes which systems are in range | `fuel`, `systems` (each with `id`, `name`, `distance`, `economy`, `government`, `techLevel`, `samplePrices`) |
+| `chart_target` | Startup, arrival, and a new system selected on the chart | `infoSystem`, `targetSystem`, `currentSystem`, `system` (as in `systems`), `originMarket`, `manifest` |
+| `died` | The player's ship is destroyed | `cause` (damage type), `by` (killer's name, or `null`) |
+
+The helper adds two messages of its own: `session` when it opens a new log file (each game start), and `closed` when the log shows the game has exited.
+
+Notes on the fields:
+- `market` and `originMarket` are the station's market keyed by commodity: `price`, `quantity`, `quantity_unit`, and numeric `legality_export`/`legality_import`. `originMarket` is the current system's main station.
+- `cargoSpace` is `available` and `capacity`; `manifest` is the game's cargo list (`name`, `unit`, `quantity`, `displayName`).
+- Prices, including `samplePrices` and cargo-event prices, use Oolite's decicredit scale (10 decicredits = 1 credit). Distances and fuel are in light-years. `techLevel` is the game's 0-based value; the game shows it plus one.
+- The game interfaces used are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`System.infoForSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
+
+What the helper does with the trade data:
+- It saves every market it sees, with the time it saw it, to `~/.local/share/oolite-helper/markets.json` (or `$XDG_DATA_HOME/oolite-helper/markets.json`), and shows the age of the latest remembered prices.
+- Purchases and sales update a weighted-average cost per commodity. A sale reduces the quantity and the remaining cost at that average.
+- On either chart, it shows the selected system's economy, government and tech level, estimates the sale margins for your cargo and the purchase margins here (skipping goods that are out of stock and marking illegal ones), and lists the nearest agricultural and industrial systems in fuel range.
 
 Example message lines:
 
@@ -43,6 +79,7 @@ Example message lines:
 {"type":"sold","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123460,"commodity":"computers","units":1,"price":735}
 {"type":"systems","fuel":7,"systems":[{"id":8,"name":"Zaonce","distance":6.5,"economy":8,"government":9,"techLevel":10,"samplePrices":{"food":48,"computers":738}}]}
 {"type":"chart_target","infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Zaonce","distance":6.5,"economy":3,"government":5,"techLevel":10,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}]}
+{"type":"died","cause":"energy damage","by":"Krait"}
 ```
 
 A later version may receive the same messages over Oolite's debug console connection instead of the log. That would allow live data for a fuller HUD, as [oolite-mqtt-bridge](https://github.com/maikschulz/oolite-mqtt-bridge) does.

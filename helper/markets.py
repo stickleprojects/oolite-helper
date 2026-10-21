@@ -20,10 +20,8 @@ class MarketStore:
     def __init__(self, path=PATH, now=None):
         self.path = Path(path)
         self.now = now or (lambda: datetime.now(UTC))
-        self.data = {"version": 1, "markets": [], "cost_basis": {}}
-        if self.path.exists():
-            with self.path.open(encoding="utf-8") as file:
-                self.data = json.load(file)
+        self.load_error = None  # shown in the status line when the saved file was unusable
+        self.data = self._load()
         previous_markets = self.data.get("markets", [])
         previous_market_events = self.data.get("market_events", [])
         previous_trade_events = self.data.get("trade_events", [])
@@ -47,6 +45,38 @@ class MarketStore:
             or had_source_events
         ):
             self._save()
+
+    def _load(self):
+        """The saved data, or a fresh store if the file is missing or damaged.
+
+        A damaged file is kept as markets.json.bad rather than overwritten.
+        """
+        empty = {"version": 1, "markets": [], "cost_basis": {}}
+        try:
+            with self.path.open(encoding="utf-8") as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            return empty
+        except (OSError, ValueError) as exc:
+            return self._set_aside(empty, exc)
+        list_keys = ("markets", "market_events", "trade_events")
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("cost_basis", {}), dict)
+            or any(not isinstance(data.get(key, []), list) for key in list_keys)
+        ):
+            return self._set_aside(empty, "unexpected layout")
+        return data
+
+    def _set_aside(self, empty, reason):
+        bad = self.path.with_name(self.path.name + ".bad")
+        try:
+            os.replace(self.path, bad)
+        except OSError:
+            bad = None
+        kept = f" (kept as {bad.name})" if bad else ""
+        self.load_error = f"Saved market data was unreadable{kept}; starting fresh: {reason}"
+        return empty
 
     def apply(self, message):
         kind = message.get("type")

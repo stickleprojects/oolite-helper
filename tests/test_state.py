@@ -139,6 +139,7 @@ def test_fake_game_scenarios_drive_expected_contexts():
         ],
         "menus": ["flying", "menu", "menu", "flying", "flying"],
         "restart": ["flying", "red alert", "docked", "docked"],
+        "death": ["flying", "red alert", "ship destroyed", "waiting for game", "docked"],
     }
     for name, contexts in expected.items():
         state = GameState()
@@ -151,3 +152,21 @@ def test_fake_game_scenarios_drive_expected_contexts():
         for message, context in zip(messages, contexts, strict=True):
             state.apply(message)
             assert state.context == context, (name, message)
+
+
+def test_death_clears_flight_state_until_a_game_loads():
+    state = GameState(clock=FakeClock())
+    state.apply({"type": "ready", "docked": False, "alert": 3})
+    state.apply({"type": "aegis", "inside": True, "station": "Lave Station"})
+    state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
+    state.apply({"type": "died", "cause": "energy damage", "by": "Krait"})
+    assert state.context == "ship destroyed"
+    assert state.details == ["Destroyed by Krait (energy damage)"]
+    assert not state.in_aegis and state.countdown_left is None
+
+    state.apply({"type": "died", "cause": None, "by": None})
+    assert state.details == ["Destroyed"]
+
+    state.apply({"type": "ready", "docked": True, "alert": 0})
+    assert state.context == "docked"
+    assert state.details == []

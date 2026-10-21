@@ -251,6 +251,20 @@ const scenarios = [
 		expected: ['{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"chart_target"}'],
 	},
 	{
+		name: "dying names the killer and damage type",
+		run({ world }) {
+			world.shipDied({ displayName: "Krait" }, "energy damage");
+		},
+		expected: ['{"cause":"energy damage","by":"Krait","type":"died"}'],
+	},
+	{
+		name: "dying with no killer",
+		run({ world }) {
+			world.shipDied(null, "scrape damage");
+		},
+		expected: ['{"cause":"scrape damage","by":null,"type":"died"}'],
+	},
+	{
 		name: "fuel scooping emits a systems update",
 		run({ world }) {
 			world.shipScoopedFuel();
@@ -304,6 +318,15 @@ for (const useDebugConsole of [false, true]) {
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 		]);
+	});
+
+	test(`clearance checks stop when the ship dies through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.player.ship.withinStationAegis = true;
+		fake.world.shipEnteredStationAegis(fake.system.mainStation);
+		const [timer] = fake.timers;
+		fake.world.shipDied(null, "energy damage");
+		assert.equal(timer.stopped, true);
 	});
 
 	test(`repeated fuel scoops with unchanged range do not emit through ${transport}`, () => {
