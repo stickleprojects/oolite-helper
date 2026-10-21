@@ -1,0 +1,10 @@
+[
+  {"after": 0, "msg": {"type": "ready", "docked": true, "view": "VIEW_FORWARD", "alert": 0}},
+  {"after": 2, "msg": {"type": "launching", "station": "Lave Station"}},
+  {"after": 2, "msg": {"type": "aegis", "inside": true, "station": "Lave Station", "requiresClearance": true, "clearance": "DOCKING_CLEARANCE_STATUS_NONE"}},
+  {"after": 2, "msg": {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_REQUESTED", "event": "requested"}},
+  {"after": 2, "msg": {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_GRANTED", "event": "granted"}},
+  {"after": 4, "msg": {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_TIMING_OUT", "event": "changed"}},
+  {"after": 3, "msg": {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_NONE", "event": "expired"}},
+  {"after": 2, "msg": {"type": "docked", "station": "Lave Station"}}
+]
