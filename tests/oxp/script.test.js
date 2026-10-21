@@ -20,7 +20,12 @@ const scenarios = [
 			player.alertCondition = 0;
 			world.startUpComplete();
 		},
-		expected: ['{"docked":true,"view":"VIEW_AFT","alert":0,"type":"ready"}'],
+		expected: [
+			'{"docked":true,"view":"VIEW_AFT","alert":0,"type":"ready"}',
+			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
+		],
 	},
 	{
 		name: "startup complete in flight",
@@ -32,6 +37,8 @@ const scenarios = [
 		expected: [
 			'{"docked":false,"view":"VIEW_PORT","alert":2,"type":"ready"}',
 			'{"inside":false,"station":null,"requiresClearance":null,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
 		],
 	},
 	{
@@ -40,6 +47,17 @@ const scenarios = [
 			world.guiScreenChanged("GUI_SCREEN_STATUS", "GUI_SCREEN_MAIN");
 		},
 		expected: ['{"to":"GUI_SCREEN_STATUS","from":"GUI_SCREEN_MAIN","type":"gui"}'],
+	},
+	{
+		name: "entering the market screen while docked",
+		run({ world, player }) {
+			player.ship.docked = true;
+			world.guiScreenChanged("GUI_SCREEN_MARKET", "GUI_SCREEN_STATUS");
+		},
+		expected: [
+			'{"to":"GUI_SCREEN_MARKET","from":"GUI_SCREEN_STATUS","type":"gui"}',
+			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+		],
 	},
 	{
 		name: "view direction change",
@@ -53,7 +71,11 @@ const scenarios = [
 		run({ world, system }) {
 			world.shipDockedWithStation(system.mainStation);
 		},
-		expected: ['{"station":"Test Station","type":"docked"}'],
+		expected: [
+			'{"station":"Test Station","type":"docked"}',
+			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+		],
 	},
 	{
 		name: "preparing to launch",
@@ -201,6 +223,40 @@ const scenarios = [
 		expected: [
 			'{"system":"Test System","alert":2,"type":"arrived"}',
 			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
+		],
+	},
+	{
+		name: "buying cargo",
+		run({ world }) {
+			world.playerBoughtCargo("food", 2, 42);
+		},
+		expected: ['{"commodity":"food","units":2,"price":42,"type":"bought"}'],
+	},
+	{
+		name: "selling cargo",
+		run({ world }) {
+			world.playerSoldCargo("computers", 1, 735);
+		},
+		expected: ['{"commodity":"computers","units":1,"price":735,"type":"sold"}'],
+	},
+	{
+		name: "chart info system changed",
+		run({ world, player }) {
+			player.ship.infoSystem = 8;
+			player.ship.targetSystem = 9;
+			world.infoSystemChanged();
+		},
+		expected: ['{"infoSystem":8,"targetSystem":9,"type":"chart_target"}'],
+	},
+	{
+		name: "fuel scooping emits a systems update",
+		run({ world }) {
+			world.shipScoopedFuel();
+		},
+		expected: [
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 		],
 	},
 ];
@@ -245,6 +301,28 @@ for (const useDebugConsole of [false, true]) {
 			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_GRANTED","type":"aegis"}',
 			'{"status":"DOCKING_CLEARANCE_STATUS_TIMING_OUT","event":"changed","type":"clearance"}',
 			'{"station":"Test Station","type":"docked"}',
+			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 		]);
+	});
+
+	test(`repeated fuel scoops with unchanged range do not emit through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.startUpComplete();
+		const initialMessages = fake.messages().slice();
+		fake.player.ship.fuel = 6;
+		fake.world.shipScoopedFuel();
+		assert.equal(fake.messages().length, initialMessages.length + 1);
+		assert.equal(JSON.parse(fake.messages().at(-1)).systems.length, 0);
+		const reducedRangeMessages = fake.messages().slice();
+		fake.world.shipScoopedFuel();
+		fake.world.shipScoopedFuel();
+		assert.deepEqual(fake.messages(), reducedRangeMessages);
+		fake.player.ship.fuel = 6.5;
+		fake.world.shipScoopedFuel();
+		assert.equal(JSON.parse(fake.messages().at(-1)).systems[0].id, 8);
+		const expandedRangeMessages = fake.messages().slice();
+		fake.world.shipScoopedFuel();
+		assert.deepEqual(fake.messages(), expandedRangeMessages);
 	});
 }

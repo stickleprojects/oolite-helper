@@ -69,6 +69,23 @@ class ScenarioTests(unittest.TestCase):
                     self.assertEqual(state.details, [])
                     self.assertEqual(tip(state, self.keymap), "")
 
+    def test_trade_scenario_updates_market_system_and_chart_state(self):
+        state = GameState()
+        for step in load_scenario(ROOT / "scenarios" / "trade.yaml"):
+            state.apply(step["msg"])
+
+        self.assertEqual(state.market_station, "Lave Station")
+        self.assertEqual(state.market["food"]["price"], 42)
+        self.assertEqual(state.credits, 1200.5)
+        self.assertEqual(state.cargo_space, {"available": 18, "capacity": 35})
+        self.assertEqual(state.manifest[0]["name"], "food")
+        self.assertEqual(state.last_trade["type"], "sold")
+        self.assertEqual(state.last_trade["units"], 1)
+        self.assertEqual([system["name"] for system in state.systems], ["Zaonce"])
+        self.assertEqual(state.fuel, 7)
+        self.assertEqual(state.info_system, 8)
+        self.assertEqual(state.target_system, 9)
+
     def test_every_scenario_step_uses_helper_message_contract(self):
         expected_contexts = {
             "combat": ["flying", "red alert", "flying"],
