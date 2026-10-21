@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from helper.contexts import tip
 from helper.sources import LogSource
@@ -53,16 +54,20 @@ class ScenarioTests(unittest.TestCase):
         ]
         steps = load_scenario(ROOT / "scenarios" / "jump.yaml")
         self.assertEqual(len(steps), len(expected_contexts))
-        for step, context in zip(steps, expected_contexts):
-            state.apply(step["msg"])
-            self.assertEqual(state.context, context)
-            if context == "jump countdown":
-                self.assertRegex(state.details[0], r"^(Galactic )?[Jj]ump in \d+s$")
-                self.assertEqual(tip(state, self.keymap),
-                                 "Press K again to cancel the countdown.")
-            else:
-                self.assertEqual(state.details, [])
-                self.assertEqual(tip(state, self.keymap), "")
+        with patch("helper.state.time.monotonic", return_value=100):
+            for step, context in zip(steps, expected_contexts):
+                state.apply(step["msg"])
+                self.assertEqual(state.context, context)
+                if context == "jump countdown":
+                    countdown = step["msg"]
+                    expected_detail = ("Galactic jump in 20s" if countdown["kind"] == "galactic"
+                                       else "Jump in 15s")
+                    self.assertEqual(state.details[0], expected_detail)
+                    self.assertEqual(tip(state, self.keymap),
+                                     "Press K again to cancel the countdown.")
+                else:
+                    self.assertEqual(state.details, [])
+                    self.assertEqual(tip(state, self.keymap), "")
 
     def test_every_scenario_step_uses_helper_message_contract(self):
         expected_contexts = {
