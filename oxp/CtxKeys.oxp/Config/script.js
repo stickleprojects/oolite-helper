@@ -105,9 +105,34 @@ this._emitSystems = function (onlyIfChanged) {
 };
 
 this._emitChartTarget = function () {
+	var systemID = player.ship.infoSystem;
+	var info = systemID >= 0 ? System.infoForSystem(galaxyNumber, systemID) : null;
+	var station = system.mainStation;
+	var market = station ? station.market : {};
+	var commodities = Object.keys(market);
+	var selected = null;
+	if (info) {
+		var prices = {};
+		for (var i = 0; i < commodities.length; i++) {
+			prices[commodities[i]] = info.samplePrice(commodities[i]);
+		}
+		selected = {
+			id: info.systemID,
+			name: info.name,
+			distance: system.info.distanceToSystem(info),
+			economy: info.economy,
+			government: info.government,
+			techLevel: info.techlevel,
+			samplePrices: prices
+		};
+	}
 	this._emit("chart_target", {
-		infoSystem: player.ship.infoSystem,
-		targetSystem: player.ship.targetSystem
+		infoSystem: systemID,
+		targetSystem: player.ship.targetSystem,
+		currentSystem: system.ID,
+		system: selected,
+		originMarket: market,
+		manifest: player.ship.manifest.list
 	});
 };
 

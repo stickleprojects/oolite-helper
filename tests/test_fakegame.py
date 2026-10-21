@@ -87,6 +87,51 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(state.fuel, 7)
         self.assertEqual(state.info_system, 8)
         self.assertEqual(state.target_system, 9)
+        self.assertEqual(state.chart_system["name"], "Zaonce")
+        self.assertEqual(state.current_system, 7)
+        self.assertEqual(state.origin_market["food"]["price"], 42)
+
+    def test_chart_advice_estimates_trades_and_nearest_economies(self):
+        state = GameState()
+        state.apply({"type": "gui", "to": "GUI_SCREEN_LONG_RANGE_CHART"})
+        state.apply({
+            "type": "systems",
+            "fuel": 7,
+            "systems": [
+                {"name": "Near Ag", "distance": 2.2, "economy": 5},
+                {"name": "Far Ag", "distance": 6.0, "economy": 4},
+                {"name": "Near Industrial", "distance": 3.1, "economy": 1},
+                {"name": "Out of range", "distance": 7.1, "economy": 0},
+            ],
+        })
+        state.apply({
+            "type": "chart_target",
+            "infoSystem": 42,
+            "targetSystem": 42,
+            "system": {
+                "id": 42, "name": "Target", "distance": 5.5, "economy": 5,
+                "government": 6, "techLevel": 12,
+                "samplePrices": {"food": 900, "computers": 730},
+            },
+            "currentSystem": 7,
+            "originMarket": {"food": {"price": 700, "quantity": 5},
+                             "computers": {"price": 700, "quantity": 5}},
+            "manifest": [
+                {"name": "food", "displayName": "Food", "quantity": 2},
+                {"name": "computers", "displayName": "Computers", "quantity": 1},
+            ],
+        })
+
+        expected = (
+            "Target — 5.5 ly\n"
+            "Rich agricultural · Democracy · Tech level 13\n"
+            "Sell from hold: Food ×2 (90.0 cr/unit, +20.0 vs here), "
+            "Computers ×1 (73.0 cr/unit, +3.0 vs here)\n"
+            "Buy here: Food (+20.0 cr/unit), Computers (+3.0 cr/unit)\n"
+            "Nearest agricultural: Near Ag (2.2 ly)\n"
+            "Nearest industrial: Near Industrial (3.1 ly)"
+        )
+        self.assertEqual(tip(state, self.keymap), expected)
 
     def test_trade_scenario_persists_markets_and_cost_basis(self):
         now = datetime(2026, 10, 21, 7, tzinfo=timezone.utc)

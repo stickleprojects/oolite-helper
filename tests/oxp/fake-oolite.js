@@ -48,7 +48,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/OOCommodityMarket.m
 	// system.name, system.ID, system.info, and system.mainStation:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
-	// SystemInfo.filteredSystems(), SystemInfo.distanceToSystem(),
+	// System.infoForSystem() (OOJSSystem.m), SystemInfo.filteredSystems(), SystemInfo.distanceToSystem(),
 	// SystemInfo.samplePrice(), SystemInfo.systemID, and system-info data:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m
 	// ship.manifest.list:
@@ -150,6 +150,11 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		ID: 7,
 		info: systemInfos[0],
 	});
+	const System = strictObject("System", {
+		infoForSystem(galaxy, id) {
+			return systemInfos.find((info) => info.systemID === id) || null;
+		},
+	});
 	const SystemInfo = strictObject("SystemInfo", {
 		filteredSystems(_this, predicate) {
 			return systemInfos.filter(predicate);
@@ -180,6 +185,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	const world = {
 		player,
 		system,
+		System,
 		SystemInfo,
 		galaxyNumber: 0,
 		clock: strictObject("clock", { seconds: 123456 }),
