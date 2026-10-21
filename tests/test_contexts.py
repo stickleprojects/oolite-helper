@@ -4,7 +4,6 @@ from helper import contexts, plist
 from helper.keys import Keymap
 from helper.state import GameState
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "keyconfig2.plist"
 
 

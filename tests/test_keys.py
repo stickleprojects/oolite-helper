@@ -3,7 +3,6 @@ from pathlib import Path
 
 from helper import keys, plist
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "keyconfig2.plist"
 
 

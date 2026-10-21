@@ -3,7 +3,6 @@ from pathlib import Path
 from helper.state import GameState
 from tests.fakegame import load_scenario
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
