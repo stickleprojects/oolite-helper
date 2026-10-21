@@ -11,6 +11,14 @@ A context-aware keyboard-shortcut helper for the space game Oolite. Two parts:
 
 The full brief is in [PROMPT.md](PROMPT.md). Read it before making design changes.
 
+## Future direction
+
+If the key helper works out, it may grow into a fuller HUD with extra game info (for example ship status, target details or system data). Design so that's easy to add:
+
+- Log messages are tagged JSON lines, e.g. `CTXKEYS {"type":"context","value":"near_station"}`, so new message types can be added without changing the parser.
+- The window is made of panels. The key list is just the first one.
+- The log only suits event-driven or low-rate updates (around once a second at most), because every message stays in `Latest.log`.
+
 ## Environment
 
 - Oolite 1.92.1 AppImage: `~/Games/Oolite/oolite-1.92.1-x86_64.AppImage`
