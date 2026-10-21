@@ -171,7 +171,9 @@ font_scale = 0.9
 
 That example gives a strip down the right-hand third of a big monitor. The number of key columns (one to three) follows the window width. In a single column, the last sections may run off the bottom of a short window; they're ordered most important first.
 
-Each setting has a matching command-line option that overrides the file: `--screen`, `--width`, `--height`, `--anchor`, `--margin`, `--font-scale`. Use `--geometry WxH+X+Y` for exact placement.
+`layout = "compact"` shrinks the text and spacing to 60% and allows up to 6 key columns, so more panels fit; `font_scale` adjusts either layout further.
+
+Each setting has a matching command-line option that overrides the file: `--screen`, `--width`, `--height`, `--anchor`, `--margin`, `--layout`, `--font-scale`. Use `--geometry WxH+X+Y` for exact placement.
 
 ```bash
 .venv/bin/oolite-helper --list-screens
