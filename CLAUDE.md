@@ -22,7 +22,9 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
   - [maikschulz/oolite-mqtt-bridge](https://github.com/maikschulz/oolite-mqtt-bridge): the same pattern, with a Node server and the framing of the message packets (4-byte big-endian length, then a plist packet).
   - [OoliteProject/oolite-debug-console](https://github.com/OoliteProject/oolite-debug-console): the reference Python implementation of the protocol.
 
-  `_emit` should prefer `debugConsole` when it exists and fall back to `log()`.
+  `_emit` already prefers `debugConsole` when it exists and falls back to `log()`.
+
+  Upstream may make the test build unnecessary: OoliteProject/oolite PR #756 enables the debug console in release builds, and our feature request OoliteProject/oolite#770 asks for a proper read-only telemetry feed.
 
 ### Steps
 
@@ -30,7 +32,10 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
 2. ✅ Minimal add-on: `[ctxkeys]` lines appear in `Latest.log`.
 3. ✅ Helper window that follows the log ([helper/](helper/)). `sources.LogSource.poll()` is the interface a TCP source will implement later; `state.GameState` turns messages into a context.
 4. ✅ Key lists. On startup, [helper/keys.py](helper/keys.py) extracts `keyconfig2.plist` and `descriptions.plist` from the AppImage into `~/.cache/oolite-helper/` (refreshed when the AppImage changes). It then applies the `keyboard-code` layout and `KeyConfigOverrides` from `Settings/OoliteDefaults.plist`. [helper/plist.py](helper/plist.py) parses the OpenStep plists. [helper/contexts.py](helper/contexts.py) lists only action names per context; keys and wording always come from the files.
-5. ⏳ Near station, red alert and jump countdown (add-on v0.2: aegis, alert, clearance, autopilot and countdown events). Tested with fake messages; a live check in the game is still needed. Precedence in `GameState.context`: docked > menu > jump countdown > red alert > near station > flying.
+5. ✅ Near station, red alert and jump countdown (aegis, alert, clearance with a 1 s check for `TIMING_OUT`, autopilot and countdown events). Verified in play. Precedence in `GameState.context`: docked > menu > jump countdown > red alert > near station > flying.
+6. ✅ Tests and CI (#6): fake game (`tests/fakegame.py`, `scenarios/`), fake Oolite (`tests/oxp/`), pytest suite, and CI with required checks. The code review is on #12; follow-ups #26 (key remaps, high) and #27 (robustness).
+7. ⏳ Trade advisor (#17): add-on market/trade/systems/chart messages (#18, done); market memory (#19); interactive trade browser (#20); chart advice (#21).
+8. Later: HUD panels, on top of phase 2.
 
 ### Game facts checked in the 1.92.1 source
 
@@ -38,8 +43,9 @@ These are cited in `contexts.py` TIPS/ACTION_NOTES:
 - The docking clearance key asks the **primary target** (`performDockingRequest:primeTarget`), so the station must be targeted first. Some stations don't require clearance (`requiresDockingClearance`).
 - Pressing the hyperspace key during a countdown cancels it.
 - `key_docking_music` shares `s` with decrease thrust; it's only read in `pollAutopilotControls`, i.e. while the docking computer is on.
-- Properties: `player.alertCondition`, `player.dockingClearanceStatus`, `player.ship.withinStationAegis`, `player.ship.viewDirection`, `station.requiresDockingClearance`.
-6. Later: the HUD panels, on top of phase 2.
+- Properties: `player.alertCondition`, `player.dockingClearanceStatus`, `player.ship.withinStationAegis`, `player.ship.viewDirection`, `station.requiresDockingClearance`; for trading, `station.market`, `player.ship.manifest.list`, `systemInfo.samplePrice()`, `galaxyNumber`, `clock.seconds`.
+- **In-game key remaps** are saved in `KeyConfigOverrides` with a **numeric `key`** and `shift`/`mod1`/`mod2` as `1`/`0` (e.g. `key = 34; mod1 = 1;` is Ctrl+`"`). Codes: < 256 = character; 256–266 F1–F11; 267–270 Right/Left/Down/Up; 271 Pause; 272 Print Screen; 303–309 Home/End/Insert/Delete/PgUp/PgDn/Backspace; 310–326 numpad (`src/SDL/MyOpenGLView.h`). The helper doesn't handle this yet: #26.
+- The highlighted market row (`marketSelectedCommodity`) is **not** exposed to scripts.
 
 ### Event handlers
 
@@ -70,7 +76,8 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 
 ## Rules
 
-- **Python runs from the project venv**, `.venv/` (gitignored, built from the system Python for Tkinter). Install with `.venv/bin/pip install -e .`, run with `.venv/bin/oolite-helper`, and add any dependencies to `pyproject.toml`.
+- **Python runs from the project venv**, `.venv/` (gitignored, built from the system Python for Tkinter). Install with `.venv/bin/pip install -e ".[dev]"`, run with `.venv/bin/oolite-helper`, and add any dependencies to `pyproject.toml`.
+- **The repo is on NTFS (`core.fileMode=false`)**, so git never records the executable bit. For a script that must be executable, run `git update-index --chmod=+x <file>`.
 
 - **Key bindings come from the game's files, never from memory.** Extract the AppImage (`--appimage-extract`) into a scratch folder, not into this repo, then read `keyconfig*.plist` and any user overrides (check `Settings/OoliteDefaults.plist`).
 - **Build in small, verified steps.** The game has to be run by Kieron, so ask them to run it and then check the log.
@@ -79,6 +86,14 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 ## Git workflow
 
 - **Never commit to `main`.** It's protected for everyone, admins included: changes go in only through pull requests, with no force-pushes. Start each change on a branch from an up-to-date `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`), push it, and open a PR with `gh pr create`. Reference issues with `Closes #N`.
-- Kieron merges PRs (0 approvals are required). After a merge: `git checkout main && git pull --ff-only`, then delete the local branch.
+- Kieron merges PRs (0 approvals are required), or tells Claude to. After a merge: `git checkout main && git pull --ff-only && git fetch --prune`, then delete the local branch.
 - Commits use the noreply address set in this repo's git config, so don't change `user.email`.
-- Once CI exists (#6), it must pass before merging.
+- **CI is required** (`.github/workflows/ci.yml`): 7 checks (Python 3.11/3.12/3.13, Lint, Add-on Node 20/22, Shell), and **strict**, so a PR must be up to date with `main`. Run the same checks locally before pushing (see CONTRIBUTING.md).
+- If `gh pr merge` fails with "part of a stack", use `gh api -X PUT repos/stickleprojects/oolite-helper/pulls/N/merge-async -f merge_method=squash -f merge_action=direct_merge`, then poll `.../merge-async/<details.uuid>` until `merged`.
+
+## Working with Copilot
+
+Some issues are assigned to GitHub Copilot's coding agent (`.github/copilot-instructions.md` and `copilot-setup-steps.yml` set it up). Copilot credits are limited, so Claude does most new work.
+- Assign through GraphQL `replaceActorsForAssignable` with the `copilot-swe-agent` bot id from `suggestedActors`. Assign a dependent issue only after **verifying** its blocker's PR shows MERGED, because Copilot branches from `main` immediately.
+- Put scope guidance in the **issue** before assigning. Never `@copilot` on a PR still marked [WIP]: it creates a stacked sub-PR. Send one batched review per finished PR; push small fixes yourself.
+- Review every Copilot PR **after merging `main` into it locally**, running all checks, and checking the API use against the 1.92.1 source. Copilot doesn't know `ruff.toml`, so `ruff check --fix` usually needs pushing to its branch.
