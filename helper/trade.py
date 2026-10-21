@@ -35,50 +35,76 @@ def chart_advice(state):
     government_name = (GOVERNMENTS[government] if isinstance(government, int)
                        and 0 <= government < len(GOVERNMENTS)
                        else f"Government {government}")
+    tech = selected.get("techLevel")
+    # techlevel is 0-based; the game shows it plus one (PlayerEntity.m, system data screen)
+    tech_text = tech + 1 if isinstance(tech, int) else "?"
+    current = selected.get("id") is not None and selected.get("id") == state.current_system
+    where = "current system" if current else f"{selected.get('distance') or 0:.1f} ly"
     lines = [
-        f"{selected.get('name', 'Selected system')} — "
-        f"{selected.get('distance', 0):.1f} ly",
-        f"{economy_name} · {government_name} · "
-        f"Tech level {selected.get('techLevel', '?')}",
+        f"{selected.get('name', 'Selected system')} — {where}",
+        f"{economy_name} · {government_name} · Tech level {tech_text}",
     ]
 
-    estimates = selected.get("samplePrices") or {}
-    origin_prices = state.origin_prices or {}
+    if not current:
+        lines += _trade_lines(state, selected.get("samplePrices") or {})
+    lines += _nearest_lines(state)
+    return "\n".join(lines)
+
+
+def _trade_lines(state, estimates):
+    market = state.origin_market or {}
+
+    def local_price(commodity):
+        entry = market.get(commodity)
+        return entry.get("price") if isinstance(entry, dict) else None
+
     held = []
     for cargo in state.manifest or []:
         commodity = cargo.get("name")
         destination_price = estimates.get(commodity)
-        origin_price = origin_prices.get(commodity)
         if destination_price is None:
             continue
-        margin = (destination_price - origin_price) if origin_price is not None else None
+        origin_price = local_price(commodity)
+        margin = destination_price - origin_price if origin_price is not None else None
         if margin is not None and margin <= 0:
             continue
-        held.append((destination_price, cargo, margin))
+        quantity = cargo.get("quantity", 0)
+        # Best total profit first; cargo with no local price to compare goes last.
+        rank = (margin is not None, (margin or destination_price) * quantity)
+        held.append((rank, cargo, destination_price, margin))
     held.sort(key=lambda item: item[0], reverse=True)
-    lines.append("Sell from hold: " + (
+    lines = ["Sell from hold: " + (
         ", ".join(_cargo_estimate(cargo, price, margin)
-                  for price, cargo, margin in held[:3])
+                  for _, cargo, price, margin in held[:3])
         if held else "no higher estimated prices"
-    ))
+    )]
 
     buys = []
     for commodity, destination_price in estimates.items():
-        origin_price = origin_prices.get(commodity)
+        entry = market.get(commodity)
+        if not isinstance(entry, dict) or not entry.get("quantity"):
+            continue  # out of stock here
+        origin_price = entry.get("price")
         if origin_price is not None and destination_price > origin_price:
-            buys.append((destination_price - origin_price, commodity))
+            illegal = bool(entry.get("legality_export") or entry.get("legality_import"))
+            buys.append((destination_price - origin_price, commodity, illegal))
     buys.sort(reverse=True)
     lines.append("Buy here: " + (
         ", ".join(
-            f"{commodity.replace('_', ' ').title()} (+{_credits(margin)} cr/unit)"
-            for margin, commodity in buys[:3]
+            f"{commodity.replace('_', ' ').title()} (+{_credits(margin)} cr/unit"
+            f"{', illegal' if illegal else ''})"
+            for margin, commodity, illegal in buys[:3]
         ) if buys else "no higher estimated prices"
     ))
+    return lines
 
+
+def _nearest_lines(state):
     reachable = [
         system for system in state.systems
         if state.fuel is not None and system.get("distance", state.fuel + 1) <= state.fuel
     ]
+    lines = []
     for label, predicate in (
         ("Agricultural", lambda value: isinstance(value, int) and 4 <= value <= 7),
         ("Industrial", lambda value: isinstance(value, int) and 0 <= value <= 3),
@@ -92,8 +118,7 @@ def chart_advice(state):
         else:
             world = "none in range"
         lines.append(f"Nearest {label.lower()}: {world}")
-
-    return "\n".join(lines)
+    return lines
 
 
 def _cargo_estimate(cargo, destination_price, margin):

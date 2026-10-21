@@ -34,7 +34,8 @@ class GameState:
         self.info_system = None
         self.target_system = None
         self.chart_system = None
-        self.origin_prices = {}
+        self.current_system = None
+        self.origin_market = {}
 
     def apply(self, msg):
         kind = msg.get("type")
@@ -91,7 +92,8 @@ class GameState:
             self.info_system = msg.get("infoSystem")
             self.target_system = msg.get("targetSystem")
             self.chart_system = msg.get("system")
-            self.origin_prices = msg.get("originPrices", {})
+            self.current_system = msg.get("currentSystem")
+            self.origin_market = msg.get("originMarket") or {}
             self.manifest = msg.get("manifest", self.manifest)
         elif kind == "closed":
             self.reset()
