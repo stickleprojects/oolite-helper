@@ -29,6 +29,14 @@ SANS = "DejaVu Sans"
 MONO = "DejaVu Sans Mono"
 
 
+def should_quit_for_messages(messages, first_poll, quit_with_game=True):
+    """Whether a close message is a live exit rather than old log replay."""
+    replay = first_poll or any(m.get("type") == "session" for m in messages)
+    return quit_with_game and not replay and any(
+        m.get("type") == "closed" for m in messages
+    )
+
+
 class HelperWindow:
     def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0):
         self.root = root
@@ -92,15 +100,15 @@ class HelperWindow:
 
     def tick(self):
         messages = self.source.poll()
-        # A "closed" read along with the file it came in (first read of a newly
-        # opened log) is an old game's ending, not a live exit.
-        replay = self.first_poll or any(m.get("type") == "session" for m in messages)
+        quit_for_game = should_quit_for_messages(
+            messages, self.first_poll, self.quit_with_game
+        )
         for msg in messages:
             self.market_store.apply(msg)
             msg.pop("_source_id", None)
             self.state.apply(msg)
             self.last_message = json.dumps(msg)
-            if msg.get("type") == "closed" and self.quit_with_game and not replay:
+            if msg.get("type") == "closed" and quit_for_game:
                 self.root.destroy()
                 return
         self.first_poll = False
@@ -120,7 +128,7 @@ class HelperWindow:
         if market_age:
             lines.append(f"Market prices: {market_age}")
         self.shown_market_age = market_age
-        self.detail_label.config(text="\n".join(l for l in lines if l))
+        self.detail_label.config(text="\n".join(line for line in lines if line))
         tip_text = tip(self.state, self.keymap) if self.keymap else ""
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
         self.status_label.config(text=self.keymap_error or self.last_message)

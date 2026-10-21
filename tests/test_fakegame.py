@@ -10,7 +10,6 @@ from helper.sources import LogSource
 from helper.state import GameState
 from tests.fakegame import LogWriter, load_scenario, run_scenario
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

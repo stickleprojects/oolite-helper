@@ -154,7 +154,7 @@ Issues and pull requests are welcome. `main` is protected, so every change, incl
 2. Make your change on a branch, e.g. `fix/separator`.
 3. Open a pull request against `main` and describe what changed and how you tested it.
 
-Automated checks on every PR are coming in [#6](https://github.com/stickleprojects/oolite-helper/issues/6).
+Every pull request runs CI (pytest on Python 3.11–3.13, ruff, the add-on tests on Node 20 and 22, and shellcheck), and the checks must pass before merging. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run them locally.
 
 ## License
 

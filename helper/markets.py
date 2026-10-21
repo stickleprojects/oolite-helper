@@ -1,12 +1,11 @@
 """Persist market snapshots and the player's average commodity cost basis."""
 
-from datetime import datetime, timezone
 import json
 import math
 import os
-from pathlib import Path
 import tempfile
-
+from datetime import datetime, timezone
+from pathlib import Path
 
 PATH = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) \
     / "oolite-helper" / "markets.json"
