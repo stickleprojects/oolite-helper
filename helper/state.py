@@ -15,6 +15,7 @@ class GameState:
         self.gui = None
         self.view = None
         self.game_closed = False
+        self.died = None  # the "died" message until a game is loaded
         self.alert = None
         self.in_aegis = False
         self.station = None
@@ -41,7 +42,11 @@ class GameState:
         kind = msg.get("type")
         if kind in ("session", "hello"):  # new log file / game loaded
             self.reset()
+        elif kind == "died":
+            self.reset()
+            self.died = msg
         elif kind == "ready":
+            self.died = None
             self.docked = msg.get("docked")
             self.view = msg.get("view")
             self.alert = msg.get("alert")
@@ -113,6 +118,8 @@ class GameState:
     def context(self):
         if self.game_closed:
             return "game not running"
+        if self.died is not None:
+            return "ship destroyed"
         if self.docked is None:
             return "waiting for game"
         if self.docked:
@@ -131,6 +138,10 @@ class GameState:
     def details(self):
         """Short status notes for the header, e.g. clearance and autopilot."""
         notes = []
+        if self.died is not None:
+            by, cause = self.died.get("by"), self.died.get("cause")
+            text = f"Destroyed by {by}" if by else "Destroyed"
+            notes.append(f"{text} ({cause})" if cause else text)
         if self.countdown_left is not None:
             jump = "Galactic jump" if self.countdown_kind == "galactic" else "Jump"
             notes.append(f"{jump} in {self.countdown_left:.0f}s")

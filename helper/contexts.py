@@ -190,6 +190,9 @@ TIPS = {
     "the station first ({key_ident_system} with it ahead, or {key_next_target}).",
     # The hyperspace key during a countdown calls cancelWitchspaceCountdown.
     "jump countdown": "Press {key_hyperspace} again to cancel the countdown.",
+    # pollGameOverControls checks Space directly (not a key binding); after
+    # kDeadResetTime (30 s) handleGameOver reloads the last save anyway.
+    "ship destroyed": "Press Space, or wait 30 seconds, and the game reloads your last save.",
 }
 
 

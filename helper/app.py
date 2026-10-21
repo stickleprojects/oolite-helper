@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import tkinter as tk
+import traceback
 
 from . import config
 from .contexts import ACTION_NOTES, sections, tip
@@ -47,9 +48,11 @@ class HelperWindow:
         self.first_poll = True
         self.state = GameState()
         self.market_store = MarketStore()
+        self.notice = self.market_store.load_error  # shown until the game sends something
         self.shown_market_age = None
         self.shown = None  # sections currently drawn
         self.last_message = ""
+        self.error = None  # last unexpected error, shown until messages flow again
 
         try:
             self.keymap = load_keymap()
@@ -105,15 +108,35 @@ class HelperWindow:
         return (family, max(6, round(size * self.scale)), *style)
 
     def tick(self):
+        # Any unexpected error is reported and polling carries on: stopping here
+        # would leave the window showing stale information with no sign why.
+        try:
+            if not self.poll_once():
+                return  # the game closed and the window went with it
+        except Exception as exc:
+            self.report(exc)
+            self.status_label.config(text=self.status_text())
+        self.root.after(POLL_MS, self.tick)
+
+    def poll_once(self):
+        """Read and apply new messages and redraw; False once the window is gone."""
         messages = self.source.poll()
         quit_for_game = should_quit_for_messages(messages, self.first_poll, self.quit_with_game)
+        applied = False
         for msg in messages:
-            self.market_store.apply(msg)
-            self.state.apply(msg)
+            try:
+                self.market_store.apply(msg)
+                self.state.apply(msg)
+            except Exception as exc:  # one bad message mustn't drop the rest
+                self.report(exc, msg)
+                continue
+            applied = True
             self.last_message = json.dumps(msg)
             if msg.get("type") == "closed" and quit_for_game:
                 self.root.destroy()
-                return
+                return False
+        if applied:
+            self.error = self.notice = None
         self.first_poll = False
         if (
             messages
@@ -121,12 +144,26 @@ class HelperWindow:
             or self.market_store.price_age != self.shown_market_age
         ):
             self.render()
-        self.root.after(POLL_MS, self.tick)
+        return True
+
+    def report(self, exc, msg=None):
+        error = f"{type(exc).__name__}: {exc}"
+        if error != self.error:  # once per distinct error, not every tick
+            print(
+                f"oolite-helper: {error}" + (f" (message: {msg})" if msg else ""), file=sys.stderr
+            )
+            traceback.print_exc()
+        self.error = error
+
+    def status_text(self):
+        if self.error:
+            return f"Error (still running): {self.error}"
+        return self.keymap_error or self.notice or self.last_message
 
     def render(self):
         context = self.state.context
         self.context_label.config(
-            text=context.upper(), fg=RED if context == "red alert" else ACCENT
+            text=context.upper(), fg=RED if context in ("red alert", "ship destroyed") else ACCENT
         )
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
@@ -138,7 +175,7 @@ class HelperWindow:
         self.detail_label.config(text="\n".join(line for line in lines if line))
         tip_text = tip(self.state, self.keymap)
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
-        self.status_label.config(text=self.keymap_error or self.last_message)
+        self.status_label.config(text=self.status_text())
 
         wanted = sections(self.state) if self.keymap else []
         if wanted != self.shown:

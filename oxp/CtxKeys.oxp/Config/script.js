@@ -293,6 +293,19 @@ this.shipScoopedFuel = function () {
 	this._emitSystems(true);
 };
 
+/* Death */
+
+// PlayerEntity getDestroyedBy: fires shipDied(whom, damageType) through
+// noteKilledBy: before the game-over screen. The game then reloads the last
+// save (handleGameOver), which runs startUp again, so "hello" ends this state.
+this.shipDied = function (whom, why) {
+	this._watchClearance(false);
+	this._emit("died", {
+		cause: why || null,
+		by: whom ? (whom.displayName || whom.name || null) : null
+	});
+};
+
 this.infoSystemChanged = function () {
 	this._emitChartTarget();
 };
