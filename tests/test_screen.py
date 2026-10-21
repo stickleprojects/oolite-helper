@@ -11,7 +11,8 @@ def test_list_monitors_parses_primary_and_negative_offsets(monkeypatch):
  1: +eDP-1 1600/345x900/194+-1600+-200  eDP-1
 """
     monkeypatch.setattr(
-        screen.subprocess, "run",
+        screen.subprocess,
+        "run",
         lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, output, ""),
     )
     monitors = screen.list_monitors()
@@ -61,7 +62,8 @@ def test_choose_monitor_named_default_fallback_and_error():
 
 def test_list_monitors_handles_xrandr_errors(monkeypatch):
     for error in (OSError("not installed"), subprocess.CalledProcessError(1, "xrandr")):
-        def fail(*args, **kwargs):
+
+        def fail(*args, error=error, **kwargs):
             raise error
 
         monkeypatch.setattr(screen.subprocess, "run", fail)

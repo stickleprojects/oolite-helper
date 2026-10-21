@@ -17,10 +17,14 @@ class FakeClock:
 def test_context_precedence_from_docked_to_flying():
     state = GameState()
     state.apply({"type": "ready", "docked": False, "alert": 3})
-    state.apply({
-        "type": "aegis", "inside": True, "station": "Lave Station",
-        "requiresClearance": True,
-    })
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "station": "Lave Station",
+            "requiresClearance": True,
+        }
+    )
     assert state.context == "red alert"
 
     state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
@@ -33,10 +37,14 @@ def test_context_precedence_from_docked_to_flying():
     assert state.context == "menu"
     state.apply({"type": "gui", "to": "GUI_SCREEN_MAIN"})
     assert state.context == "red alert"
-    state.apply({
-        "type": "aegis", "inside": True, "station": "Lave Station",
-        "requiresClearance": True,
-    })
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "station": "Lave Station",
+            "requiresClearance": True,
+        }
+    )
     state.apply({"type": "alert", "level": 1})
     assert state.context == "near station"
     state.apply({"type": "aegis", "inside": False})
@@ -67,17 +75,27 @@ def test_session_hello_and_closed_reset_state():
 def test_clearance_details_and_station_without_clearance():
     state = GameState()
     state.apply({"type": "ready", "docked": False})
-    state.apply({
-        "type": "aegis", "inside": True, "station": "Lave Station",
-        "requiresClearance": True, "clearance": "DOCKING_CLEARANCE_STATUS_GRANTED",
-    })
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "station": "Lave Station",
+            "requiresClearance": True,
+            "clearance": "DOCKING_CLEARANCE_STATUS_GRANTED",
+        }
+    )
     state.apply({"type": "autopilot", "on": True})
     assert state.details == ["Clearance: granted", "Docking computer on"]
 
-    state.apply({
-        "type": "aegis", "inside": True, "station": "Outpost",
-        "requiresClearance": False, "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
-    })
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "station": "Outpost",
+            "requiresClearance": False,
+            "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
+        }
+    )
     assert state.details == ["Outpost: clearance not required", "Docking computer on"]
 
 
@@ -99,20 +117,37 @@ def test_countdown_uses_injected_clock_and_stops_at_zero():
 def test_fake_game_scenarios_drive_expected_contexts():
     expected = {
         "combat": ["flying", "red alert", "flying"],
-        "docking": ["docked", "flying", "near station", "near station",
-                    "near station", "near station", "near station", "docked"],
-        "jump": ["flying", "menu", "flying", "jump countdown", "flying",
-                 "jump countdown", "flying", "flying"],
+        "docking": [
+            "docked",
+            "flying",
+            "near station",
+            "near station",
+            "near station",
+            "near station",
+            "near station",
+            "docked",
+        ],
+        "jump": [
+            "flying",
+            "menu",
+            "flying",
+            "jump countdown",
+            "flying",
+            "jump countdown",
+            "flying",
+            "flying",
+        ],
         "menus": ["flying", "menu", "menu", "flying", "flying"],
         "restart": ["flying", "red alert", "docked", "docked"],
     }
     for name, contexts in expected.items():
         state = GameState()
         messages = [
-            step["msg"] for step in load_scenario(ROOT / "scenarios" / f"{name}.yaml")
+            step["msg"]
+            for step in load_scenario(ROOT / "scenarios" / f"{name}.yaml")
             if "msg" in step
         ]
         assert len(messages) == len(contexts)
-        for message, context in zip(messages, contexts):
+        for message, context in zip(messages, contexts, strict=True):
             state.apply(message)
             assert state.context == context, (name, message)

@@ -4,11 +4,14 @@ import json
 import math
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-PATH = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) \
-    / "oolite-helper" / "markets.json"
+PATH = (
+    Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    / "oolite-helper"
+    / "markets.json"
+)
 MAX_TRADE_EVENTS = 500
 MAX_MARKET_EVENTS = 500
 
@@ -16,7 +19,7 @@ MAX_MARKET_EVENTS = 500
 class MarketStore:
     def __init__(self, path=PATH, now=None):
         self.path = Path(path)
-        self.now = now or (lambda: datetime.now(timezone.utc))
+        self.now = now or (lambda: datetime.now(UTC))
         self.data = {"version": 1, "markets": [], "cost_basis": {}}
         if self.path.exists():
             with self.path.open(encoding="utf-8") as file:
@@ -29,10 +32,13 @@ class MarketStore:
         self.data.setdefault("cost_basis", {})
         self.data.pop("source_events", None)
         self.data["market_events"] = self.data.get("market_events", [])[-MAX_MARKET_EVENTS:]
-        self.data["markets"] = list({
-            self._market_location(market): market for market in self.data["markets"]
-            if isinstance(market, dict)
-        }.values())
+        self.data["markets"] = list(
+            {
+                self._market_location(market): market
+                for market in self.data["markets"]
+                if isinstance(market, dict)
+            }.values()
+        )
         self.data["trade_events"] = self.data.get("trade_events", [])[-MAX_TRADE_EVENTS:]
         if self.path.exists() and (
             previous_markets != self.data["markets"]
@@ -59,15 +65,21 @@ class MarketStore:
         if event_key in self.data["market_events"]:
             return
         location = identity[:3]
-        existing = next((market for market in self.data["markets"]
-                         if self._market_location(market) == location), None)
+        existing = next(
+            (
+                market
+                for market in self.data["markets"]
+                if self._market_location(market) == location
+            ),
+            None,
+        )
         snapshot = {
             "galaxy": message.get("galaxy"),
             "system_id": message.get("systemID"),
             "system_name": message.get("systemName"),
             "game_clock": message.get("gameClock"),
             "station": message.get("station"),
-            "seen_at": self.now().astimezone(timezone.utc).isoformat(),
+            "seen_at": self.now().astimezone(UTC).isoformat(),
             "prices": message["market"],
         }
         if existing:
@@ -81,8 +93,12 @@ class MarketStore:
 
     @staticmethod
     def _market_identity(message):
-        values = (message.get("galaxy"), message.get("systemID"),
-                  message.get("station"), message.get("gameClock"))
+        values = (
+            message.get("galaxy"),
+            message.get("systemID"),
+            message.get("station"),
+            message.get("gameClock"),
+        )
         return values if all(value is not None for value in values) else None
 
     @staticmethod
@@ -115,9 +131,15 @@ class MarketStore:
         units = message.get("units")
         price = message.get("price")
         event_key = self._trade_identity(message)
-        if not isinstance(commodity, str) or not commodity \
-                or not self._valid_number(units) or units <= 0 \
-                or not self._valid_number(price) or price < 0 or event_key is None:
+        if (
+            not isinstance(commodity, str)
+            or not commodity
+            or not self._valid_number(units)
+            or units <= 0
+            or not self._valid_number(price)
+            or price < 0
+            or event_key is None
+        ):
             return
         if event_key in self.data["trade_events"]:
             return
@@ -154,9 +176,15 @@ class MarketStore:
 
     @staticmethod
     def _trade_identity(message):
-        values = (message.get("type"), message.get("galaxy"), message.get("systemID"),
-                  message.get("gameClock"), message.get("commodity"), message.get("units"),
-                  message.get("price"))
+        values = (
+            message.get("type"),
+            message.get("galaxy"),
+            message.get("systemID"),
+            message.get("gameClock"),
+            message.get("commodity"),
+            message.get("units"),
+            message.get("price"),
+        )
         if any(value is None for value in values):
             return None
         return json.dumps(values, separators=(",", ":"), ensure_ascii=False)
@@ -168,8 +196,9 @@ class MarketStore:
 
     @staticmethod
     def _valid_number(value):
-        return isinstance(value, (int, float)) and not isinstance(value, bool) \
-            and math.isfinite(value)
+        return (
+            isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+        )
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -188,9 +217,8 @@ class MarketStore:
         if not self.data["markets"]:
             return None
         try:
-            seen = max(datetime.fromisoformat(market["seen_at"])
-                       for market in self.data["markets"])
-            now = self.now().astimezone(timezone.utc)
+            seen = max(datetime.fromisoformat(market["seen_at"]) for market in self.data["markets"])
+            now = self.now().astimezone(UTC)
             seconds = max(0, int((now - seen).total_seconds()))
         except (KeyError, TypeError, ValueError):
             return None

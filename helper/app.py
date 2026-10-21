@@ -32,9 +32,7 @@ MONO = "DejaVu Sans Mono"
 def should_quit_for_messages(messages, first_poll, quit_with_game=True):
     """Whether a close message is a live exit rather than old log replay."""
     replay = first_poll or any(m.get("type") == "session" for m in messages)
-    return quit_with_game and not replay and any(
-        m.get("type") == "closed" for m in messages
-    )
+    return quit_with_game and not replay and any(m.get("type") == "closed" for m in messages)
 
 
 class HelperWindow:
@@ -73,15 +71,23 @@ class HelperWindow:
         self.context_label = tk.Label(header, font=self.font(SANS, 44, "bold"), fg=ACCENT, bg=BG)
         narrow = self.columns == 1  # stack the details under the heading
         self.context_label.pack(side="top" if narrow else "left", anchor="w")
-        self.detail_label = tk.Label(header, font=self.font(SANS, 20), fg=DIM, bg=BG,
-                                     justify="left" if narrow else "right")
+        self.detail_label = tk.Label(
+            header, font=self.font(SANS, 20), fg=DIM, bg=BG, justify="left" if narrow else "right"
+        )
         if narrow:
             self.detail_label.pack(side="top", anchor="w")
         else:
             self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
 
-        self.tip_label = tk.Label(root, font=self.font(SANS, 20), fg=FG, bg=BG, anchor="w",
-                                  justify="left", wraplength=width - 80)
+        self.tip_label = tk.Label(
+            root,
+            font=self.font(SANS, 20),
+            fg=FG,
+            bg=BG,
+            anchor="w",
+            justify="left",
+            wraplength=width - 80,
+        )
         self.tip_label.pack(fill="x", padx=40)
 
         self.body = tk.Frame(root, bg=BG)
@@ -100,9 +106,7 @@ class HelperWindow:
 
     def tick(self):
         messages = self.source.poll()
-        quit_for_game = should_quit_for_messages(
-            messages, self.first_poll, self.quit_with_game
-        )
+        quit_for_game = should_quit_for_messages(messages, self.first_poll, self.quit_with_game)
         for msg in messages:
             self.market_store.apply(msg)
             self.state.apply(msg)
@@ -111,15 +115,19 @@ class HelperWindow:
                 self.root.destroy()
                 return
         self.first_poll = False
-        if messages or self.state.countdown_left is not None \
-                or self.market_store.price_age != self.shown_market_age:
+        if (
+            messages
+            or self.state.countdown_left is not None
+            or self.market_store.price_age != self.shown_market_age
+        ):
             self.render()
         self.root.after(POLL_MS, self.tick)
 
     def render(self):
         context = self.state.context
-        self.context_label.config(text=context.upper(),
-                                  fg=RED if context == "red alert" else ACCENT)
+        self.context_label.config(
+            text=context.upper(), fg=RED if context == "red alert" else ACCENT
+        )
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
         lines = ["    ".join(self.state.details), f"Screen: {screen}    View: {view}"]
@@ -142,31 +150,51 @@ class HelperWindow:
             child.destroy()
         for i, (title, actions) in enumerate(wanted):
             panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
-            panel.grid(row=i // self.columns, column=i % self.columns, sticky="new",
-                       padx=12, pady=12)
-            tk.Label(panel, text=title.upper(), font=self.font(SANS, 16, "bold"), fg=DIM,
-                     bg=PANEL, anchor="w").grid(row=0, column=0, columnspan=2, sticky="w",
-                                                pady=(0, 6))
+            panel.grid(
+                row=i // self.columns, column=i % self.columns, sticky="new", padx=12, pady=12
+            )
+            tk.Label(
+                panel,
+                text=title.upper(),
+                font=self.font(SANS, 16, "bold"),
+                fg=DIM,
+                bg=PANEL,
+                anchor="w",
+            ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
             row = 1
             for action in actions:
                 keys = self.keymap.keys(action)
                 if not keys:
                     continue  # unbound in this setup
-                tk.Label(panel, text=keys, font=self.font(MONO, 20, "bold"), fg=ACCENT, bg=PANEL,
-                         anchor="w").grid(row=row, column=0, sticky="w", padx=(0, 18))
+                tk.Label(
+                    panel,
+                    text=keys,
+                    font=self.font(MONO, 20, "bold"),
+                    fg=ACCENT,
+                    bg=PANEL,
+                    anchor="w",
+                ).grid(row=row, column=0, sticky="w", padx=(0, 18))
                 text = self.keymap.describe(action)
                 if action in ACTION_NOTES:
                     text += f" ({ACTION_NOTES[action]})"
-                tk.Label(panel, text=text, font=self.font(SANS, 20), fg=FG, bg=PANEL,
-                         anchor="w", justify="left", wraplength=self.desc_wrap
-                         ).grid(row=row, column=1, sticky="w")
+                tk.Label(
+                    panel,
+                    text=text,
+                    font=self.font(SANS, 20),
+                    fg=FG,
+                    bg=PANEL,
+                    anchor="w",
+                    justify="left",
+                    wraplength=self.desc_wrap,
+                ).grid(row=row, column=1, sticky="w")
                 row += 1
 
 
 def single_instance_lock():
     """Hold an exclusive lock for the life of the process; None if another helper has it."""
-    path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()),
-                        "oolite-helper.lock")
+    path = os.path.join(
+        os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "oolite-helper.lock"
+    )
     f = open(path, "w")
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -179,15 +207,17 @@ def single_instance_lock():
 def main():
     parser = argparse.ArgumentParser(
         description="Context-aware key helper for Oolite.",
-        epilog=f"Window settings can also go in {config.PATH} (see README).")
+        epilog=f"Window settings can also go in {config.PATH} (see README).",
+    )
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
-    parser.add_argument("--stay", action="store_true",
-                        help="keep running when the game exits")
-    parser.add_argument("--list-screens", action="store_true",
-                        help="list the monitors xrandr reports and exit")
+    parser.add_argument("--stay", action="store_true", help="keep running when the game exits")
+    parser.add_argument(
+        "--list-screens", action="store_true", help="list the monitors xrandr reports and exit"
+    )
     win = parser.add_argument_group("window placement (overrides the config file)")
-    win.add_argument("--screen", help="monitor name from --list-screens "
-                                      "(default: first non-primary monitor)")
+    win.add_argument(
+        "--screen", help="monitor name from --list-screens (default: first non-primary monitor)"
+    )
     win.add_argument("--width", help="pixels or percent of the screen, e.g. 40%%")
     win.add_argument("--height", help="pixels or percent of the screen")
     win.add_argument("--anchor", choices=ANCHORS, help="where on the screen to sit")
@@ -202,19 +232,28 @@ def main():
             print(m)
         return
 
-    settings = config.load_window_settings(overrides={
-        "screen": args.screen, "width": args.width, "height": args.height,
-        "anchor": args.anchor, "margin": args.margin, "font_scale": args.font_scale,
-        "geometry": args.geometry,
-    })
+    settings = config.load_window_settings(
+        overrides={
+            "screen": args.screen,
+            "width": args.width,
+            "height": args.height,
+            "anchor": args.anchor,
+            "margin": args.margin,
+            "font_scale": args.font_scale,
+            "geometry": args.geometry,
+        }
+    )
     window_geometry = settings["geometry"]
     if not window_geometry:
         monitor = choose_monitor(monitors, settings["screen"])
         if monitor is None:
-            raise SystemExit("No monitors found via xrandr; set geometry in the config "
-                             "file or use --geometry WxH+X+Y")
-        window_geometry = geometry(monitor, settings["width"], settings["height"],
-                                   settings["anchor"], settings["margin"])
+            raise SystemExit(
+                "No monitors found via xrandr; set geometry in the config "
+                "file or use --geometry WxH+X+Y"
+            )
+        window_geometry = geometry(
+            monitor, settings["width"], settings["height"], settings["anchor"], settings["margin"]
+        )
 
     lock = single_instance_lock()
     if lock is None:
@@ -222,6 +261,11 @@ def main():
         return
 
     root = tk.Tk()
-    HelperWindow(root, LogSource(args.log), window_geometry,
-                 quit_with_game=not args.stay, font_scale=float(settings["font_scale"]))
+    HelperWindow(
+        root,
+        LogSource(args.log),
+        window_geometry,
+        quit_with_game=not args.stay,
+        font_scale=float(settings["font_scale"]),
+    )
     root.mainloop()

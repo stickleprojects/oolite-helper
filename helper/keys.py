@@ -12,17 +12,32 @@ import subprocess
 from . import plist
 from .paths import APPIMAGE, SETTINGS
 
-CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
-                     "oolite-helper")
+CACHE = os.path.join(
+    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "oolite-helper"
+)
 CONFIG_IN_APPIMAGE = "usr/bin/Resources/Config"
 NEEDED = ("keyconfig2.plist", "descriptions.plist")
 
 KEY_NAMES = {
-    "arrowLeft": "←", "arrowRight": "→", "arrowUp": "↑", "arrowDown": "↓",
-    "pageUp": "PgUp", "pageDown": "PgDn", "home": "Home", "end": "End",
-    "tab": "Tab", "enter": "Enter", "esc": "Esc", "space": "Space", " ": "Space",
-    "numpadEnter": "Num Enter", "insert": "Ins", "delete": "Del",
-    "backspace": "Backspace", "pause": "Pause", "printScreen": "PrtSc",
+    "arrowLeft": "←",
+    "arrowRight": "→",
+    "arrowUp": "↑",
+    "arrowDown": "↓",
+    "pageUp": "PgUp",
+    "pageDown": "PgDn",
+    "home": "Home",
+    "end": "End",
+    "tab": "Tab",
+    "enter": "Enter",
+    "esc": "Esc",
+    "space": "Space",
+    " ": "Space",
+    "numpadEnter": "Num Enter",
+    "insert": "Ins",
+    "delete": "Del",
+    "backspace": "Backspace",
+    "pause": "Pause",
+    "printScreen": "PrtSc",
 }
 
 # In-game key changes are saved with a numeric key code (src/SDL/MyOpenGLView.h,
@@ -30,20 +45,34 @@ KEY_NAMES = {
 # rest, as the names keyconfig2.plist uses.
 SPECIAL_CODES = {
     **{256 + i: f"f{i + 1}" for i in range(11)},
-    267: "arrowRight", 268: "arrowLeft", 269: "arrowDown", 270: "arrowUp",
-    271: "pause", 272: "printScreen",
-    303: "home", 304: "end", 305: "insert", 306: "delete",
-    307: "pageUp", 308: "pageDown", 309: "backspace",
+    267: "arrowRight",
+    268: "arrowLeft",
+    269: "arrowDown",
+    270: "arrowUp",
+    271: "pause",
+    272: "printScreen",
+    303: "home",
+    304: "end",
+    305: "insert",
+    306: "delete",
+    307: "pageUp",
+    308: "pageDown",
+    309: "backspace",
     **{310 + i: f"numpad{i}" for i in range(10)},
-    320: "numpad/", 321: "numpad*", 322: "numpad-", 323: "numpad+",
-    324: "numpad.", 325: "numpad=", 326: "numpadEnter",
+    320: "numpad/",
+    321: "numpad*",
+    322: "numpad-",
+    323: "numpad+",
+    324: "numpad.",
+    325: "numpad=",
+    326: "numpadEnter",
 }
 CHAR_NAMES = {9: "tab", 13: "enter", 27: "esc", 32: "space"}
 
 
 class Keymap:
     def __init__(self, bindings, descriptions):
-        self.bindings = bindings          # action -> list of entry dicts
+        self.bindings = bindings  # action -> list of entry dicts
         self.descriptions = descriptions  # action -> text
 
     def keys(self, action):
@@ -98,7 +127,7 @@ def format_entry(entry):
     if key in KEY_NAMES:
         name = KEY_NAMES[key]
     elif key.startswith("numpad"):
-        name = "Num " + key[len("numpad"):]
+        name = "Num " + key[len("numpad") :]
     else:
         name = key.upper()  # letters, digits, symbols, f1-f12
     return "+".join(mods + [name])
@@ -121,7 +150,7 @@ def load_keymap(appimage=APPIMAGE, settings_path=SETTINGS):
         bindings[action] = [from_override(e) for e in entries]
 
     prefix = "oolite-keydesc-"
-    descriptions = {k[len(prefix):]: v for k, v in texts.items() if k.startswith(prefix)}
+    descriptions = {k[len(prefix) :]: v for k, v in texts.items() if k.startswith(prefix)}
     return Keymap(bindings, descriptions)
 
 
@@ -134,7 +163,11 @@ def _extracted_config(appimage):
         return config_dir
     os.makedirs(root, exist_ok=True)
     for name in NEEDED:
-        subprocess.run([appimage, "--appimage-extract", f"{CONFIG_IN_APPIMAGE}/{name}"],
-                       cwd=root, check=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            [appimage, "--appimage-extract", f"{CONFIG_IN_APPIMAGE}/{name}"],
+            cwd=root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     return config_dir

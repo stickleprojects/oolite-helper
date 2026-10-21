@@ -9,9 +9,10 @@ FIXTURE = Path(__file__).parent / "fixtures" / "keyconfig2.plist"
 
 
 def test_format_entry_modifiers_symbols_and_uppercase_keys():
-    assert keys.format_entry(
-        {"key": "L", "shift": "true", "mod1": "true", "mod2": "true"}
-    ) == "Ctrl+Alt+Shift+L"
+    assert (
+        keys.format_entry({"key": "L", "shift": "true", "mod1": "true", "mod2": "true"})
+        == "Ctrl+Alt+Shift+L"
+    )
     assert keys.format_entry({"key": "C"}) == "Shift+C"
     for symbol in ("+", "*", "_"):
         assert keys.format_entry({"key": symbol, "shift": "true"}) == symbol
@@ -28,18 +29,19 @@ def test_format_entry_named_numpad_and_function_keys():
 def test_load_keymap_merges_default_layout_then_overrides(tmp_path, monkeypatch):
     settings = tmp_path / "OoliteDefaults.plist"
     settings.write_text(
-        '''{
+        """{
             "keyboard-code" = "deu";
             KeyConfigOverrides = {
                 key_hyperspace = ({ key = "x"; });
             };
-        }''',
+        }""",
         encoding="utf-8",
     )
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "keyconfig2.plist").write_text(FIXTURE.read_text(encoding="utf-8"),
-                                                encoding="utf-8")
+    (config_dir / "keyconfig2.plist").write_text(
+        FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     keyconfig = plist.load(FIXTURE)
     (config_dir / "descriptions.plist").write_text(
         '{ "oolite-keydesc-key_hyperspace" = "Hyperspace"; }',
@@ -91,8 +93,9 @@ def test_real_in_game_remap_shows_ctrl_alt_quote(tmp_path, monkeypatch):
     remap = Path(__file__).parent / "fixtures" / "OoliteDefaults-remap.plist"
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "keyconfig2.plist").write_text(FIXTURE.read_text(encoding="utf-8"),
-                                                encoding="utf-8")
+    (config_dir / "keyconfig2.plist").write_text(
+        FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     (config_dir / "descriptions.plist").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(keys, "_extracted_config", lambda appimage: str(config_dir))
     keymap = keys.load_keymap("unused", str(remap))

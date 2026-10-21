@@ -17,8 +17,10 @@ def test_every_action_name_is_in_real_keyconfig_fixture():
     actions = {
         action
         for value in vars(contexts).values()
-        if isinstance(value, tuple) and len(value) == 2
-        and isinstance(value[0], str) and isinstance(value[1], list)
+        if isinstance(value, tuple)
+        and len(value) == 2
+        and isinstance(value[0], str)
+        and isinstance(value[1], list)
         for action in value[1]
     }
     actions.update(
@@ -38,10 +40,14 @@ def test_tips_use_real_keys_and_unbound_actions_are_clear():
     assert contexts.tip(state, keymap) == "Press H again to cancel the countdown."
 
     state.apply({"type": "countdown_end"})
-    state.apply({
-        "type": "aegis", "inside": True, "requiresClearance": True,
-        "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
-    })
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "requiresClearance": True,
+            "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
+        }
+    )
     assert contexts.tip(state, keymap) == (
         "Shift+L asks your current target, so target the station first "
         "(R with it ahead, or + / Num +)."

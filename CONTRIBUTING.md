@@ -21,6 +21,7 @@ python3 -m venv .venv
 
 .venv/bin/python -m pytest -q                    # helper tests (Python 3.11+)
 .venv/bin/ruff check .                           # lint (rules in ruff.toml)
+.venv/bin/ruff format --check .                  # formatting (fix with: ruff format .)
 node --check oxp/CtxKeys.oxp/Config/script.js    # add-on syntax
 node --test tests/oxp/script.test.js             # add-on tests (Node 20+; name the file, not the folder)
 shellcheck scripts/*.sh                          # launcher

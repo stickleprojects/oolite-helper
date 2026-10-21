@@ -25,8 +25,13 @@ A second-screen helper for the space game Oolite. An Oolite add-on writes JSON m
 ## Running things
 
 ```bash
-python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/python -m pytest                   # once tests exist (#10)
+python -m venv .venv && .venv/bin/pip install -e ".[dev]" pytest ruff==0.17.1
+.venv/bin/python -m pytest -q
+.venv/bin/ruff format . && .venv/bin/ruff check --fix .   # rules in ruff.toml
 node --check oxp/CtxKeys.oxp/Config/script.js
+node --test tests/oxp/script.test.js
 shellcheck scripts/*.sh
 ```
+
+CI runs all of these on every PR (`.github/workflows/ci.yml`) and must pass before merging,
+so run them, including `ruff format`, before pushing.

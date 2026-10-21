@@ -1,21 +1,24 @@
 """User settings from ~/.config/oolite-helper/config.toml (all optional).
 
-    [window]
-    screen = "HDMI-1"     # xrandr name; default: first non-primary monitor
-    width = "40%"         # pixels or % of that screen
-    height = "100%"
-    anchor = "right"      # top-left, top, top-right, left, center, right,
-                          # bottom-left, bottom, bottom-right
-    margin = 0            # pixels from the screen edges
-    font_scale = 1.0
-    # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
+[window]
+screen = "HDMI-1"     # xrandr name; default: first non-primary monitor
+width = "40%"         # pixels or % of that screen
+height = "100%"
+anchor = "right"      # top-left, top, top-right, left, center, right,
+                      # bottom-left, bottom, bottom-right
+margin = 0            # pixels from the screen edges
+font_scale = 1.0
+# geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
 """
 
 import os
 import tomllib
 
-PATH = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-                    "oolite-helper", "config.toml")
+PATH = os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+    "oolite-helper",
+    "config.toml",
+)
 
 WINDOW_DEFAULTS = {
     "screen": None,
