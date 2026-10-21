@@ -181,6 +181,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		player,
 		system,
 		SystemInfo,
+		galaxyNumber: 0,
+		clock: strictObject("clock", { seconds: 123456 }),
 		Timer: ManualTimer,
 		log: (...args) => logCalls.push(args),
 	};
