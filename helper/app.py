@@ -7,16 +7,21 @@ import os
 import sys
 import tempfile
 import tkinter as tk
-from collections import deque
 
+from .contexts import sections
+from .keys import load_keymap
 from .sources import DEFAULT_LOG, LogSource
 from .state import GameState
 
 POLL_MS = 200
+COLUMNS = 3
 BG = "#101418"
+PANEL = "#171d23"
 FG = "#e6e6e6"
 ACCENT = "#ffb000"
 DIM = "#7a8590"
+SANS = "DejaVu Sans"
+MONO = "DejaVu Sans Mono"
 
 
 class HelperWindow:
@@ -26,7 +31,15 @@ class HelperWindow:
         self.quit_with_game = quit_with_game
         self.first_poll = True
         self.state = GameState()
-        self.recent = deque(maxlen=12)
+        self.shown = None  # sections currently drawn
+        self.last_message = ""
+
+        try:
+            self.keymap = load_keymap()
+            self.keymap_error = None
+        except Exception as e:  # show the problem instead of dying
+            self.keymap = None
+            self.keymap_error = f"Couldn't read the game's key settings: {e}"
 
         root.title("Oolite Key Helper")
         root.geometry(geometry)
@@ -36,16 +49,20 @@ class HelperWindow:
         root.configure(bg=BG)
         root.bind("<Button-3>", lambda e: root.destroy())  # right-click quits
 
-        self.context_label = tk.Label(
-            root, font=("DejaVu Sans", 48, "bold"), fg=ACCENT, bg=BG, anchor="w")
-        self.context_label.pack(fill="x", padx=40, pady=(30, 0))
-        self.detail_label = tk.Label(
-            root, font=("DejaVu Sans", 24), fg=FG, bg=BG, anchor="w")
-        self.detail_label.pack(fill="x", padx=40)
-        self.log_label = tk.Label(
-            root, font=("DejaVu Sans Mono", 16), fg=DIM, bg=BG,
-            anchor="nw", justify="left")
-        self.log_label.pack(fill="both", expand=True, padx=40, pady=30)
+        header = tk.Frame(root, bg=BG)
+        header.pack(fill="x", padx=40, pady=(24, 8))
+        self.context_label = tk.Label(header, font=(SANS, 44, "bold"), fg=ACCENT, bg=BG)
+        self.context_label.pack(side="left")
+        self.detail_label = tk.Label(header, font=(SANS, 20), fg=DIM, bg=BG)
+        self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
+
+        self.body = tk.Frame(root, bg=BG)
+        self.body.pack(fill="both", expand=True, padx=28)
+        for c in range(COLUMNS):
+            self.body.columnconfigure(c, weight=1, uniform="col")
+
+        self.status_label = tk.Label(root, font=(MONO, 12), fg=DIM, bg=BG, anchor="w")
+        self.status_label.pack(fill="x", padx=40, pady=(0, 12))
 
         self.render()
         self.tick()
@@ -56,10 +73,8 @@ class HelperWindow:
         # opened log) is an old game's ending, not a live exit.
         replay = self.first_poll or any(m.get("type") == "session" for m in messages)
         for msg in messages:
-            if msg.get("type") == "session":
-                self.recent.clear()
             self.state.apply(msg)
-            self.recent.append(json.dumps(msg))
+            self.last_message = json.dumps(msg)
             if msg.get("type") == "closed" and self.quit_with_game and not replay:
                 self.root.destroy()
                 return
@@ -69,11 +84,36 @@ class HelperWindow:
         self.root.after(POLL_MS, self.tick)
 
     def render(self):
-        self.context_label.config(text=self.state.context.replace("_", " ").upper())
+        self.context_label.config(text=self.state.context.upper())
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
         self.detail_label.config(text=f"Screen: {screen}    View: {view}")
-        self.log_label.config(text="\n".join(reversed(self.recent)))
+        self.status_label.config(text=self.keymap_error or self.last_message)
+
+        wanted = sections(self.state) if self.keymap else []
+        if wanted != self.shown:
+            self.draw_sections(wanted)
+            self.shown = wanted
+
+    def draw_sections(self, wanted):
+        for child in self.body.winfo_children():
+            child.destroy()
+        for i, (title, actions) in enumerate(wanted):
+            panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
+            panel.grid(row=i // COLUMNS, column=i % COLUMNS, sticky="new", padx=12, pady=12)
+            tk.Label(panel, text=title.upper(), font=(SANS, 16, "bold"), fg=DIM,
+                     bg=PANEL, anchor="w").grid(row=0, column=0, columnspan=2, sticky="w",
+                                                pady=(0, 6))
+            row = 1
+            for action in actions:
+                keys = self.keymap.keys(action)
+                if not keys:
+                    continue  # unbound in this setup
+                tk.Label(panel, text=keys, font=(MONO, 20, "bold"), fg=ACCENT, bg=PANEL,
+                         anchor="w").grid(row=row, column=0, sticky="w", padx=(0, 18))
+                tk.Label(panel, text=self.keymap.describe(action), font=(SANS, 20), fg=FG,
+                         bg=PANEL, anchor="w").grid(row=row, column=1, sticky="w")
+                row += 1
 
 
 def single_instance_lock():

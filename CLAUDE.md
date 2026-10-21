@@ -29,8 +29,8 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
 1. ✅ Launcher fix and data folders (see Environment).
 2. ✅ Minimal add-on: `[ctxkeys]` lines appear in `Latest.log`.
 3. ✅ Helper window that follows the log ([helper/](helper/)). `sources.LogSource.poll()` is the interface a TCP source will implement later; `state.GameState` turns messages into a context.
-4. Key lists generated from `keyconfig*.plist` and any user overrides.
-5. The full set of contexts: docked, flying, near station, red alert, hyperspace/galactic jump, menu screens.
+4. ✅ Key lists. On startup, [helper/keys.py](helper/keys.py) extracts `keyconfig2.plist` and `descriptions.plist` from the AppImage into `~/.cache/oolite-helper/` (refreshed when the AppImage changes). It then applies the `keyboard-code` layout and `KeyConfigOverrides` from `Settings/OoliteDefaults.plist`. [helper/plist.py](helper/plist.py) parses the OpenStep plists. [helper/contexts.py](helper/contexts.py) lists only action names per context; keys and wording always come from the files.
+5. The remaining contexts: near station, red alert, jump countdown. Their sections already exist in `contexts.py`; `GameState.context` needs to produce them from new add-on events.
 6. Later: the HUD panels, on top of phase 2.
 
 ### Event handlers
