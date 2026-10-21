@@ -27,3 +27,17 @@ def test_unknown_window_keys_are_rejected(tmp_path):
     path.write_text("[window]\nunknown = true\n", encoding="utf-8")
     with pytest.raises(SystemExit, match="unknown \\[window\\] settings: unknown"):
         config.load_window_settings(path)
+
+
+def test_layout_defaults_to_large_and_rejects_unknown_names(tmp_path):
+    import pytest
+
+    from helper.config import load_window_settings
+
+    missing = tmp_path / "none.toml"
+    assert load_window_settings(missing)["layout"] == "large"
+    assert load_window_settings(missing, {"layout": "compact"})["layout"] == "compact"
+    bad = tmp_path / "config.toml"
+    bad.write_text('[window]\nlayout = "tiny"\n')
+    with pytest.raises(SystemExit, match="layout must be one of"):
+        load_window_settings(bad)

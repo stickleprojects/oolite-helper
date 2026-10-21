@@ -27,8 +27,12 @@ from .state import GameState
 from .trade import ECONOMIES, GOVERNMENTS
 
 POLL_MS = 200
-MAX_COLUMNS = 3
-COLUMN_WIDTH = 600  # px a key panel needs at font scale 1.0
+COLUMN_WIDTH = 600  # px a key panel needs at text scale 1.0
+# Layouts: text and spacing scale (multiplied by font_scale) and most key columns.
+LAYOUTS = {
+    "large": (1.0, 3),
+    "compact": (0.6, 6),
+}
 BG = "#101418"
 PANEL = "#171d23"
 FG = "#e6e6e6"
@@ -60,13 +64,14 @@ def should_quit_for_messages(messages, first_poll, quit_with_game=True):
 
 
 class HelperWindow:
-    def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0):
+    def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0, layout="large"):
         self.root = root
         self.source = source
         self.quit_with_game = quit_with_game
-        self.scale = font_scale
+        layout_scale, max_columns = LAYOUTS[layout]
+        self.scale = layout_scale * font_scale
         width = int(geometry.split("x", 1)[0])
-        self.columns = max(1, min(MAX_COLUMNS, int(width / (COLUMN_WIDTH * font_scale))))
+        self.columns = max(1, min(max_columns, int(width / (COLUMN_WIDTH * self.scale))))
         self.desc_wrap = int(width / self.columns * 0.6)
         self.first_poll = True
         self.state = GameState()
@@ -99,7 +104,7 @@ class HelperWindow:
         root.bind("<Button-3>", lambda e: root.destroy())  # right-click quits
 
         header = tk.Frame(root, bg=BG)
-        header.pack(fill="x", padx=40, pady=(24, 8))
+        header.pack(fill="x", padx=self.px(40), pady=self.px(24, 8))
         self.context_label = tk.Label(header, font=self.font(SANS, 44, "bold"), fg=ACCENT, bg=BG)
         narrow = self.columns == 1  # stack the details under the heading
         self.context_label.pack(side="top" if narrow else "left", anchor="w")
@@ -109,14 +114,14 @@ class HelperWindow:
         if narrow:
             self.detail_label.pack(side="top", anchor="w")
         else:
-            self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
+            self.detail_label.pack(side="right", anchor="s", pady=self.px(0, 10))
 
         tabs = tk.Frame(root, bg=BG)
-        tabs.pack(fill="x", padx=40, pady=(0, 8))
+        tabs.pack(fill="x", padx=self.px(40), pady=self.px(0, 8))
         self.tab_labels = {}
         for name, title in TABS:
             label = tk.Label(tabs, text=f"  {title}  ", font=self.font(SANS, 16, "bold"), bg=BG)
-            label.pack(side="left", padx=(0, 12))
+            label.pack(side="left", padx=self.px(0, 12))
             # Left-click only: clicking never moves keyboard focus off the game (#20).
             label.bind("<Button-1>", lambda e, name=name: self.choose_tab(name))
             self.tab_labels[name] = label
@@ -128,23 +133,28 @@ class HelperWindow:
             bg=BG,
             anchor="w",
             justify="left",
-            wraplength=width - 80,
+            wraplength=width - self.px(80),
         )
-        self.tip_label.pack(fill="x", padx=40)
+        self.tip_label.pack(fill="x", padx=self.px(40))
 
         self.body = tk.Frame(root, bg=BG)
-        self.body.pack(fill="both", expand=True, padx=28)
+        self.body.pack(fill="both", expand=True, padx=self.px(28))
         for c in range(self.columns):
             self.body.columnconfigure(c, weight=1, uniform="col")
 
         self.status_label = tk.Label(root, font=self.font(MONO, 12), fg=DIM, bg=BG, anchor="w")
-        self.status_label.pack(fill="x", padx=40, pady=(0, 12))
+        self.status_label.pack(fill="x", padx=self.px(40), pady=self.px(0, 12))
 
         self.render()
         self.tick()
 
     def font(self, family, size, *style):
-        return (family, max(6, round(size * self.scale)), *style)
+        return (family, max(9, round(size * self.scale)), *style)  # 9: still readable
+
+    def px(self, *sizes):
+        """Spacing scaled with the text: one size, or a (before, after) pair."""
+        scaled = tuple(round(size * self.scale) for size in sizes)
+        return scaled[0] if len(scaled) == 1 else scaled
 
     def tick(self):
         # Any unexpected error is reported and polling carries on: stopping here
@@ -213,7 +223,7 @@ class HelperWindow:
         self.shown_market_age = market_age
         self.detail_label.config(text="\n".join(line for line in lines if line))
         tip_text = tip(self.state, self.keymap)
-        self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
+        self.tip_label.config(text=tip_text, pady=self.px(8) if tip_text else 0)
         self.status_label.config(text=self.status_text())
 
         tab = self.visible_tab()
@@ -305,8 +315,15 @@ class HelperWindow:
 
     def draw_trade(self, rows):
         """Each commodity's price here against the best price within fuel range."""
-        panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
-        panel.grid(row=0, column=0, columnspan=self.columns, sticky="new", padx=12, pady=12)
+        panel = tk.Frame(self.body, bg=PANEL, padx=self.px(18), pady=self.px(12))
+        panel.grid(
+            row=0,
+            column=0,
+            columnspan=self.columns,
+            sticky="new",
+            padx=self.px(12),
+            pady=self.px(12),
+        )
         if not rows:
             tk.Label(
                 panel,
@@ -327,7 +344,7 @@ class HelperWindow:
                 fg=ACCENT if key == column else DIM,
                 bg=PANEL,
             )
-            header.grid(row=0, column=c, sticky="w", padx=(0, 28), pady=(0, 6))
+            header.grid(row=0, column=c, sticky="w", padx=self.px(0, 28), pady=self.px(0, 6))
             # Left-click only, like the tabs: focus stays with the game.
             header.bind("<Button-1>", lambda e, k=key, h=high_first: self.sort_trade(k, h))
         for r, row in enumerate(rows, start=1):
@@ -350,7 +367,7 @@ class HelperWindow:
             )
             for c, (text, colour, family) in enumerate(cells):
                 cell = tk.Label(panel, text=text, font=self.font(family, 18), fg=colour, bg=PANEL)
-                cell.grid(row=r, column=c, sticky="w", padx=(0, 28))
+                cell.grid(row=r, column=c, sticky="w", padx=self.px(0, 28))
                 cell.bind("<Button-1>", lambda e, k=row.commodity: self.open_commodity(k))
         tk.Label(
             panel,
@@ -358,12 +375,25 @@ class HelperWindow:
             font=self.font(SANS, 14),
             fg=DIM,
             bg=PANEL,
-        ).grid(row=len(rows) + 1, column=0, columnspan=len(TRADE_COLUMNS), sticky="w", pady=(8, 0))
+        ).grid(
+            row=len(rows) + 1,
+            column=0,
+            columnspan=len(TRADE_COLUMNS),
+            sticky="w",
+            pady=self.px(8, 0),
+        )
 
     def draw_detail(self, commodity, row, offers, offer, limit, quantity, steps):
         """One commodity: every system in range, a quantity picker and the keys to press."""
-        panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
-        panel.grid(row=0, column=0, columnspan=self.columns, sticky="new", padx=12, pady=12)
+        panel = tk.Frame(self.body, bg=PANEL, padx=self.px(18), pady=self.px(12))
+        panel.grid(
+            row=0,
+            column=0,
+            columnspan=self.columns,
+            sticky="new",
+            padx=self.px(12),
+            pady=self.px(12),
+        )
         name = self.commodity_name(commodity)
         unit = row.unit if row else "t"
         top = tk.Frame(panel, bg=PANEL)
@@ -371,7 +401,7 @@ class HelperWindow:
         back = tk.Label(
             top, text="◀ All commodities", font=self.font(SANS, 16), fg=ACCENT, bg=PANEL
         )
-        back.pack(side="left", padx=(0, 28))
+        back.pack(side="left", padx=self.px(0, 28))
         back.bind("<Button-1>", lambda e: self.open_commodity(None))
         here = ""
         if row and row.here is not None:
@@ -385,7 +415,7 @@ class HelperWindow:
         ).pack(side="left")
 
         table = tk.Frame(panel, bg=PANEL)
-        table.pack(fill="x", anchor="w", pady=(10, 0))
+        table.pack(fill="x", anchor="w", pady=self.px(10, 0))
         if not offers:
             tk.Label(
                 table,
@@ -397,7 +427,7 @@ class HelperWindow:
         titles = ("Sell at", "Price", "Margin", "Distance", "Economy", "Government")
         for c, title in enumerate(titles if offers else ()):
             tk.Label(table, text=title, font=self.font(SANS, 16, "bold"), fg=DIM, bg=PANEL).grid(
-                row=0, column=c, sticky="w", padx=(0, 28), pady=(0, 6)
+                row=0, column=c, sticky="w", padx=self.px(0, 28), pady=self.px(0, 6)
             )
         for r, o in enumerate(offers, start=1):
             chosen = o is offer
@@ -418,13 +448,13 @@ class HelperWindow:
                 elif c == 2 and margin is not None:
                     colour = GREEN if margin > 0 else DIM
                 cell = tk.Label(table, text=text, font=self.font(family, 18), fg=colour, bg=PANEL)
-                cell.grid(row=r, column=c, sticky="w", padx=(0, 28))
+                cell.grid(row=r, column=c, sticky="w", padx=self.px(0, 28))
                 cell.bind("<Button-1>", lambda e, i=o.system_id: self.choose_destination(i))
 
         picker = tk.Frame(panel, bg=PANEL)
-        picker.pack(fill="x", anchor="w", pady=(14, 0))
+        picker.pack(fill="x", anchor="w", pady=self.px(14, 0))
         tk.Label(picker, text="Buy", font=self.font(SANS, 18, "bold"), fg=DIM, bg=PANEL).pack(
-            side="left", padx=(0, 14)
+            side="left", padx=self.px(0, 14)
         )
         for text, value in (
             ("−10", quantity - 10),
@@ -441,7 +471,7 @@ class HelperWindow:
                 fg=ACCENT if value is None else FG,
                 bg=PANEL if value is None else BG,
             )
-            button.pack(side="left", padx=(0, 8))
+            button.pack(side="left", padx=self.px(0, 8))
             if value is not None:
                 v = max(0, min(value, limit.most))
                 button.bind("<Button-1>", lambda e, v=v: self.change_quantity(v))
@@ -451,7 +481,7 @@ class HelperWindow:
             font=self.font(SANS, 16),
             fg=DIM,
             bg=PANEL,
-        ).pack(side="left", padx=(14, 0))
+        ).pack(side="left", padx=self.px(14, 0))
 
         summary = []
         if row and row.here is not None:
@@ -463,7 +493,7 @@ class HelperWindow:
         if summary:
             tk.Label(
                 panel, text="    ".join(summary), font=self.font(SANS, 18), fg=FG, bg=PANEL
-            ).pack(anchor="w", pady=(8, 0))
+            ).pack(anchor="w", pady=self.px(8, 0))
 
         for i, step in enumerate(steps, start=1):
             tk.Label(
@@ -474,7 +504,7 @@ class HelperWindow:
                 bg=PANEL,
                 justify="left",
                 wraplength=self.desc_wrap * self.columns,
-            ).pack(anchor="w", pady=(8 if i == 1 else 2, 0))
+            ).pack(anchor="w", pady=self.px(8 if i == 1 else 2, 0))
 
     def draw_sections(self, wanted):
         for i, (title, actions) in enumerate(wanted):
@@ -483,7 +513,14 @@ class HelperWindow:
     def draw_all_keys(self, current):
         """The game's key groups as clickable chips, and the chosen group's keys."""
         chips = tk.Frame(self.body, bg=BG)
-        chips.grid(row=0, column=0, columnspan=self.columns, sticky="w", padx=12, pady=(4, 0))
+        chips.grid(
+            row=0,
+            column=0,
+            columnspan=self.columns,
+            sticky="w",
+            padx=self.px(12),
+            pady=self.px(4, 0),
+        )
         per_line = 7
         line = None
         for i, (header, _) in enumerate(ALL_KEY_GROUPS):
@@ -498,7 +535,7 @@ class HelperWindow:
                 fg=BG if active else FG,
                 bg=ACCENT if active else PANEL,
             )
-            chip.pack(side="left", padx=(0, 8), pady=4)
+            chip.pack(side="left", padx=self.px(0, 8), pady=self.px(4))
             chip.bind("<Button-1>", lambda e, i=i: self.choose_group(i))
         header, actions = ALL_KEY_GROUPS[current]
         panel = self.draw_panel(
@@ -507,8 +544,8 @@ class HelperWindow:
         panel.grid(columnspan=self.columns)
 
     def draw_panel(self, parent, row, column, title, actions, show_unbound=False):
-        panel = tk.Frame(parent, bg=PANEL, padx=18, pady=12)
-        panel.grid(row=row, column=column, sticky="new", padx=12, pady=12)
+        panel = tk.Frame(parent, bg=PANEL, padx=self.px(18), pady=self.px(12))
+        panel.grid(row=row, column=column, sticky="new", padx=self.px(12), pady=self.px(12))
         if title:
             tk.Label(
                 panel,
@@ -517,7 +554,7 @@ class HelperWindow:
                 fg=DIM,
                 bg=PANEL,
                 anchor="w",
-            ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+            ).grid(row=0, column=0, columnspan=2, sticky="w", pady=self.px(0, 6))
         row = 1
         for action in actions:
             keys = self.keymap.keys(action)
@@ -530,7 +567,7 @@ class HelperWindow:
                 fg=ACCENT if keys else DIM,
                 bg=PANEL,
                 anchor="w",
-            ).grid(row=row, column=0, sticky="w", padx=(0, 18))
+            ).grid(row=row, column=0, sticky="w", padx=self.px(0, 18))
             text = self.keymap.describe(action)
             if action in ACTION_NOTES:
                 text += f" ({ACTION_NOTES[action]})"
@@ -597,6 +634,11 @@ def main():
     win.add_argument("--height", help="pixels or percent of the screen")
     win.add_argument("--anchor", choices=ANCHORS, help="where on the screen to sit")
     win.add_argument("--margin", type=int, help="pixels from the screen edges")
+    win.add_argument(
+        "--layout",
+        choices=config.LAYOUTS,
+        help="compact: smaller text and spacing, more key columns",
+    )
     win.add_argument("--font-scale", type=float, help="text size multiplier, e.g. 0.8")
     win.add_argument("--geometry", help="exact X geometry WxH+X+Y; overrides the others")
     args = parser.parse_args()
@@ -614,6 +656,7 @@ def main():
             "height": args.height,
             "anchor": args.anchor,
             "margin": args.margin,
+            "layout": args.layout,
             "font_scale": args.font_scale,
             "geometry": args.geometry,
         }
@@ -642,5 +685,6 @@ def main():
         window_geometry,
         quit_with_game=not args.stay,
         font_scale=float(settings["font_scale"]),
+        layout=settings["layout"],
     )
     root.mainloop()

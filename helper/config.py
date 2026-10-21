@@ -7,7 +7,8 @@ height = "100%"
 anchor = "right"      # top-left, top, top-right, left, center, right,
                       # bottom-left, bottom, bottom-right
 margin = 0            # pixels from the screen edges
-font_scale = 1.0
+layout = "large"      # or "compact": smaller text and spacing, up to 6 key columns
+font_scale = 1.0      # multiplies the layout's text size
 # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
 """
 
@@ -26,9 +27,11 @@ WINDOW_DEFAULTS = {
     "height": "100%",
     "anchor": "top-left",
     "margin": 0,
+    "layout": "large",
     "font_scale": 1.0,
     "geometry": None,
 }
+LAYOUTS = ("large", "compact")
 
 
 def load_window_settings(path=PATH, overrides=None):
@@ -44,4 +47,6 @@ def load_window_settings(path=PATH, overrides=None):
     for key, value in (overrides or {}).items():
         if value is not None:
             settings[key] = value
+    if settings["layout"] not in LAYOUTS:
+        raise SystemExit(f"layout must be one of {', '.join(LAYOUTS)}, not {settings['layout']!r}")
     return settings

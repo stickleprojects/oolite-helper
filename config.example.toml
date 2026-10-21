@@ -17,7 +17,12 @@ anchor = "top-left"
 # Gap from the monitor's edges, in pixels.
 margin = 0
 
-# Text size multiplier. The number of key columns (1-3) follows the window width.
+# "large" (big text, up to 3 key columns) or "compact" (60% text and spacing,
+# up to 6 columns, so more panels fit).
+layout = "large"
+
+# Text size multiplier on top of the layout. The number of key columns follows
+# the window width.
 font_scale = 1.0
 
 # Exact X geometry (WxH+X+Y). If set, it overrides all of the above.
