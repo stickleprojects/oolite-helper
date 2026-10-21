@@ -23,6 +23,16 @@ class GameState:
         self.autopilot = False
         self.countdown_kind = None
         self.countdown_ends = None  # time.monotonic() when the jump happens
+        self.market_station = None
+        self.market = None
+        self.credits = None
+        self.cargo_space = None
+        self.fuel = None
+        self.manifest = None
+        self.last_trade = None
+        self.systems = []
+        self.info_system = None
+        self.target_system = None
 
     def apply(self, msg):
         kind = msg.get("type")
@@ -63,6 +73,21 @@ class GameState:
         elif kind == "arrived":
             self.end_countdown()
             self.alert = msg.get("alert")
+        elif kind == "market":
+            self.market_station = msg.get("station")
+            self.market = msg.get("market")
+            self.credits = msg.get("credits")
+            self.cargo_space = msg.get("cargoSpace")
+            self.fuel = msg.get("fuel")
+            self.manifest = msg.get("manifest")
+        elif kind in ("bought", "sold"):
+            self.last_trade = msg
+        elif kind == "systems":
+            self.fuel = msg.get("fuel")
+            self.systems = msg.get("systems", [])
+        elif kind == "chart_target":
+            self.info_system = msg.get("infoSystem")
+            self.target_system = msg.get("targetSystem")
         elif kind == "closed":
             self.reset()
             self.game_closed = True

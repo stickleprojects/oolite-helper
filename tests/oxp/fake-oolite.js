@@ -34,32 +34,126 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	// Oolite 1.92.1 JavaScript bindings:
 	// player.alertCondition and player.dockingClearanceStatus:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayer.m
-	// player.ship.docked and player.ship.viewDirection:
+	// player.ship.docked, player.ship.viewDirection, player.ship.dockedStation,
+	// player.ship.infoSystem, and player.ship.targetSystem:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayerShip.m
-	// player.ship.withinStationAegis and station.displayName:
+	// player.credits:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayer.m
+	// player.ship.withinStationAegis, fuel, cargo space, and station.displayName:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
-	// station.requiresDockingClearance:
+	// station.requiresDockingClearance and station.market:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m
-	// system.name:
+	// station.market dictionary fields:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/OOCommodities.h
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/OOCommodityMarket.m
+	// system.name, system.ID, system.info, and system.mainStation:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
+	// SystemInfo.filteredSystems(), SystemInfo.distanceToSystem(),
+	// SystemInfo.samplePrice(), SystemInfo.systemID, and system-info data:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m
+	// ship.manifest.list:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSManifest.m
+	// shipScoopedFuel:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m
+	// playerBoughtCargo and playerSoldCargo:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m
+	// infoSystemChanged:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/Doc/CHANGELOG.TXT
 	// Docking clearance expiry resets the status to NONE:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/StationEntity.m
+	const market = {
+		food: {
+			price: 42,
+			quantity: 8,
+			quantity_unit: 0,
+			legality_export: 0,
+			legality_import: 0,
+		},
+		computers: {
+			price: 735,
+			quantity: 3,
+			quantity_unit: 0,
+			legality_export: 1,
+			legality_import: 0,
+		},
+	};
 	const station = strictObject("station", {
 		displayName: "Test Station",
 		requiresDockingClearance: true,
+		market,
 	});
+	const systemInfos = [
+		{
+			systemID: 7,
+			name: "Test System",
+			economy: 3,
+			government: 4,
+			techlevel: 5,
+			distanceToSystem(other) {
+				return other.systemID === 7 ? 0 : other.systemID === 8 ? 6.5 : 7.1;
+			},
+			samplePrice(commodity) {
+				return (commodity === "food" ? 40 : 730) + this.systemID;
+			},
+		},
+		{
+			systemID: 8,
+			name: "Nearby System",
+			economy: 2,
+			government: 5,
+			techlevel: 6,
+			distanceToSystem(other) {
+				return other.systemID === 7 ? 6.5 : other.systemID === 8 ? 0 : 6.8;
+			},
+			samplePrice(commodity) {
+				return (commodity === "food" ? 40 : 730) + this.systemID;
+			},
+		},
+		{
+			systemID: 9,
+			name: "Far System",
+			economy: 1,
+			government: 6,
+			techlevel: 7,
+			distanceToSystem(other) {
+				return other.systemID === 7 ? 7.1 : other.systemID === 8 ? 6.8 : 0;
+			},
+			samplePrice(commodity) {
+				return (commodity === "food" ? 40 : 730) + this.systemID;
+			},
+		},
+	].map((info) => strictObject("system info", info));
 	const player = strictObject("player", {
 		alertCondition: 1,
 		dockingClearanceStatus: "DOCKING_CLEARANCE_STATUS_NONE",
+		credits: 1200.5,
 		ship: strictObject("player.ship", {
 			docked: false,
 			viewDirection: "VIEW_FORWARD",
 			withinStationAegis: false,
+			dockedStation: station,
+			fuel: 7,
+			cargoSpaceAvailable: 18,
+			cargoSpaceCapacity: 35,
+			manifest: strictObject("manifest", {
+				list: [
+					{ name: "food", unit: "tonnes", quantity: 2, displayName: "Food" },
+				],
+			}),
+			infoSystem: 8,
+			targetSystem: 9,
 		}),
 	});
 	const system = strictObject("system", {
 		mainStation: station,
 		name: "Test System",
+		ID: 7,
+		info: systemInfos[0],
+	});
+	const SystemInfo = strictObject("SystemInfo", {
+		filteredSystems(_this, predicate) {
+			return systemInfos.filter(predicate);
+		},
 	});
 
 	class ManualTimer {
@@ -86,6 +180,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	const world = {
 		player,
 		system,
+		SystemInfo,
 		Timer: ManualTimer,
 		log: (...args) => logCalls.push(args),
 	};
