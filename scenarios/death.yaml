@@ -2,6 +2,6 @@
   {"after": 0, "msg": {"type": "ready", "docked": false, "view": "VIEW_FORWARD", "alert": 1}},
   {"after": 2, "msg": {"type": "alert", "level": 3}},
   {"after": 3, "msg": {"type": "died", "cause": "energy damage", "by": "Krait"}},
-  {"after": 5, "msg": {"type": "hello", "version": "0.3"}},
+  {"after": 5, "msg": {"type": "hello", "version": "0.4"}},
   {"after": 0, "msg": {"type": "ready", "docked": true, "view": "VIEW_FORWARD", "alert": 0}}
 ]

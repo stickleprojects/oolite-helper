@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.3";
+this.version = "0.4";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -153,6 +153,76 @@ this._watchClearance = function (on) {
 	}
 };
 
+// Checked once a second in flight, reporting changes only, so the helper can
+// warn before the player presses a key:
+// - A hyperspace jump fails ("blocked") if, when the countdown ends, any ship
+//   within scanner range has 0.1 x mass > distance squared (ShipEntity
+//   checkShipsInVicinityForWitchJumpExit, 1.92.1).
+// - The torus drive is mass locked by any ship on the scanner except buoys,
+//   rocks, cargo and mines (cloaked ships too), and by a planet within 25 km of
+//   its surface or 2 radii of its centre, the sun within 1.41 radii
+//   (PlayerEntity checkEntityForMassLock:withScanClass:, 1.92.1).
+var SCANNER_RANGE = 25600;
+var NO_MASS_LOCK = ["CLASS_PLAYER", "CLASS_BUOY", "CLASS_ROCK", "CLASS_CARGO", "CLASS_MINE",
+	"CLASS_VISUAL_EFFECT"];
+
+this._watchFlight = function (on) {
+	if (on && !this._flightTimer) {
+		this._lastBlocker = this._lastMassLock = null;
+		this._flightTimer = new Timer(this, this._checkFlight, 1, 1);
+	} else if (!on && this._flightTimer) {
+		this._flightTimer.stop();
+		this._flightTimer = null;
+	}
+};
+
+this._checkFlight = function () {
+	var ship = player.ship;
+	var nearby = system.filteredEntities(this, function (entity) {
+		return entity.isShip && entity !== ship;
+	}, ship, SCANNER_RANGE);  // nearest first
+
+	var blocker = null;
+	for (var i = 0; i < nearby.length && !blocker; i++) {
+		if (0.1 * nearby[i].mass > ship.position.squaredDistanceTo(nearby[i].position)) {
+			blocker = nearby[i];
+		}
+	}
+	var name = blocker ? blocker.displayName : null;
+	if (name !== this._lastBlocker) {
+		this._lastBlocker = name;
+		this._emit("jump_blocker", {
+			by: name,
+			clearAt: blocker ? Math.round(Math.sqrt(0.1 * blocker.mass)) : null
+		});
+	}
+
+	var lock = this._massLock(ship, nearby);
+	if (lock !== this._lastMassLock) {
+		this._lastMassLock = lock;
+		this._emit("mass_lock", { by: lock });
+	}
+};
+
+// What locks the torus drive: a ship's name, "planet", "sun", or null.
+this._massLock = function (ship, nearby) {
+	var bodies = (system.planets || []).concat(system.sun ? [system.sun] : []);
+	for (var i = 0; i < bodies.length; i++) {
+		var r = bodies[i].radius;
+		var d2 = ship.position.squaredDistanceTo(bodies[i].position);
+		if (d2 < r * r * (bodies[i].isSun ? 2 : 4) || d2 < (r + 25000) * (r + 25000)) {
+			return bodies[i].isSun ? "sun" : "planet";
+		}
+	}
+	for (var j = 0; j < nearby.length; j++) {
+		var scanClass = nearby[j].scanClass;
+		if (scanClass === "CLASS_NO_DRAW" ? nearby[j].isCloaked : NO_MASS_LOCK.indexOf(scanClass) < 0) {
+			return nearby[j].displayName;
+		}
+	}
+	return null;
+};
+
 /* Startup */
 
 this.startUp = function () {
@@ -168,6 +238,7 @@ this.startUpComplete = function () {
 	});
 	if (!player.ship.docked) {
 		this._emitAegis(null);
+		this._watchFlight(true);
 	} else {
 		this._emitMarket();
 	}
@@ -193,6 +264,7 @@ this.viewDirectionChanged = function (to, from) {
 
 this.shipDockedWithStation = function (station) {
 	this._watchClearance(false);
+	this._watchFlight(false);
 	this._emit("docked", { station: station.displayName });
 	this._emitMarket(station);
 	this._emitSystems();
@@ -204,6 +276,7 @@ this.shipWillLaunchFromStation = function (station) {
 
 this.shipLaunchedFromStation = function (station) {
 	this._emitAegis(station);  // launching leaves you inside the aegis
+	this._watchFlight(true);
 };
 
 this.shipEnteredStationAegis = function (station) {
@@ -240,6 +313,7 @@ this.playerBoughtCargo = function (commodity, units, price) {
 	data.units = units;
 	data.price = price;
 	this._emit("bought", data);
+	this._emitMarket(); // credits, stock and hold have changed
 };
 
 this.playerSoldCargo = function (commodity, units, price) {
@@ -248,6 +322,7 @@ this.playerSoldCargo = function (commodity, units, price) {
 	data.units = units;
 	data.price = price;
 	this._emit("sold", data);
+	this._emitMarket(); // credits, stock and hold have changed
 };
 
 this.playerStartedAutoPilot = function (station) {
@@ -300,6 +375,7 @@ this.shipScoopedFuel = function () {
 // save (handleGameOver), which runs startUp again, so "hello" ends this state.
 this.shipDied = function (whom, why) {
 	this._watchClearance(false);
+	this._watchFlight(false);
 	this._emit("died", {
 		cause: why || null,
 		by: whom ? (whom.displayName || whom.name || null) : null

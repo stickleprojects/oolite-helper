@@ -7,6 +7,8 @@ A second-screen helper for the space game [Oolite](https://oolite.space/). It sh
 - **Near a station**: docking keys, your clearance status (none, requested, granted, timing out, not required) and docking tips
 - **Red alert**: combat and escape keys
 - **Jump countdown**: seconds left and how to cancel
+- **Torus drive locked**: what's holding the mass lock (a ship on the scanner, or the planet)
+- **Too close to jump**: a warning while a station or big ship is near enough to block a hyperspace jump, with how far to fly; a failed jump says why
 - **Menu screens in flight**: the keys for that screen
 
 The keys come from **your own game settings**: the game's built-in key config, your keyboard layout, and any keys you've changed in Oolite's Keyboard Configuration screen. If you remap something, the helper shows the new key.
@@ -51,6 +53,8 @@ Each add-on line in the log looks like `HH:MM:SS.mmm [ctxkeys]: {json}`, and eve
 | `alert` | The alert condition changes | `level` (0 docked, 1 green, 2 yellow, 3 red) |
 | `countdown` | A jump countdown starts | `kind` (`standard`, `galactic`), `seconds` |
 | `countdown_end` | A countdown is cancelled, a jump fails, or the jump starts | `reason` (`cancelled`, `jumped`, or the game's failure reason), `cause` (when jumped) |
+| `jump_blocker` | In flight, checked each second: the nearest ship that would block a jump changes | `by` (its name, or `null` when clear), `clearAt` (metres beyond which it stops blocking) |
+| `mass_lock` | In flight, checked each second: what locks the torus drive changes | `by` (a ship's name, `planet`, `sun`, or `null` when free) |
 | `arrived` | The ship leaves witchspace | `system`, `alert` |
 | `market` | Docking, startup while docked, or opening the market screen while docked | `galaxy`, `systemID`, `systemName`, `gameClock`, `station`, `market`, `credits`, `cargoSpace`, `fuel`, `manifest` |
 | `bought`, `sold` | Cargo is bought or sold | `galaxy`, `systemID`, `systemName`, `gameClock`, `commodity`, `units`, `price` (per unit) |
@@ -135,6 +139,8 @@ Left-click the tabs under the heading to switch views. Clicking the helper doesn
 - **Keys** shows the keys for what you're doing now.
 - **All keys** shows every key, grouped as on the game's keyboard configuration screen; click a group to show it.
 - **Trade** lists every commodity with its price here, the best price within fuel range (a remembered real price with its age, or the game's estimate marked "est."), where that is, and the margin. Click a column heading to sort by it, and again to reverse. Illegal goods are in red; goods out of stock here are marked "(none)". In flight, "Here" is the remembered market for the system you're in.
+
+  Click a commodity to open it: every system in fuel range with its price, margin, distance, economy and government (⚠ for Anarchy and Feudal, the dangerous ones). Click a system to choose where to sell. The quantity buttons (−10, −1, +1, +10, Max) are capped by what's on sale, your credits and, for goods sold in tons, free cargo space; the line beside them says which limit applies. Below that are the cost, cargo used and expected profit, and the keys to press in the game, using your own key settings. The helper never presses keys for you.
 
 Red alert, a jump countdown or the ship being destroyed always switch to **Keys**, and your chosen tab comes back afterwards.
 

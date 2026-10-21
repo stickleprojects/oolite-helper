@@ -59,6 +59,12 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m
 	// infoSystemChanged:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/Doc/CHANGELOG.TXT
+	// entity.isShip, entity.mass, entity.position (OOJSEntity.m),
+	// Vector3D.squaredDistanceTo (OOJSVector.m), and
+	// entity.scanClass, ship.isCloaked (OOJSShip.m), planet.radius (OOJSPlanet.m),
+	// system.planets, system.sun, and
+	// system.filteredEntities(this, predicate, relativeTo, range), nearest first:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
 	// Docking clearance expiry resets the status to NONE:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/StationEntity.m
 	const market = {
@@ -77,7 +83,18 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			legality_import: 0,
 		},
 	};
+	const vector = (x) => ({
+		x,
+		squaredDistanceTo(other) {
+			return (this.x - other.x) ** 2;
+		},
+	});
 	const station = strictObject("station", {
+		isShip: true,
+		scanClass: "CLASS_STATION",
+		isCloaked: false,
+		mass: 455223200, // a Coriolis station: blocks jumps within about 6.7 km
+		position: vector(0),
 		displayName: "Test Station",
 		requiresDockingClearance: true,
 		market,
@@ -137,11 +154,14 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			cargoSpaceCapacity: 35,
 			manifest: strictObject("manifest", {
 				list: [
-					{ name: "food", unit: "tonnes", quantity: 2, displayName: "Food" },
+					{ commodity: "food", unit: "t", quantity: 2, displayName: "Food" },
 				],
 			}),
 			infoSystem: 8,
 			targetSystem: 9,
+			isShip: true,
+			mass: 100000,
+			position: vector(5000),
 		}),
 	});
 	const system = strictObject("system", {
@@ -149,6 +169,19 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		name: "Test System",
 		ID: 7,
 		info: systemInfos[0],
+		entities: [station],
+		planets: [{ isSun: false, radius: 5000000, position: vector(-1e9) }],
+		sun: { isSun: true, radius: 1e8, position: vector(1e12) },
+		filteredEntities(_this, predicate, relativeTo, range) {
+			return [...this.entities, player.ship]
+				.filter((entity) => relativeTo.position.squaredDistanceTo(entity.position) <= range ** 2)
+				.filter(predicate)
+				.sort(
+					(a, b) =>
+						relativeTo.position.squaredDistanceTo(a.position) -
+						relativeTo.position.squaredDistanceTo(b.position)
+				);
+		},
 	});
 	const System = strictObject("System", {
 		infoForSystem(galaxy, id) {

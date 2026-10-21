@@ -10,13 +10,21 @@ import tkinter as tk
 import traceback
 
 from . import config
-from .browser import commodity_rows, sort_rows
+from .browser import (
+    buy_limit,
+    commodity_offers,
+    commodity_rows,
+    held,
+    sort_rows,
+    trade_steps,
+)
 from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, sections, tip
 from .keys import commodity_fallback, load_keymap
 from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
 from .state import GameState
+from .trade import ECONOMIES, GOVERNMENTS
 
 POLL_MS = 200
 MAX_COLUMNS = 3
@@ -69,6 +77,9 @@ class HelperWindow:
         self.tab = "keys"  # the tab the player chose
         self.all_group = 0  # group shown on the All keys tab
         self.trade_sort = ("margin", True)  # column, high-to-low
+        self.trade_commodity = None  # commodity open in the detail view
+        self.trade_destination = None  # system id chosen there; None = the best price
+        self.trade_quantity = None  # units chosen there; None = the most you can buy
         self.last_message = ""
         self.error = None  # last unexpected error, shown until messages flow again
 
@@ -209,7 +220,9 @@ class HelperWindow:
         for name, label in self.tab_labels.items():
             active = name == tab
             label.config(fg=BG if active else DIM, bg=ACCENT if active else PANEL)
-        if tab == "trade":
+        if tab == "trade" and self.trade_commodity:
+            wanted = self.trade_detail()
+        elif tab == "trade":
             rows = commodity_rows(
                 self.state, self.market_store.data["markets"], self.market_store.now()
             )
@@ -225,6 +238,8 @@ class HelperWindow:
                 child.destroy()
             if wanted and wanted[0] == "trade":
                 self.draw_trade(wanted[2])
+            elif wanted and wanted[0] == "detail":
+                self.draw_detail(*wanted[1:])
             elif wanted and wanted[0] == "all":
                 self.draw_all_keys(self.all_group)
             elif wanted:
@@ -246,6 +261,44 @@ class HelperWindow:
         column, descending = self.trade_sort
         self.trade_sort = (key, not descending) if column == key else (key, high_first)
         self.render()
+
+    def open_commodity(self, commodity):
+        self.trade_commodity = commodity
+        self.trade_destination = self.trade_quantity = None
+        self.render()
+
+    def choose_destination(self, system_id):
+        self.trade_destination = system_id
+        self.render()
+
+    def change_quantity(self, quantity):
+        self.trade_quantity = quantity
+        self.render()
+
+    def trade_detail(self):
+        """What the detail view shows for the open commodity, as a comparable tuple."""
+        markets, now = self.market_store.data["markets"], self.market_store.now()
+        commodity = self.trade_commodity
+        row = next(
+            (r for r in commodity_rows(self.state, markets, now) if r.commodity == commodity), None
+        )
+        offers = tuple(commodity_offers(self.state, markets, now, commodity))
+        offer = next((o for o in offers if o.system_id == self.trade_destination), None)
+        offer = offer or (offers[0] if offers else None)
+        limit = buy_limit(self.state, markets, now, commodity)
+        quantity = limit.most if self.trade_quantity is None else self.trade_quantity
+        quantity = max(0, min(quantity, limit.most))
+        keys = self.keymap.keys if self.keymap else (lambda action: "")
+        steps = trade_steps(
+            keys,
+            self.commodity_name(commodity),
+            quantity,
+            limit.most,
+            offer,
+            self.state,
+            held(self.state, commodity),
+        )
+        return ("detail", commodity, row, offers, offer, limit, quantity, tuple(steps))
 
     def commodity_name(self, key):
         return self.keymap.commodity(key) if self.keymap else commodity_fallback(key)
@@ -296,9 +349,132 @@ class HelperWindow:
                 ),
             )
             for c, (text, colour, family) in enumerate(cells):
-                tk.Label(panel, text=text, font=self.font(family, 18), fg=colour, bg=PANEL).grid(
-                    row=r, column=c, sticky="w", padx=(0, 28)
-                )
+                cell = tk.Label(panel, text=text, font=self.font(family, 18), fg=colour, bg=PANEL)
+                cell.grid(row=r, column=c, sticky="w", padx=(0, 28))
+                cell.bind("<Button-1>", lambda e, k=row.commodity: self.open_commodity(k))
+        tk.Label(
+            panel,
+            text="Click a commodity for every system in range, a quantity and the keys to press.",
+            font=self.font(SANS, 14),
+            fg=DIM,
+            bg=PANEL,
+        ).grid(row=len(rows) + 1, column=0, columnspan=len(TRADE_COLUMNS), sticky="w", pady=(8, 0))
+
+    def draw_detail(self, commodity, row, offers, offer, limit, quantity, steps):
+        """One commodity: every system in range, a quantity picker and the keys to press."""
+        panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
+        panel.grid(row=0, column=0, columnspan=self.columns, sticky="new", padx=12, pady=12)
+        name = self.commodity_name(commodity)
+        unit = row.unit if row else "t"
+        top = tk.Frame(panel, bg=PANEL)
+        top.pack(fill="x", anchor="w")
+        back = tk.Label(
+            top, text="◀ All commodities", font=self.font(SANS, 16), fg=ACCENT, bg=PANEL
+        )
+        back.pack(side="left", padx=(0, 28))
+        back.bind("<Button-1>", lambda e: self.open_commodity(None))
+        here = ""
+        if row and row.here is not None:
+            here = f"here {_price(row.here, row.here_note)}, {row.stock or 0} {unit} on sale"
+        tk.Label(
+            top,
+            text=f"{name}{'  illegal here' if row and row.illegal else ''}   {here}",
+            font=self.font(SANS, 20, "bold"),
+            fg=RED if row and row.illegal else FG,
+            bg=PANEL,
+        ).pack(side="left")
+
+        table = tk.Frame(panel, bg=PANEL)
+        table.pack(fill="x", anchor="w", pady=(10, 0))
+        if not offers:
+            tk.Label(
+                table,
+                text="No prices for systems in fuel range yet.",
+                font=self.font(SANS, 18),
+                fg=DIM,
+                bg=PANEL,
+            ).grid(row=0, column=0, sticky="w")
+        titles = ("Sell at", "Price", "Margin", "Distance", "Economy", "Government")
+        for c, title in enumerate(titles if offers else ()):
+            tk.Label(table, text=title, font=self.font(SANS, 16, "bold"), fg=DIM, bg=PANEL).grid(
+                row=0, column=c, sticky="w", padx=(0, 28), pady=(0, 6)
+            )
+        for r, o in enumerate(offers, start=1):
+            chosen = o is offer
+            margin = o.price - row.here if row and row.here is not None else None
+            government = _name(GOVERNMENTS, o.government) + (" ⚠" if o.dangerous else "")
+            cells = (
+                (("▶ " if chosen else "  ") + o.name + ("  illegal" if o.illegal else ""), SANS),
+                (_price(o.price, o.note), MONO),
+                ("" if margin is None else f"{margin / 10:+.1f}", MONO),
+                ("" if o.distance is None else f"{o.distance:.1f} ly", MONO),
+                (_name(ECONOMIES, o.economy), SANS),
+                (government, SANS),
+            )
+            for c, (text, family) in enumerate(cells):
+                colour = ACCENT if chosen else FG
+                if c == 0 and o.illegal or c == 5 and o.dangerous:
+                    colour = RED
+                elif c == 2 and margin is not None:
+                    colour = GREEN if margin > 0 else DIM
+                cell = tk.Label(table, text=text, font=self.font(family, 18), fg=colour, bg=PANEL)
+                cell.grid(row=r, column=c, sticky="w", padx=(0, 28))
+                cell.bind("<Button-1>", lambda e, i=o.system_id: self.choose_destination(i))
+
+        picker = tk.Frame(panel, bg=PANEL)
+        picker.pack(fill="x", anchor="w", pady=(14, 0))
+        tk.Label(picker, text="Buy", font=self.font(SANS, 18, "bold"), fg=DIM, bg=PANEL).pack(
+            side="left", padx=(0, 14)
+        )
+        for text, value in (
+            ("−10", quantity - 10),
+            ("−1", quantity - 1),
+            (f"{quantity} {unit}", None),
+            ("+1", quantity + 1),
+            ("+10", quantity + 10),
+            ("Max", limit.most),
+        ):
+            button = tk.Label(
+                picker,
+                text=f" {text} ",
+                font=self.font(MONO if value is None else SANS, 18, "bold"),
+                fg=ACCENT if value is None else FG,
+                bg=PANEL if value is None else BG,
+            )
+            button.pack(side="left", padx=(0, 8))
+            if value is not None:
+                v = max(0, min(value, limit.most))
+                button.bind("<Button-1>", lambda e, v=v: self.change_quantity(v))
+        tk.Label(
+            picker,
+            text=f"most {limit.most} ({limit.reason})",
+            font=self.font(SANS, 16),
+            fg=DIM,
+            bg=PANEL,
+        ).pack(side="left", padx=(14, 0))
+
+        summary = []
+        if row and row.here is not None:
+            summary.append(f"Cost {quantity * row.here / 10:.1f} cr")
+            summary.append(f"cargo {quantity} {unit}")
+            if offer is not None:
+                profit = quantity * (offer.price - row.here) / 10
+                summary.append(f"profit at {offer.name} {profit:+.1f} cr")
+        if summary:
+            tk.Label(
+                panel, text="    ".join(summary), font=self.font(SANS, 18), fg=FG, bg=PANEL
+            ).pack(anchor="w", pady=(8, 0))
+
+        for i, step in enumerate(steps, start=1):
+            tk.Label(
+                panel,
+                text=f"{i}. {step}",
+                font=self.font(SANS, 18),
+                fg=FG,
+                bg=PANEL,
+                justify="left",
+                wraplength=self.desc_wrap * self.columns,
+            ).pack(anchor="w", pady=(8 if i == 1 else 2, 0))
 
     def draw_sections(self, wanted):
         for i, (title, actions) in enumerate(wanted):
@@ -377,6 +553,10 @@ def _price(decicredits, note):
         return "—"
     text = f"{decicredits / 10:.1f}"
     return f"{text} ({note})" if note else text
+
+
+def _name(names, index):
+    return names[index] if isinstance(index, int) and 0 <= index < len(names) else "?"
 
 
 def _where(row):

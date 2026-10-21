@@ -65,7 +65,7 @@ def _trade_lines(state, estimates):
 
     held = []
     for cargo in state.manifest or []:
-        commodity = cargo.get("name")
+        commodity = cargo.get("commodity")
         destination_price = estimates.get(commodity)
         if destination_price is None:
             continue
