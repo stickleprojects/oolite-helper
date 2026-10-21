@@ -8,16 +8,18 @@ from helper import screen
 def test_list_monitors_parses_primary_and_negative_offsets(monkeypatch):
     output = """Monitors: 2
  0: +*DP-1 1920/521x1080/293+0+0  DP-1
- 1: +eDP-1 1600/345x900/194-1600-200  eDP-1
+ 1: +eDP-1 1600/345x900/194+-1600+-200  eDP-1
 """
     monkeypatch.setattr(
         screen.subprocess, "run",
         lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, output, ""),
     )
-    assert screen.list_monitors() == [
+    monitors = screen.list_monitors()
+    assert monitors == [
         screen.Monitor("DP-1", True, 1920, 1080, 0, 0),
         screen.Monitor("eDP-1", False, 1600, 900, -1600, -200),
     ]
+    assert screen.geometry(monitors[1], 294, 900) == "294x900+-1600+-200"
 
 
 @pytest.mark.parametrize(
@@ -36,7 +38,7 @@ def test_list_monitors_parses_primary_and_negative_offsets(monkeypatch):
 )
 def test_geometry_every_anchor_and_percent_size(anchor, x, y):
     monitor = screen.Monitor("test", False, 1000, 600, -1920, 120)
-    assert screen.geometry(monitor, "40%", "50%", anchor, 10) == f"392x290{x}{y:+d}"
+    assert screen.geometry(monitor, "40%", "50%", anchor, 10) == f"392x290+{x}+{y}"
 
 
 def test_geometry_pixel_size_is_capped_and_anchor_validated():

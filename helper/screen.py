@@ -9,7 +9,7 @@ ANCHORS = ("top-left", "top", "top-right", "left", "center", "right",
 
 # e.g. " 1: +eDP-1 1920/293x1080/165+960+1080  eDP-1"
 _MONITOR_RE = re.compile(
-    r"^\s*\d+:\s+\+?(\*?)(\S+)\s+(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)")
+    r"^\s*\d+:\s+\+?(\*?)(\S+)\s+(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)")
 
 
 @dataclass
@@ -81,4 +81,4 @@ def geometry(monitor, width="100%", height="100%", anchor="top-left", margin=0):
         y = monitor.height - margin - h
     else:
         y = (monitor.height - h) // 2
-    return f"{w}x{h}{monitor.x + x:+d}{monitor.y + y:+d}"
+    return f"{w}x{h}+{monitor.x + x}+{monitor.y + y}"
