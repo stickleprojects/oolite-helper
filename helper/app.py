@@ -1,7 +1,11 @@
 """The helper window."""
 
 import argparse
+import fcntl
 import json
+import os
+import sys
+import tempfile
 import tkinter as tk
 from collections import deque
 
@@ -20,8 +24,6 @@ class HelperWindow:
         self.root = root
         self.source = source
         self.quit_with_game = quit_with_game
-        # The first poll replays the existing log; a "closed" there is an old
-        # game ending, not this one.
         self.first_poll = True
         self.state = GameState()
         self.recent = deque(maxlen=12)
@@ -50,12 +52,15 @@ class HelperWindow:
 
     def tick(self):
         messages = self.source.poll()
+        # A "closed" read along with the file it came in (first read of a newly
+        # opened log) is an old game's ending, not a live exit.
+        replay = self.first_poll or any(m.get("type") == "session" for m in messages)
         for msg in messages:
             if msg.get("type") == "session":
                 self.recent.clear()
             self.state.apply(msg)
             self.recent.append(json.dumps(msg))
-            if msg.get("type") == "closed" and self.quit_with_game and not self.first_poll:
+            if msg.get("type") == "closed" and self.quit_with_game and not replay:
                 self.root.destroy()
                 return
         self.first_poll = False
@@ -71,6 +76,19 @@ class HelperWindow:
         self.log_label.config(text="\n".join(reversed(self.recent)))
 
 
+def single_instance_lock():
+    """Hold an exclusive lock for the life of the process; None if another helper has it."""
+    path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()),
+                        "oolite-helper.lock")
+    f = open(path, "w")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        return None
+    return f
+
+
 def main():
     parser = argparse.ArgumentParser(description="Context-aware key helper for Oolite.")
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
@@ -79,6 +97,11 @@ def main():
     parser.add_argument("--stay", action="store_true",
                         help="keep running when the game exits")
     args = parser.parse_args()
+
+    lock = single_instance_lock()
+    if lock is None:
+        print("oolite-helper is already running", file=sys.stderr)
+        return
 
     root = tk.Tk()
     HelperWindow(root, LogSource(args.log), args.geometry, quit_with_game=not args.stay)

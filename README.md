@@ -45,7 +45,7 @@ Oolite ──(OXP world script)──▶ Latest.log ──(tail)──▶ Python
    python3 -m venv .venv
    .venv/bin/pip install -e .
    ```
-4. Run the helper, before or after starting the game:
+4. The launcher starts the helper automatically (set `OOLITE_NO_HELPER=1` to skip it). To run it on its own, before or after starting the game:
    ```
    .venv/bin/oolite-helper
    ```

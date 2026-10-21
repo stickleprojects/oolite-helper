@@ -32,5 +32,12 @@ EOF
 # GNUstep ignores a config file that anyone but its owner can write to.
 chmod 600 "$GNUSTEP_CONFIG_FILE"
 
+# Start the key helper alongside the game (it closes itself when the game exits).
+# Set OOLITE_NO_HELPER=1 to skip it.
+HELPER="$(dirname "$(readlink -f "$0")")/../.venv/bin/oolite-helper"
+if [[ -z "$OOLITE_NO_HELPER" && -x "$HELPER" ]]; then  # exits if one is already running
+    "$HELPER" >/dev/null 2>&1 &
+fi
+
 # Not GameData: Oolite also searches a relative "AddOns", which would load add-ons twice.
 cd "$(dirname "$APPIMAGE_PATH")" && exec "$APPIMAGE_PATH" "$@"
