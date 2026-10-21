@@ -9,6 +9,8 @@ from pathlib import Path
 
 PATH = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) \
     / "oolite-helper" / "markets.json"
+MAX_TRADE_EVENTS = 500
+MAX_MARKET_EVENTS = 500
 
 
 class MarketStore:
@@ -21,28 +23,34 @@ class MarketStore:
                 self.data = json.load(file)
         self.data.setdefault("markets", [])
         self.data.setdefault("cost_basis", {})
-        self.data.setdefault("source_events", [])
+        self.data.pop("source_events", None)
+        self.data["market_events"] = self.data.get("market_events", [])[-MAX_MARKET_EVENTS:]
+        self.data["markets"] = list({
+            self._market_location(market): market for market in self.data["markets"]
+            if isinstance(market, dict)
+        }.values())
+        self.data["trade_events"] = self.data.get("trade_events", [])[-MAX_TRADE_EVENTS:]
 
     def apply(self, message):
         kind = message.get("type")
         if kind not in ("market", "bought", "sold"):
             return
-        source_id = message.get("_source_id")
-        if source_id and source_id in self.data["source_events"]:
-            return
-        changed = False
         if kind == "market" and isinstance(message.get("market"), dict):
             self._record_market(message)
-            changed = True
         elif kind in ("bought", "sold"):
-            changed = self._record_trade(message)
-        if changed:
-            if source_id:
-                self.data["source_events"].append(source_id)
-            self._save()
+            self._record_trade(message)
 
     def _record_market(self, message):
-        self.data["markets"].append({
+        identity = self._market_identity(message)
+        if identity is None:
+            return
+        event_key = json.dumps(identity, separators=(",", ":"), ensure_ascii=False)
+        if event_key in self.data["market_events"]:
+            return
+        location = identity[:3]
+        existing = next((market for market in self.data["markets"]
+                         if self._market_location(market) == location), None)
+        snapshot = {
             "galaxy": message.get("galaxy"),
             "system_id": message.get("systemID"),
             "system_name": message.get("systemName"),
@@ -50,16 +58,58 @@ class MarketStore:
             "station": message.get("station"),
             "seen_at": self.now().astimezone(timezone.utc).isoformat(),
             "prices": message["market"],
-        })
+        }
+        if existing:
+            existing.update(snapshot)
+        else:
+            self.data["markets"].append(snapshot)
+        self.data["market_events"].append(event_key)
+        self.data["market_events"] = self.data["market_events"][-MAX_MARKET_EVENTS:]
+        self._reconcile_manifest(message.get("manifest"))
+        self._save()
+
+    @staticmethod
+    def _market_identity(message):
+        values = (message.get("galaxy"), message.get("systemID"),
+                  message.get("station"), message.get("gameClock"))
+        return values if all(value is not None for value in values) else None
+
+    @staticmethod
+    def _market_location(market):
+        return market.get("galaxy"), market.get("system_id"), market.get("station")
+
+    def _reconcile_manifest(self, manifest):
+        if not isinstance(manifest, list):
+            return
+        held = {}
+        for item in manifest:
+            if not isinstance(item, dict):
+                continue
+            commodity = item.get("commodity", item.get("name"))
+            quantity = item.get("quantity")
+            if isinstance(commodity, str) and self._valid_number(quantity) and quantity > 0:
+                held[commodity] = held.get(commodity, 0) + quantity
+        for commodity, current in list(self.data["cost_basis"].items()):
+            quantity = held.get(commodity, 0)
+            if quantity <= 0:
+                del self.data["cost_basis"][commodity]
+            elif quantity < current["units"]:
+                average = current["total_cost"] / current["units"]
+                current["units"] = quantity
+                current["total_cost"] = quantity * average
+                current["average_price"] = average
 
     def _record_trade(self, message):
         commodity = message.get("commodity")
         units = message.get("units")
         price = message.get("price")
+        event_key = self._trade_identity(message)
         if not isinstance(commodity, str) or not commodity \
                 or not self._valid_number(units) or units <= 0 \
-                or not self._valid_number(price) or price < 0:
-            return False
+                or not self._valid_number(price) or price < 0 or event_key is None:
+            return
+        if event_key in self.data["trade_events"]:
+            return
 
         basis = self.data["cost_basis"]
         current = basis.get(commodity)
@@ -70,11 +120,13 @@ class MarketStore:
             total_cost += units * price
         else:
             if not current:
-                return False
+                self._remember_trade(event_key)
+                return
             held = current["units"]
             total_cost = current["total_cost"]
             if held <= 0:
-                return False
+                self._remember_trade(event_key)
+                return
             sold = min(units, held)
             held -= sold
             total_cost -= sold * (total_cost / current["units"])
@@ -87,7 +139,21 @@ class MarketStore:
             "total_cost": total_cost,
             "average_price": total_cost / held if held else 0,
         }
-        return True
+        self._remember_trade(event_key)
+
+    @staticmethod
+    def _trade_identity(message):
+        values = (message.get("type"), message.get("galaxy"), message.get("systemID"),
+                  message.get("gameClock"), message.get("commodity"), message.get("units"),
+                  message.get("price"))
+        if any(value is None for value in values):
+            return None
+        return json.dumps(values, separators=(",", ":"), ensure_ascii=False)
+
+    def _remember_trade(self, event_key):
+        self.data["trade_events"].append(event_key)
+        self.data["trade_events"] = self.data["trade_events"][-MAX_TRADE_EVENTS:]
+        self._save()
 
     @staticmethod
     def _valid_number(value):
@@ -111,7 +177,8 @@ class MarketStore:
         if not self.data["markets"]:
             return None
         try:
-            seen = datetime.fromisoformat(self.data["markets"][-1]["seen_at"])
+            seen = max(datetime.fromisoformat(market["seen_at"])
+                       for market in self.data["markets"])
             now = self.now().astimezone(timezone.utc)
             seconds = max(0, int((now - seen).total_seconds()))
         except (KeyError, TypeError, ValueError):

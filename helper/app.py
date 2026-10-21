@@ -105,7 +105,6 @@ class HelperWindow:
         )
         for msg in messages:
             self.market_store.apply(msg)
-            msg.pop("_source_id", None)
             self.state.apply(msg)
             self.last_message = json.dumps(msg)
             if msg.get("type") == "closed" and quit_for_game:
