@@ -4,10 +4,10 @@ import argparse
 import json
 import math
 import os
-from datetime import datetime
-from pathlib import Path
 import tempfile
 import time
+from datetime import datetime
+from pathlib import Path
 
 
 def load_scenario(path):
