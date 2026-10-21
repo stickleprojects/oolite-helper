@@ -124,7 +124,13 @@ On some systems the 1.92.1 AppImage's own start-up script fails: its bundled `li
 
 ## Contributing
 
-Issues and pull requests are welcome. Changes to `main` go through pull requests.
+Issues and pull requests are welcome. `main` is protected, so every change, including the maintainer's, goes in through a pull request:
+
+1. Fork the repo (or branch, if you have access) from an up-to-date `main`.
+2. Make your change on a branch, e.g. `fix/separator`.
+3. Open a pull request against `main` and describe what changed and how you tested it.
+
+Automated checks on every PR are coming in [#6](https://github.com/stickleprojects/oolite-helper/issues/6).
 
 ## License
 

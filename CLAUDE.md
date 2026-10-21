@@ -75,3 +75,10 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 - **Key bindings come from the game's files, never from memory.** Extract the AppImage (`--appimage-extract`) into a scratch folder, not into this repo, then read `keyconfig*.plist` and any user overrides (check `Settings/OoliteDefaults.plist`).
 - **Build in small, verified steps.** The game has to be run by Kieron, so ask them to run it and then check the log.
 - Don't commit extracted AppImage contents, game logs or save files.
+
+## Git workflow
+
+- **Never commit to `main`.** It's protected for everyone, admins included: changes go in only through pull requests, with no force-pushes. Start each change on a branch from an up-to-date `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`), push it, and open a PR with `gh pr create`. Reference issues with `Closes #N`.
+- Kieron merges PRs (0 approvals are required). After a merge: `git checkout main && git pull --ff-only`, then delete the local branch.
+- Commits use the noreply address set in this repo's git config, so don't change `user.email`.
+- Once CI exists (#6), it must pass before merging.
