@@ -21,8 +21,24 @@ KEY_NAMES = {
     "arrowLeft": "←", "arrowRight": "→", "arrowUp": "↑", "arrowDown": "↓",
     "pageUp": "PgUp", "pageDown": "PgDn", "home": "Home", "end": "End",
     "tab": "Tab", "enter": "Enter", "esc": "Esc", "space": "Space", " ": "Space",
-    "numpadEnter": "Num Enter",
+    "numpadEnter": "Num Enter", "insert": "Ins", "delete": "Del",
+    "backspace": "Backspace", "pause": "Pause", "printScreen": "PrtSc",
 }
+
+# In-game key changes are saved with a numeric key code (src/SDL/MyOpenGLView.h,
+# enum GameViewKeys). Codes below 256 are the character itself; these are the
+# rest, as the names keyconfig2.plist uses.
+SPECIAL_CODES = {
+    **{256 + i: f"f{i + 1}" for i in range(11)},
+    267: "arrowRight", 268: "arrowLeft", 269: "arrowDown", 270: "arrowUp",
+    271: "pause", 272: "printScreen",
+    303: "home", 304: "end", 305: "insert", 306: "delete",
+    307: "pageUp", 308: "pageDown", 309: "backspace",
+    **{310 + i: f"numpad{i}" for i in range(10)},
+    320: "numpad/", 321: "numpad*", 322: "numpad-", 323: "numpad+",
+    324: "numpad.", 325: "numpad=", 326: "numpadEnter",
+}
+CHAR_NAMES = {9: "tab", 13: "enter", 27: "esc", 32: "space"}
 
 
 class Keymap:
@@ -38,17 +54,46 @@ class Keymap:
         return self.descriptions.get(action, action.removeprefix("key_").replace("_", " "))
 
 
+def is_on(value):
+    """True for a modifier flag in any saved form: "true", "YES", "1", 1, True."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "yes", "1")
+    return bool(value)
+
+
+def decode_key(key):
+    """A saved key (a name, or a numeric code from an in-game change) as a name."""
+    if isinstance(key, str) and not key.isdigit():
+        return key
+    code = int(key)
+    if code in SPECIAL_CODES:
+        return SPECIAL_CODES[code]
+    if code in CHAR_NAMES:
+        return CHAR_NAMES[code]
+    if 32 < code < 256:
+        return chr(code)
+    return str(code)
+
+
+def from_override(entry):
+    """An in-game key change (numeric key, 1/0 flags) as a keyconfig2-style entry."""
+    out = dict(entry)
+    if "key" in out:
+        out["key"] = decode_key(out["key"])
+    return out
+
+
 def format_entry(entry):
-    key = entry.get("key", "?")
+    key = str(entry.get("key", "?"))
     mods = []
-    if entry.get("mod1") == "true":
+    if is_on(entry.get("mod1")):
         mods.append("Ctrl")
-    if entry.get("mod2") == "true":
+    if is_on(entry.get("mod2")):
         mods.append("Alt")
     # Symbols like + * _ ? carry shift=true because that's how they're typed;
     # "Shift++" would mislead, so only letters and named keys show Shift.
     symbol = len(key) == 1 and not key.isalnum()
-    if (entry.get("shift") == "true" and not symbol) or (len(key) == 1 and key.isupper()):
+    if (is_on(entry.get("shift")) and not symbol) or (len(key) == 1 and key.isupper()):
         mods.append("Shift")
     if key in KEY_NAMES:
         name = KEY_NAMES[key]
@@ -72,7 +117,8 @@ def load_keymap(appimage=APPIMAGE, settings_path=SETTINGS):
     bindings = dict(keyconfig.get("default", {}))
     if layout != "default":
         bindings.update(keyconfig.get(layout, {}))
-    bindings.update(settings.get("KeyConfigOverrides", {}))  # in-game key changes
+    for action, entries in settings.get("KeyConfigOverrides", {}).items():  # in-game changes
+        bindings[action] = [from_override(e) for e in entries]
 
     prefix = "oolite-keydesc-"
     descriptions = {k[len(prefix):]: v for k, v in texts.items() if k.startswith(prefix)}

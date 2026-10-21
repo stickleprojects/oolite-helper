@@ -1,0 +1,12 @@
+{
+    KeyConfigOverrides = {
+	"key_docking_clearance_request" = (
+	    {
+		key = 34;
+		mod1 = 1;
+		mod2 = 1;
+		shift = 1;
+	    }
+	);
+    };
+}

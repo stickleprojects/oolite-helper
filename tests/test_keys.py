@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from helper import keys, plist
 
 FIXTURE = Path(__file__).parent / "fixtures" / "keyconfig2.plist"
@@ -82,3 +84,45 @@ def test_extracted_config_refreshes_when_appimage_changes(tmp_path, monkeypatch)
     second = keys._extracted_config(str(appimage))
     assert second != first
     assert len(calls) == 4
+
+
+def test_real_in_game_remap_shows_ctrl_alt_quote(tmp_path, monkeypatch):
+    # Saved by 1.92.1 after remapping docking clearance in-game (#26).
+    remap = Path(__file__).parent / "fixtures" / "OoliteDefaults-remap.plist"
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "keyconfig2.plist").write_text(FIXTURE.read_text(encoding="utf-8"),
+                                                encoding="utf-8")
+    (config_dir / "descriptions.plist").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(keys, "_extracted_config", lambda appimage: str(config_dir))
+    keymap = keys.load_keymap("unused", str(remap))
+    assert keymap.keys("key_docking_clearance_request") == 'Ctrl+Alt+"'
+
+
+@pytest.mark.parametrize(
+    ("entry", "shown"),
+    [
+        ({"key": "268"}, "←"),
+        ({"key": "260"}, "F5"),
+        ({"key": "326"}, "Num Enter"),
+        ({"key": "313"}, "Num 3"),
+        ({"key": "306", "mod1": "1"}, "Ctrl+Del"),
+        ({"key": "107", "shift": "1"}, "Shift+K"),
+        ({"key": "107"}, "K"),
+        ({"key": "9"}, "Tab"),
+        ({"key": "32"}, "Space"),
+        ({"key": "x"}, "X"),
+    ],
+)
+def test_in_game_key_codes(entry, shown):
+    assert keys.format_entry(keys.from_override(entry)) == shown
+
+
+@pytest.mark.parametrize("on", ["true", "TRUE", "yes", "YES", "1", 1, True])
+def test_modifier_saved_forms_count_as_on(on):
+    assert keys.format_entry({"key": "k", "shift": on, "mod1": on}) == "Ctrl+Shift+K"
+
+
+@pytest.mark.parametrize("off", ["false", "NO", "0", 0, False, None])
+def test_modifier_saved_forms_count_as_off(off):
+    assert keys.format_entry({"key": "k", "shift": off}) == "K"
