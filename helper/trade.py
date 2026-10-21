@@ -94,7 +94,7 @@ def _trade_lines(state, estimates):
             continue  # out of stock here
         origin_price = entry.get("price")
         if origin_price is not None and destination_price > origin_price:
-            illegal = bool(entry.get("legality_export") or entry.get("legality_import"))
+            illegal = is_illegal(entry)
             buys.append((destination_price - origin_price, commodity, illegal))
     buys.sort(reverse=True)
     lines.append(
@@ -134,6 +134,21 @@ def _nearest_lines(state):
             world = "none in range"
         lines.append(f"Nearest {label.lower()}: {world}")
     return lines
+
+
+def is_illegal(entry):
+    """Whether a market entry is illegal to trade here.
+
+    The game reports legality_export/legality_import as strings ("0", "1"),
+    so "0" must count as legal.
+    """
+    for key in ("legality_export", "legality_import"):
+        try:
+            if float(entry.get(key) or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
 
 
 def _cargo_estimate(cargo, destination_price, margin):
