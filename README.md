@@ -33,14 +33,14 @@ Oolite + CtxKeys.oxp ──JSON lines──▶ Latest.log ──follow──▶ 
 2. **[helper/](helper/)** follows `Latest.log`, works out the current context and draws the matching key list. The window has no title bar, sits on a second screen and never takes focus from the game.
 3. On startup the helper reads the key bindings and the game's own key descriptions from the AppImage. It caches them until the AppImage changes, then applies your layout and key changes from the game's settings.
 
-The add-on also reports trade and chart data: `market` includes the docked station's raw commodity-keyed market (price, quantity, quantity unit and numeric import/export legality), credits, available/total cargo space, fuel and cargo manifest; `bought` and `sold` include the commodity, units and per-unit price; `systems` lists systems within current fuel range with distance, economy, government, tech level and a `samplePrices` map keyed by commodity; `chart_target` contains the info-screen system and jump target. Market and sample prices, and the `price` in cargo events, use Oolite's decicredit scale (10 decicredits = 1 credit); cargo-event prices are per unit. Distances and fuel are in light-years. The source interfaces are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
+The add-on also reports trade and chart data: `market` includes the docked station's raw commodity-keyed market (price, quantity, quantity unit and numeric import/export legality), credits, available/total cargo space, fuel and cargo manifest; `bought` and `sold` include the commodity, units and per-unit price. Market and cargo messages include the galaxy, system ID and name, and in-game clock. The helper saves every observed market snapshot, including when it was seen, to `~/.local/share/oolite-helper/markets.json` (or `$XDG_DATA_HOME/oolite-helper/markets.json`) and shows the age of the latest remembered prices. Purchases and sales update a per-commodity weighted-average cost basis; sales reduce the quantity and remaining basis at that average. `systems` lists systems within current fuel range with distance, economy, government, tech level and a `samplePrices` map keyed by commodity; `chart_target` contains the info-screen system and jump target. Market and sample prices, and the `price` in cargo events, use Oolite's decicredit scale (10 decicredits = 1 credit); cargo-event prices are per unit. Distances and fuel are in light-years. The source interfaces are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
 
 Example message lines:
 
 ```json
-{"type":"market","station":"Lave Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}]}
-{"type":"bought","commodity":"food","units":2,"price":42}
-{"type":"sold","commodity":"computers","units":1,"price":735}
+{"type":"market","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123456,"station":"Lave Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}]}
+{"type":"bought","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123458,"commodity":"food","units":2,"price":42}
+{"type":"sold","galaxy":0,"systemID":7,"systemName":"Lave","gameClock":123460,"commodity":"computers","units":1,"price":735}
 {"type":"systems","fuel":7,"systems":[{"id":8,"name":"Zaonce","distance":6.5,"economy":8,"government":9,"techLevel":10,"samplePrices":{"food":48,"computers":738}}]}
 {"type":"chart_target","infoSystem":8,"targetSystem":9}
 ```
@@ -140,6 +140,7 @@ On some systems, notably Ubuntu 26.04, whose default Rust coreutils link against
 | `helper/app.py` | The window |
 | `helper/sources.py` | Follows `Latest.log`, including log rotation at game start |
 | `helper/state.py` | Turns messages into game state and a context |
+| `helper/markets.py` | Persists observed markets and commodity cost basis |
 | `helper/contexts.py` | Which actions to show per context, and tips |
 | `helper/keys.py`, `helper/plist.py` | Reads Oolite's key config and descriptions |
 | `helper/screen.py`, `helper/config.py` | Window placement and the config file |

@@ -39,20 +39,29 @@ this._emitClearance = function (event) {
 	this._emit("clearance", { status: this._lastClearance, event: event });
 };
 
+this._marketLocation = function () {
+	return {
+		galaxy: galaxyNumber,
+		systemID: system.ID,
+		systemName: system.name,
+		gameClock: clock.seconds
+	};
+};
+
 this._emitMarket = function (station) {
 	station = station || player.ship.dockedStation;
 	if (!station) return;
-	this._emit("market", {
-		station: station.displayName,
-		market: station.market,
-		credits: player.credits,
-		cargoSpace: {
-			available: player.ship.cargoSpaceAvailable,
-			capacity: player.ship.cargoSpaceCapacity
-		},
-		fuel: player.ship.fuel,
-		manifest: player.ship.manifest.list
-	});
+	var data = this._marketLocation();
+	data.station = station.displayName;
+	data.market = station.market;
+	data.credits = player.credits;
+	data.cargoSpace = {
+		available: player.ship.cargoSpaceAvailable,
+		capacity: player.ship.cargoSpaceCapacity
+	};
+	data.fuel = player.ship.fuel;
+	data.manifest = player.ship.manifest.list;
+	this._emit("market", data);
 };
 
 this._emitSystems = function (onlyIfChanged) {
@@ -201,11 +210,19 @@ this.playerDockingRefused = function (station) {
 };
 
 this.playerBoughtCargo = function (commodity, units, price) {
-	this._emit("bought", { commodity: commodity, units: units, price: price });
+	var data = this._marketLocation();
+	data.commodity = commodity;
+	data.units = units;
+	data.price = price;
+	this._emit("bought", data);
 };
 
 this.playerSoldCargo = function (commodity, units, price) {
-	this._emit("sold", { commodity: commodity, units: units, price: price });
+	var data = this._marketLocation();
+	data.commodity = commodity;
+	data.units = units;
+	data.price = price;
+	this._emit("sold", data);
 };
 
 this.playerStartedAutoPilot = function (station) {

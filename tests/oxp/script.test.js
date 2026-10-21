@@ -22,7 +22,7 @@ const scenarios = [
 		},
 		expected: [
 			'{"docked":true,"view":"VIEW_AFT","alert":0,"type":"ready"}',
-			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
 		],
@@ -56,7 +56,7 @@ const scenarios = [
 		},
 		expected: [
 			'{"to":"GUI_SCREEN_MARKET","from":"GUI_SCREEN_STATUS","type":"gui"}',
-			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 		],
 	},
 	{
@@ -73,7 +73,7 @@ const scenarios = [
 		},
 		expected: [
 			'{"station":"Test Station","type":"docked"}',
-			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 		],
 	},
@@ -232,14 +232,14 @@ const scenarios = [
 		run({ world }) {
 			world.playerBoughtCargo("food", 2, 42);
 		},
-		expected: ['{"commodity":"food","units":2,"price":42,"type":"bought"}'],
+		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"food","units":2,"price":42,"type":"bought"}'],
 	},
 	{
 		name: "selling cargo",
 		run({ world }) {
 			world.playerSoldCargo("computers", 1, 735);
 		},
-		expected: ['{"commodity":"computers","units":1,"price":735,"type":"sold"}'],
+		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"computers","units":1,"price":735,"type":"sold"}'],
 	},
 	{
 		name: "chart info system changed",
@@ -301,7 +301,7 @@ for (const useDebugConsole of [false, true]) {
 			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_GRANTED","type":"aegis"}',
 			'{"status":"DOCKING_CLEARANCE_STATUS_TIMING_OUT","event":"changed","type":"clearance"}',
 			'{"station":"Test Station","type":"docked"}',
-			'{"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 		]);
 	});
