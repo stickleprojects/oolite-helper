@@ -11,7 +11,7 @@ class GameState:
 
     def apply(self, msg):
         kind = msg.get("type")
-        if kind == "hello":  # a new game session started
+        if kind in ("session", "hello"):  # new log file / game loaded
             self.reset()
         elif kind == "ready":
             self.docked = msg.get("docked")
@@ -25,7 +25,7 @@ class GameState:
     @property
     def context(self):
         if self.docked is None:
-            return "unknown"
+            return "waiting for game"
         if self.docked:
             return "docked"
         if self.gui and self.gui != "GUI_SCREEN_MAIN":

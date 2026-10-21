@@ -47,6 +47,8 @@ class HelperWindow:
     def tick(self):
         messages = self.source.poll()
         for msg in messages:
+            if msg.get("type") == "session":
+                self.recent.clear()
             self.state.apply(msg)
             self.recent.append(json.dumps(msg))
         if messages:

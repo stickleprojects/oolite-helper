@@ -29,10 +29,10 @@ class LogSource:
         self._partial = ""
 
     def poll(self):
-        self._reopen_if_needed()
+        # A new file means a new game run, so start the state again.
+        messages = [{"type": "session"}] if self._reopen_if_needed() else []
         if self._file is None:
-            return []
-        messages = []
+            return messages
         chunk = self._file.read()
         if not chunk:
             return messages
@@ -48,10 +48,11 @@ class LogSource:
         return messages
 
     def _reopen_if_needed(self):
+        """Open the log if it's new; returns True when a new file was opened."""
         try:
             st = os.stat(self.path)
         except FileNotFoundError:
-            return
+            return False
         replaced = st.st_ino != self._inode
         truncated = self._file is not None and st.st_size < self._file.tell()
         if self._file is None or replaced or truncated:
@@ -60,3 +61,5 @@ class LogSource:
             self._file = open(self.path, encoding="utf-8", errors="replace")
             self._inode = st.st_ino
             self._partial = ""
+            return True
+        return False
