@@ -1,0 +1,10 @@
+{
+	identifier = "oolite.oxp.kieron.ctxkeys";
+	title = "Context Keys";
+	version = "0.1";
+	required_oolite_version = "1.90";
+	author = "Kieron";
+	license = "MIT";
+	category = "Miscellaneous";
+	description = "Logs game context changes for the external Oolite key helper.";
+}
