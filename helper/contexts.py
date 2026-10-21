@@ -95,8 +95,25 @@ ACTION_NOTES = {
 }
 
 
+# Near-station tips by clearance status, from StationEntity
+# acceptDockingClearanceRequestFrom: — the request key extends clearance while
+# it's timing out, but cancels it while it's granted or requested.
+CLEARANCE_TIPS = {
+    "DOCKING_CLEARANCE_STATUS_TIMING_OUT":
+        "Clearance is about to expire: press {key_docking_clearance_request} now to extend it.",
+    "DOCKING_CLEARANCE_STATUS_GRANTED":
+        "Cleared to dock. Pressing {key_docking_clearance_request} again cancels clearance.",
+    "DOCKING_CLEARANCE_STATUS_REQUESTED":
+        "Waiting for clearance. Pressing {key_docking_clearance_request} again cancels the request.",
+    "DOCKING_CLEARANCE_STATUS_NOT_REQUIRED":
+        "No clearance needed here.",
+}
+
+
 def tip(state, keymap):
     text = TIPS.get(state.context)
+    if state.context == "near station":
+        text = CLEARANCE_TIPS.get(state.clearance, text)
     if not text:
         return ""
     return text.format_map(_KeysLookup(keymap))

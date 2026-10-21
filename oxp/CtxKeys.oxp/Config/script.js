@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.2";
+this.version = "0.3";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -25,6 +25,7 @@ this._emitAegis = function (station) {
 	if (!station && inside) {
 		station = system.mainStation;
 	}
+	this._watchClearance(inside);
 	this._emit("aegis", {
 		inside: inside,
 		station: station ? station.displayName : null,
@@ -34,7 +35,25 @@ this._emitAegis = function (station) {
 };
 
 this._emitClearance = function (event) {
-	this._emit("clearance", { status: player.dockingClearanceStatus, event: event });
+	this._lastClearance = player.dockingClearanceStatus;
+	this._emit("clearance", { status: this._lastClearance, event: event });
+};
+
+// The station's "about to expire" switch to TIMING_OUT fires no script event
+// (StationEntity update:), so check once a second while inside an aegis and
+// report changes only.
+this._watchClearance = function (on) {
+	if (on && !this._clearanceTimer) {
+		this._lastClearance = player.dockingClearanceStatus;
+		this._clearanceTimer = new Timer(this, function () {
+			if (player.dockingClearanceStatus !== this._lastClearance) {
+				this._emitClearance("changed");
+			}
+		}, 1, 1);
+	} else if (!on && this._clearanceTimer) {
+		this._clearanceTimer.stop();
+		this._clearanceTimer = null;
+	}
 };
 
 /* Startup */
@@ -68,6 +87,7 @@ this.viewDirectionChanged = function (to, from) {
 /* Docking and stations */
 
 this.shipDockedWithStation = function (station) {
+	this._watchClearance(false);
 	this._emit("docked", { station: station.displayName });
 };
 
