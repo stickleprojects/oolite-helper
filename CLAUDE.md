@@ -24,7 +24,12 @@ If the key helper works out, it may grow into a fuller HUD with extra game info 
 - Oolite 1.92.1 AppImage: `~/Games/Oolite/oolite-1.92.1-x86_64.AppImage`
 - Linux, MATE, X11. Intel integrated graphics.
 - Game screen: DP-2, 3840x1080 at +0+0. Helper window screen: eDP-1, 1920x1080 at +960+1080.
-- Oolite user data (log, AddOns) does not exist until the game has been run once. Expected under `~/.Oolite/`, but check.
+- **Always launch the game with [scripts/launch-oolite.sh](scripts/launch-oolite.sh)** (the desktop icon points to it). Started directly, the AppImage's AppRun breaks: its bundled libsystemd stops the host's `mkdir`/`mktemp` working, so the log goes to stdout and settings go to `~/GNUstep`. The script uses `OO_DIRTYPE=legacy`, sets the `OO_*` folder variables and writes a `GNUstep.conf` (mode 600, or GNUstep ignores it).
+- All game data lives in `~/Games/Oolite/GameData/`:
+  - `Logs/Latest.log`: the log the helper follows
+  - `AddOns/`: where our OXP goes
+  - `SavedGames/`, `Settings/` (GNUstep defaults, `OoliteDefaults.plist`), `Library/Caches/`
+- Extracted AppImage (scratch only): `Resources/Config/keyconfig.plist`, `keyconfig2.plist`, `logcontrol.plist` under `usr/bin/`.
 
 ## Rules
 
