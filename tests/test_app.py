@@ -103,3 +103,16 @@ def test_closing_game_stops_polling(tmp_path):
     w = window(FakeSource([{"type": "closed"}]), tmp_path)
     w.tick()
     assert w.root.destroyed and w.root.scheduled == []
+
+
+def test_urgent_contexts_show_keys_then_the_chosen_tab_returns(tmp_path):
+    w = window(FakeSource(), tmp_path)
+    w.tab = "all"
+    w.state.apply({"type": "ready", "docked": False, "alert": 1})
+    assert w.visible_tab() == "all"
+    w.state.apply({"type": "alert", "level": 3})
+    assert w.visible_tab() == "keys"
+    w.state.apply({"type": "alert", "level": 1})
+    assert w.visible_tab() == "all"
+    w.state.apply({"type": "died", "cause": "energy damage", "by": None})
+    assert w.visible_tab() == "keys"

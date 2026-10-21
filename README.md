@@ -131,6 +131,12 @@ To run the helper on its own:
 
 `--stay` keeps the window open when the game exits. Right-click the window to close it.
 
+Left-click the tabs under the heading to switch views. Clicking the helper doesn't take keyboard focus from the game, so you can carry on flying.
+- **Keys** shows the keys for what you're doing now.
+- **All keys** shows every key, grouped as on the game's keyboard configuration screen; click a group to show it.
+
+Red alert, a jump countdown or the ship being destroyed always switch to **Keys**, and your chosen tab comes back afterwards.
+
 ### Demo mode (no Oolite needed)
 
 The fake game writes one of the scripted timelines to a log file. In separate terminals, run:

@@ -67,3 +67,27 @@ def test_context_sections_select_screen_and_context_actions():
     state.apply({"type": "gui", "to": "GUI_SCREEN_MAIN"})
     state.apply({"type": "alert", "level": 3})
     assert contexts.sections(state)[0] == contexts.COMBAT
+
+
+def test_all_key_groups_list_each_action_once_and_cover_every_context_section():
+    grouped = [action for _, actions in contexts.ALL_KEY_GROUPS for action in actions]
+    # keyFunctionList in 1.92.1 lists 117 actions in 14 groups (checked against the
+    # full keyconfig2.plist; the fixture is trimmed).
+    assert len(contexts.ALL_KEY_GROUPS) == 14
+    assert len(grouped) == len(set(grouped)) == 117
+    sectioned = {
+        action
+        for value in vars(contexts).values()
+        if isinstance(value, tuple) and len(value) == 2 and isinstance(value[1], list)
+        for action in value[1]
+    }
+    assert sectioned <= set(grouped)
+
+
+def test_weapons_shown_when_flying_or_near_a_station_without_red_alert():
+    state = GameState()
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    assert contexts.WEAPONS in contexts.sections(state)
+    state.apply({"type": "aegis", "inside": True, "station": "Lave Station"})
+    assert state.context == "near station"
+    assert contexts.WEAPONS in contexts.sections(state)

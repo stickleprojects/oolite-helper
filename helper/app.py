@@ -10,7 +10,7 @@ import tkinter as tk
 import traceback
 
 from . import config
-from .contexts import ACTION_NOTES, sections, tip
+from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, sections, tip
 from .keys import load_keymap
 from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
@@ -28,6 +28,11 @@ RED = "#ff4040"
 DIM = "#7a8590"
 SANS = "DejaVu Sans"
 MONO = "DejaVu Sans Mono"
+
+TABS = (("keys", "Keys"), ("all", "All keys"))
+# Contexts that switch the view back to Keys whatever tab is chosen; the chosen
+# tab comes back when they end.
+URGENT = ("red alert", "jump countdown", "ship destroyed")
 
 
 def should_quit_for_messages(messages, first_poll, quit_with_game=True):
@@ -50,7 +55,9 @@ class HelperWindow:
         self.market_store = MarketStore()
         self.notice = self.market_store.load_error  # shown until the game sends something
         self.shown_market_age = None
-        self.shown = None  # sections currently drawn
+        self.shown = None  # what the body currently shows
+        self.tab = "keys"  # the tab the player chose
+        self.all_group = 0  # group shown on the All keys tab
         self.last_message = ""
         self.error = None  # last unexpected error, shown until messages flow again
 
@@ -81,6 +88,16 @@ class HelperWindow:
             self.detail_label.pack(side="top", anchor="w")
         else:
             self.detail_label.pack(side="right", anchor="s", pady=(0, 10))
+
+        tabs = tk.Frame(root, bg=BG)
+        tabs.pack(fill="x", padx=40, pady=(0, 8))
+        self.tab_labels = {}
+        for name, title in TABS:
+            label = tk.Label(tabs, text=f"  {title}  ", font=self.font(SANS, 16, "bold"), bg=BG)
+            label.pack(side="left", padx=(0, 12))
+            # Left-click only: clicking never moves keyboard focus off the game (#20).
+            label.bind("<Button-1>", lambda e, name=name: self.choose_tab(name))
+            self.tab_labels[name] = label
 
         self.tip_label = tk.Label(
             root,
@@ -177,19 +194,70 @@ class HelperWindow:
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
         self.status_label.config(text=self.status_text())
 
-        wanted = sections(self.state) if self.keymap else []
+        tab = self.visible_tab()
+        for name, label in self.tab_labels.items():
+            active = name == tab
+            label.config(fg=BG if active else DIM, bg=ACCENT if active else PANEL)
+        if not self.keymap:
+            wanted = None
+        elif tab == "all":
+            wanted = ("all", self.all_group)
+        else:
+            wanted = sections(self.state)
         if wanted != self.shown:
-            self.draw_sections(wanted)
+            for child in self.body.winfo_children():
+                child.destroy()
+            if wanted and wanted[0] == "all":
+                self.draw_all_keys(self.all_group)
+            elif wanted:
+                self.draw_sections(wanted)
             self.shown = wanted
 
+    def visible_tab(self):
+        return "keys" if self.state.context in URGENT else self.tab
+
+    def choose_tab(self, name):
+        self.tab = name
+        self.render()
+
+    def choose_group(self, index):
+        self.all_group = index
+        self.render()
+
     def draw_sections(self, wanted):
-        for child in self.body.winfo_children():
-            child.destroy()
         for i, (title, actions) in enumerate(wanted):
-            panel = tk.Frame(self.body, bg=PANEL, padx=18, pady=12)
-            panel.grid(
-                row=i // self.columns, column=i % self.columns, sticky="new", padx=12, pady=12
+            self.draw_panel(self.body, i // self.columns, i % self.columns, title, actions)
+
+    def draw_all_keys(self, current):
+        """The game's key groups as clickable chips, and the chosen group's keys."""
+        chips = tk.Frame(self.body, bg=BG)
+        chips.grid(row=0, column=0, columnspan=self.columns, sticky="w", padx=12, pady=(4, 0))
+        per_line = 7
+        line = None
+        for i, (header, _) in enumerate(ALL_KEY_GROUPS):
+            if i % per_line == 0:
+                line = tk.Frame(chips, bg=BG)
+                line.pack(anchor="w")
+            active = i == current
+            chip = tk.Label(
+                line,
+                text=f" {self.keymap.describe(header)} ",
+                font=self.font(SANS, 14),
+                fg=BG if active else FG,
+                bg=ACCENT if active else PANEL,
             )
+            chip.pack(side="left", padx=(0, 8), pady=4)
+            chip.bind("<Button-1>", lambda e, i=i: self.choose_group(i))
+        header, actions = ALL_KEY_GROUPS[current]
+        panel = self.draw_panel(
+            self.body, 1, 0, self.keymap.describe(header), actions, show_unbound=True
+        )
+        panel.grid(columnspan=self.columns)
+
+    def draw_panel(self, parent, row, column, title, actions, show_unbound=False):
+        panel = tk.Frame(parent, bg=PANEL, padx=18, pady=12)
+        panel.grid(row=row, column=column, sticky="new", padx=12, pady=12)
+        if title:
             tk.Label(
                 panel,
                 text=title.upper(),
@@ -198,33 +266,34 @@ class HelperWindow:
                 bg=PANEL,
                 anchor="w",
             ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
-            row = 1
-            for action in actions:
-                keys = self.keymap.keys(action)
-                if not keys:
-                    continue  # unbound in this setup
-                tk.Label(
-                    panel,
-                    text=keys,
-                    font=self.font(MONO, 20, "bold"),
-                    fg=ACCENT,
-                    bg=PANEL,
-                    anchor="w",
-                ).grid(row=row, column=0, sticky="w", padx=(0, 18))
-                text = self.keymap.describe(action)
-                if action in ACTION_NOTES:
-                    text += f" ({ACTION_NOTES[action]})"
-                tk.Label(
-                    panel,
-                    text=text,
-                    font=self.font(SANS, 20),
-                    fg=FG,
-                    bg=PANEL,
-                    anchor="w",
-                    justify="left",
-                    wraplength=self.desc_wrap,
-                ).grid(row=row, column=1, sticky="w")
-                row += 1
+        row = 1
+        for action in actions:
+            keys = self.keymap.keys(action)
+            if not keys and not show_unbound:
+                continue  # unbound in this setup
+            tk.Label(
+                panel,
+                text=keys or "—",
+                font=self.font(MONO, 20, "bold"),
+                fg=ACCENT if keys else DIM,
+                bg=PANEL,
+                anchor="w",
+            ).grid(row=row, column=0, sticky="w", padx=(0, 18))
+            text = self.keymap.describe(action)
+            if action in ACTION_NOTES:
+                text += f" ({ACTION_NOTES[action]})"
+            tk.Label(
+                panel,
+                text=text,
+                font=self.font(SANS, 20),
+                fg=FG if keys else DIM,
+                bg=PANEL,
+                anchor="w",
+                justify="left",
+                wraplength=self.desc_wrap,
+            ).grid(row=row, column=1, sticky="w")
+            row += 1
+        return panel
 
 
 def single_instance_lock():
