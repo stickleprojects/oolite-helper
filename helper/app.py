@@ -128,7 +128,7 @@ class HelperWindow:
             lines.append(f"Market prices: {market_age}")
         self.shown_market_age = market_age
         self.detail_label.config(text="\n".join(line for line in lines if line))
-        tip_text = tip(self.state, self.keymap) if self.keymap else ""
+        tip_text = tip(self.state, self.keymap)
         self.tip_label.config(text=tip_text, pady=8 if tip_text else 0)
         self.status_label.config(text=self.keymap_error or self.last_message)
 

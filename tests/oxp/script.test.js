@@ -24,7 +24,7 @@ const scenarios = [
 			'{"docked":true,"view":"VIEW_AFT","alert":0,"type":"ready"}',
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
-			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
+			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
 		],
 	},
 	{
@@ -38,7 +38,7 @@ const scenarios = [
 			'{"docked":false,"view":"VIEW_PORT","alert":2,"type":"ready"}',
 			'{"inside":false,"station":null,"requiresClearance":null,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
-			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
+			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
 		],
 	},
 	{
@@ -224,7 +224,7 @@ const scenarios = [
 			'{"system":"Test System","alert":2,"type":"arrived"}',
 			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
 			'{"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
-			'{"infoSystem":8,"targetSystem":9,"type":"chart_target"}',
+			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
 		],
 	},
 	{
@@ -248,7 +248,7 @@ const scenarios = [
 			player.ship.targetSystem = 9;
 			world.infoSystemChanged();
 		},
-		expected: ['{"infoSystem":8,"targetSystem":9,"type":"chart_target"}'],
+		expected: ['{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"name":"food","unit":"tonnes","quantity":2,"displayName":"Food"}],"type":"chart_target"}'],
 	},
 	{
 		name: "fuel scooping emits a systems update",
