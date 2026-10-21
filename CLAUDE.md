@@ -46,6 +46,8 @@ These are cited in `contexts.py` TIPS/ACTION_NOTES:
 - Properties: `player.alertCondition`, `player.dockingClearanceStatus`, `player.ship.withinStationAegis`, `player.ship.viewDirection`, `station.requiresDockingClearance`; for trading, `station.market`, `player.ship.manifest.list`, `systemInfo.samplePrice()`, `galaxyNumber`, `clock.seconds`.
 - **In-game key remaps** are saved in `KeyConfigOverrides` with a **numeric `key`** and `shift`/`mod1`/`mod2` as `1`/`0` (e.g. `key = 34; mod1 = 1;` is Ctrl+`"`). Codes: < 256 = character; 256–266 F1–F11; 267–270 Right/Left/Down/Up; 271 Pause; 272 Print Screen; 303–309 Home/End/Insert/Delete/PgUp/PgDn/Backspace; 310–326 numpad (`src/SDL/MyOpenGLView.h`). The helper doesn't handle this yet: #26.
 - The highlighted market row (`marketSelectedCommodity`) is **not** exposed to scripts.
+- `shipEnteredStationAegis`/`shipExitedStationAegis` fire **before** `checkForAegis` updates the status, so `player.ship.withinStationAegis` still has the old value during those events.
+- The market buys and sells with `key_gui_arrow_right`/`left` (Shift = all); `key_market_buy_one`/`buy_max`/`sell_*` are loaded but never read when trading.
 
 ### Event handlers
 
