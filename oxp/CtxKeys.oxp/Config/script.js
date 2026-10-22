@@ -373,6 +373,16 @@ this.shipScoopedFuel = function () {
 	this._emitSystems(true);
 };
 
+// Buying fuel at the station (Equip ship) fires playerBoughtEquipment with
+// EQ_FUEL (PlayerEntity tryBuyingItem:, 1.92.1). The range, credits and fuel
+// all change, so the helper needs both lists again.
+this.playerBoughtEquipment = function (equipmentKey) {
+	if (equipmentKey === "EQ_FUEL") {
+		this._emitSystems(true);
+		this._emitMarket();
+	}
+};
+
 /* Death */
 
 // PlayerEntity getDestroyedBy: fires shipDied(whom, damageType) through

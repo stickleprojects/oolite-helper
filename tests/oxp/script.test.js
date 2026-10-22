@@ -244,6 +244,17 @@ const scenarios = [
 		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"computers","units":1,"price":735,"type":"sold"}', '{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}'],
 	},
 	{
+		name: "buying fuel sends the systems now in range and the market",
+		run({ world }) {
+			world.playerBoughtEquipment("EQ_FUEL", 12);
+			world.playerBoughtEquipment("EQ_ECM", 600); // other equipment: nothing
+		},
+		expected: [
+			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
+		],
+	},
+	{
 		name: "chart info system changed",
 		run({ world, player }) {
 			player.ship.infoSystem = 8;
