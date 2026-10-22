@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import tkinter as tk
 import traceback
 
@@ -19,7 +20,14 @@ from .browser import (
     sort_rows,
     trade_steps,
 )
-from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, indicators, sections, tip
+from .contexts import (
+    ACTION_NOTES,
+    ALL_KEY_GROUPS,
+    clearance_badge,
+    indicators,
+    sections,
+    tip,
+)
 from .keys import commodity_fallback, load_keymap
 from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
@@ -132,6 +140,8 @@ class HelperWindow:
             label = tk.Label(tabs, font=self.font(SANS, 16, "bold"), bg=BG)
             label.pack(side="right", padx=self.px(12, 0))
             self.indicator_labels[name] = label
+        self.clearance_label = tk.Label(tabs, font=self.font(SANS, 16, "bold"), bg=BG)
+        self.clearance_label.pack(side="right", padx=self.px(12, 0))
 
         self.tip_label = tk.Label(
             root,
@@ -197,6 +207,7 @@ class HelperWindow:
         if (
             messages
             or self.state.countdown_left is not None
+            or (clearance_badge(self.state, None) or ("", "", False))[2]  # keep it blinking
             or self.market_store.price_age != self.shown_market_age
         ):
             self.render()
@@ -245,6 +256,7 @@ class HelperWindow:
             ok, why = shown[name]
             text = f"  {name} ✓  " if ok else f"  {name} ✗ {why}  "
             label.config(text=text, fg=BG, bg=GREEN if ok else RED)
+        self.draw_clearance()
         if tab == "trade" and self.trade_commodity:
             wanted = self.trade_detail()
         elif tab == "trade":
@@ -270,6 +282,17 @@ class HelperWindow:
             elif wanted:
                 self.draw_sections(*wanted[1:])
             self.shown = wanted
+
+    def draw_clearance(self):
+        badge = clearance_badge(self.state, self.keymap)
+        if badge is None:
+            self.clearance_label.config(text="", bg=BG)
+            return
+        text, colour, flashes = badge
+        bg = {"green": GREEN, "amber": ACCENT, "red": RED}[colour]
+        if flashes and int(time.monotonic() * 2) % 2:
+            bg = PANEL  # blink twice a second
+        self.clearance_label.config(text=f"  {text}  ", fg=BG if bg != PANEL else ACCENT, bg=bg)
 
     def visible_tab(self):
         return "keys" if self.state.context in URGENT else self.tab

@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from helper.contexts import tip
+from helper.contexts import clearance_badge, tip
 from helper.markets import MarketStore
 from helper.sources import LogSource
 from helper.state import GameState
@@ -23,44 +23,45 @@ class ScenarioTests(unittest.TestCase):
     def setUp(self):
         self.keymap = FakeKeymap()
 
-    def test_docking_messages_update_context_details_and_tips(self):
+    def test_docking_messages_update_context_clearance_badge_and_tips(self):
         state = GameState()
         expected = [
-            ("docked", [], ""),
-            ("flying", [], ""),
+            ("docked", None, ""),
+            ("flying", None, ""),
             (
                 "near station",
-                ["Clearance: none"],
+                "No clearance",
                 "K asks your current target, so target the station first (K with it ahead, or K).",
             ),
             (
                 "near station",
-                ["Clearance: requested"],
+                "Waiting for clearance",
                 "Waiting for clearance. Pressing K again cancels the request.",
             ),
             (
                 "near station",
-                ["Clearance: granted"],
+                "Cleared to dock",
                 "Cleared to dock. Pressing K again cancels clearance.",
             ),
             (
                 "near station",
-                ["Clearance: timing out"],
+                "Clearance expiring: press K to extend",
                 "Clearance is about to expire: press K now to extend it.",
             ),
             (
                 "near station",
-                ["Clearance: none"],
+                "No clearance",
                 "K asks your current target, so target the station first (K with it ahead, or K).",
             ),
-            ("docked", [], ""),
+            ("docked", None, ""),
         ]
         steps = load_scenario(ROOT / "scenarios" / "docking.yaml")
         self.assertEqual(len(steps), len(expected))
-        for step, (context, details, expected_tip) in zip(steps, expected, strict=True):
+        for step, (context, badge, expected_tip) in zip(steps, expected, strict=True):
             state.apply(step["msg"])
             self.assertEqual(state.context, context)
-            self.assertEqual(state.details, details)
+            shown = clearance_badge(state, self.keymap)
+            self.assertEqual(shown and shown[0], badge)
             self.assertEqual(tip(state, self.keymap), expected_tip)
 
     def test_jump_messages_update_context_details_and_tip(self):

@@ -72,7 +72,7 @@ def test_session_hello_and_closed_reset_state():
     assert state.context == "waiting for game"
 
 
-def test_clearance_details_and_station_without_clearance():
+def test_clearance_is_left_to_the_badge_and_refusal_is_remembered():
     state = GameState()
     state.apply({"type": "ready", "docked": False})
     state.apply(
@@ -85,7 +85,13 @@ def test_clearance_details_and_station_without_clearance():
         }
     )
     state.apply({"type": "autopilot", "on": True})
-    assert state.details == ["Clearance: granted", "Docking computer on"]
+    assert state.details == ["Docking computer on"]
+    state.apply(
+        {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_NONE", "event": "refused"}
+    )
+    assert state.clearance_refused
+    state.apply({"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_REQUESTED"})
+    assert not state.clearance_refused
 
     state.apply(
         {
@@ -96,7 +102,7 @@ def test_clearance_details_and_station_without_clearance():
             "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
         }
     )
-    assert state.details == ["Outpost: clearance not required", "Docking computer on"]
+    assert state.requires_clearance is False
 
 
 def test_countdown_uses_injected_clock_and_stops_at_zero():
