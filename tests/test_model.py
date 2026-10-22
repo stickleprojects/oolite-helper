@@ -134,3 +134,24 @@ def test_urgent_contexts_show_keys_then_the_chosen_tab_returns():
 def test_unknown_topic_names_fail_when_subscribing():
     with pytest.raises(KeyError):
         flying().subscribe("no_such_topic", print)
+
+
+def test_trade_here_is_offered_whenever_docked_on_any_screen(tmp_path):
+    from helper.markets import MarketStore
+
+    model = Model(markets=MarketStore(tmp_path / "markets.json"), clock=Clock())
+    model.dispatch({"type": "ready", "docked": False, "alert": 1})
+    assert model.topic("market_advice") == ()
+    model.dispatch({"type": "docked"})
+    model.dispatch({"type": "gui", "to": "GUI_SCREEN_STATUS"})
+    model.dispatch(
+        {
+            "type": "market",
+            "galaxy": 0,
+            "systemID": 7,
+            "market": {"food": {"price": 40, "quantity": 5}},
+            "manifest": [{"commodity": "food", "quantity": 2}],
+        }
+    )
+    groups = dict(model.topic("market_advice"))
+    assert groups["Your hold"][0].startswith("Food ×2: 4.0 here")
