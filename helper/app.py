@@ -14,6 +14,7 @@ from .gamewindow import GameWindow
 from .keys import load_keymap
 from .markets import MarketStore
 from .model import Model
+from .plugins import PluginPanels, discover
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
 from .views import Style
@@ -21,7 +22,7 @@ from .views.body import Body
 from .views.chips import ClearanceBadge, DriveChips, Tabs
 from .views.header import Details, Heading, Location, Status, Tip
 from .views.style import ACCENT, BG, DIM, FG, MONO, SANS
-from .widgets import Widget, load_widgets
+from .widgets import VIEWS, Widget, load_widgets
 
 POLL_MS = 200
 GAME_WINDOW_EVERY = 2  # ticks between game window checks (the #50 spike used 0.5 s)
@@ -44,6 +45,7 @@ class HelperWindow:
         layout="large",
         widgets=(),
         monitors=(),
+        plugins=({}, {}),
     ):
         self.root = root
         self.source = source
@@ -122,8 +124,14 @@ class HelperWindow:
         self.views.append(self.body_view)
         # Widgets (#50): views in their own windows. Docked ones need the game
         # window's position, polled a few times a second only when there are any.
-        self.widgets = [Widget(root, model, spec, monitors) for spec in widgets]
-        self.game_window = GameWindow() if self.widgets else None
+        # A widget showing a plugin (#59) is a web page in the web host instead.
+        built_in = [spec for spec in widgets if spec.views[0] in VIEWS]
+        self.widgets = [Widget(root, model, spec, monitors) for spec in built_in]
+        manifests, broken = plugins
+        self.plugins = PluginPanels(
+            model, [spec for spec in widgets if spec not in built_in], manifests, broken, monitors
+        )
+        self.game_window = GameWindow() if self.widgets or self.plugins.panels else None
         self.ticks = 0
         self.tick()
 
@@ -159,6 +167,7 @@ class HelperWindow:
         self.ticks += 1
         if self.game_window is not None and self.ticks % GAME_WINDOW_EVERY == 1:
             self.model.dispatch(self.game_window.poll())
+        self.plugins.tick()
         self.model.notify()  # every tick: countdowns and blinking need the clock
         return True
 
@@ -248,15 +257,20 @@ def main():
         print("oolite-helper is already running", file=sys.stderr)
         return
 
+    plugins = discover()
     root = tk.Tk()
-    HelperWindow(
+    helper = HelperWindow(
         root,
         LogSource(args.log),
         window_geometry,
         quit_with_game=not args.stay,
         font_scale=float(settings["font_scale"]),
         layout=settings["layout"],
-        widgets=load_widgets(),
+        widgets=load_widgets(plugins=set(plugins[0]) | set(plugins[1])),
         monitors=monitors,
+        plugins=plugins,
     )
-    root.mainloop()
+    try:
+        root.mainloop()
+    finally:
+        helper.plugins.close()

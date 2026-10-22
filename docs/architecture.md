@@ -71,6 +71,7 @@ helper (Tk)                                  web host (GTK, system Python)
 - **Lockdown:** the `plugin://<name>/` scheme serves only that plugin's folder, with a strict CSP (no network, no `eval`, no inline scripts); other navigation, pop-ups, downloads and developer tools are refused. Each window has its own ephemeral web context.
 - **The host's environment closes the holes the #59 spike found** (`sandbox_env`): its own cache folder, an *untrusted* X cookie (no XTEST, RECORD, XInput or GLX), and no sound server. If the untrusted cookie can't be made, plugins don't start: it never falls back to the trusted one. `tests/test_webhost_live.py` checks the web process's mounts; run it after WebKit upgrades.
 - **Failures stay contained:** a page that fails or crashes is closed and reported (`failed`), the others carry on, and a host that dies is restarted with backoff and its windows replayed.
+- **Discovery and topics** ([helper/plugins.py](../helper/plugins.py)): at startup the helper reads each `~/.config/oolite-helper/plugins/<name>/plugin.toml` (name, version, `api`, topics, default size). A plugin is used like a view, alone in a widget: `views = ["jump-lamp"]`, placed by the same `place()` as built-in widgets. It gets only the topics it lists, from `plugins.TOPICS`: **a public API of plain JSON shapes**, mapped from the model's topics, so the model's internals can change without breaking plugins. Add topics freely; changing a shape needs a new `api` version. A broken plugin or a page that fails shows in the status line; the rest carry on.
 - **Developing a plugin:** `.venv/bin/python -m helper.webhost <plugin folder> --at X,Y` opens it on its own, with a ticking `clock` topic.
 
 ## Layouts and the admin panel (planned)
@@ -90,4 +91,5 @@ A player-facing admin panel should eventually let the player swap layouts, add p
 - `helper/views/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
 - `helper/widgets.py`, `gamewindow.py`: views in their own windows, docked to the game (#50).
+- `helper/plugins.py`: plugin discovery, `plugin.toml`, the topics plugins can read, and their windows (#59).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).

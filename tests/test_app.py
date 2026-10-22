@@ -3,6 +3,7 @@ import pytest
 from helper.app import HelperWindow, should_quit_for_messages
 from helper.markets import MarketStore
 from helper.model import Model
+from helper.plugins import PluginPanels
 from helper.views.header import Status
 
 
@@ -62,6 +63,7 @@ def window(source, tmp_path):
     w.ticks, w.game_window = 0, None  # no widgets
     w.model = Model(markets=MarketStore(tmp_path / "markets.json"))
     w.model.on_error = lambda exc, where: w.report(exc)
+    w.plugins = PluginPanels(w.model, [], {})  # no plugins
     w.status_label = FakeLabel()
     Status(w.model, None, w.status_label)
     return w

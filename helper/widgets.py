@@ -61,18 +61,22 @@ class WidgetSpec:
         return self.show or ("with_game" if self.dock else "always")
 
 
-def load_widgets(path=config.PATH):
-    """The [[widgets]] from the config file; [] if none. Bad entries stop with a message."""
+def load_widgets(path=config.PATH, plugins=()):
+    """The [[widgets]] from the config file; [] if none. Bad entries stop with a message.
+
+    plugins: the names of the plugin folders found (#59). A plugin is a view
+    too, but a web page in its own window, so it must be its widget's only view.
+    """
     if not os.path.exists(path):
         return []
     with open(path, "rb") as f:
         entries = tomllib.load(f).get("widgets", [])
     if not isinstance(entries, list):
         raise SystemExit(f"{path}: widgets must be an array of [[widgets]] tables")
-    return [_spec(path, n, entry) for n, entry in enumerate(entries, start=1)]
+    return [_spec(path, n, entry, plugins) for n, entry in enumerate(entries, start=1)]
 
 
-def _spec(path, n, entry):
+def _spec(path, n, entry, plugins=()):
     where = f"{path}: widget {n}"
     if not isinstance(entry, dict):
         raise SystemExit(f"{where} must be a table")
@@ -83,8 +87,13 @@ def _spec(path, n, entry):
     views = entry.get("views")
     if isinstance(views, str):
         views = [views]
-    if not views or not all(view in VIEWS for view in views):
-        raise SystemExit(f"{where}: views must be one or more of {', '.join(VIEWS)}")
+    if isinstance(views, list) and len(views) == 1 and views[0] in plugins:
+        pass  # a plugin, alone
+    elif isinstance(views, list) and any(view in plugins for view in views):
+        raise SystemExit(f"{where}: a plugin must be the only view in its widget")
+    elif not views or not all(view in VIEWS for view in views):
+        names = ", ".join((*VIEWS, *sorted(plugins)))
+        raise SystemExit(f"{where}: views must be one or more of {names}")
     checks = (
         ("dock", entry.get("dock") in (None, *DOCKS), f"one of {', '.join(DOCKS)}"),
         ("layout", entry.get("layout", "compact") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
