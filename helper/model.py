@@ -123,6 +123,11 @@ class Model:
     def topic(self, name):
         """A named topic's current value, memoised (see TOPICS)."""
         selector, every = TOPICS[name]
+        return self.memo(name, every, selector)
+
+    def memo(self, name, every, selector):
+        """selector(model), computed once per state change (and per `every`
+        seconds; every=0: each call). Topics and plugin topics use it."""
         if every == 0:
             return selector(self)
         bucket = None if every is None else int(self.clock() / every)

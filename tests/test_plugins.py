@@ -102,7 +102,7 @@ def test_every_topic_is_json_in_every_state():
     for message in (None, *messages):
         if message:
             model.dispatch(message)
-        for name, (select, _) in TOPICS.items():
+        for name, (select, *_) in TOPICS.items():
             assert json.loads(json.dumps(select(model))) == select(model), name
 
 
@@ -110,7 +110,7 @@ def test_topics_have_documented_shapes():
     model = Model()
     model.dispatch({"type": "ready", "docked": False, "alert": 3})
     model.dispatch({"type": "jump_blocker", "by": "Coriolis Station", "clearAt": 6747})
-    value = {name: select(model) for name, (select, _) in TOPICS.items()}
+    value = {name: select(model) for name, (select, *_) in TOPICS.items()}
     assert value["context"] == "red alert" and value["alert"] == "red"
     assert value["jump_blocker"] == {"by": "Coriolis Station", "clear_at": 6747}
     assert value["drive"] == {

@@ -45,6 +45,10 @@ MIME = {
 SIZE_LIMITS = (40, 4000)  # px, for a page asking to be resized
 LOG_TEXT_LIMIT = 500
 PAGE_MESSAGES_PER_SECOND = 20  # more than this from one page are dropped
+ACTION_LIMIT = 2000  # characters of JSON in one dispatched action
+# Files the helper provides to every plugin under plugin://<name>/_oolite/
+# (theme.css, dev.js): given in the "open" command, never read from disk.
+EXTRAS = "_oolite/"
 
 
 def csp(plugin):
@@ -100,8 +104,10 @@ def allowed_navigation(plugin, uri):
 def page_message(raw):
     """A whitelisted message from a page as a dict, or None to drop it.
 
-    Version 1: {"type": "resize", "width": w, "height": h} and
-    {"type": "log", "text": "..."} (for developers; shown in the helper's log).
+    Version 1: {"type": "resize", "width": w, "height": h},
+    {"type": "log", "text": "..."} (for developers; shown in the helper's log) and
+    {"type": "dispatch", "action": {...}}: a UI action, which the helper checks
+    against the plugin's manifest before doing anything with it.
     """
     try:
         msg = json.loads(raw)
@@ -120,7 +126,19 @@ def page_message(raw):
         return {"type": "resize", "width": size[0], "height": size[1]}
     if kind == "log" and isinstance(msg.get("text"), str):
         return {"type": "log", "text": msg["text"][:LOG_TEXT_LIMIT]}
+    action = msg.get("action")
+    if kind == "dispatch" and isinstance(action, dict) and len(json.dumps(action)) <= ACTION_LIMIT:
+        return {"type": "dispatch", "action": action}
     return None
+
+
+def extra_name(plugin, uri):
+    """The helper-provided file a plugin://<plugin>/_oolite/... URI names, or None."""
+    parsed = urllib.parse.urlsplit(uri)
+    if parsed.scheme != SCHEME or parsed.hostname != plugin.lower():
+        return None
+    path = urllib.parse.unquote(parsed.path).lstrip("/")
+    return path[len(EXTRAS) :] if path.startswith(EXTRAS) else None
 
 
 # Injected into every page before its own scripts. CSP doesn't apply to it.
@@ -140,6 +158,7 @@ BRIDGE = """
     },
     resize(width, height) { post({type: "resize", width, height}); },
     log(text) { post({type: "log", text: String(text)}); },
+    dispatch(action) { post({type: "dispatch", action}); },
   });
   const receive = (topic, value) => {
     last.set(topic, value);
@@ -175,10 +194,11 @@ def main():
         sys.stdout.flush()
 
     class PluginWindow:
-        def __init__(self, wid, plugin, root, entry, background):
+        def __init__(self, wid, plugin, root, entry, background, extras):
             self.id = wid
             self.plugin = plugin
             self.root = root
+            self.extras = extras  # name -> text, served under _oolite/
             self.loaded = False
             self.topics = {}  # latest value of each topic, replayed after a (re)load
             self.recent = []  # times of recent page messages, for the rate limit
@@ -238,16 +258,25 @@ def main():
             self.view.load_uri(f"{SCHEME}://{plugin}/{entry}")
 
         def serve(self, request):
-            path = resolve(self.root, self.plugin, request.get_uri())
-            if path is None:
+            uri = request.get_uri()
+            extra = extra_name(self.plugin, uri)
+            if extra is not None:
+                path, data = extra, self.extras.get(extra)
+                data = None if data is None else data.encode()
+            else:
+                path = resolve(self.root, self.plugin, uri)
+                data = None
+                if path is not None:
+                    with open(path, "rb") as f:
+                        data = f.read()
+            if data is None:
                 request.finish_error(
                     GLib.Error.new_literal(
                         Gio.io_error_quark(), "not found", Gio.IOErrorEnum.NOT_FOUND
                     )
                 )
                 return
-            with open(path, "rb") as f:
-                data = GLib.Bytes.new(f.read())
+            data = GLib.Bytes.new(data)
             response = WebKit2.URISchemeResponse.new(
                 Gio.MemoryInputStream.new_from_bytes(data), data.get_size()
             )
@@ -330,7 +359,12 @@ def main():
             if wid in windows:
                 windows.pop(wid).close()
             windows[wid] = PluginWindow(
-                wid, cmd["plugin"], cmd["root"], cmd.get("entry", "index.html"), cmd["background"]
+                wid,
+                cmd["plugin"],
+                cmd["root"],
+                cmd.get("entry", "index.html"),
+                cmd["background"],
+                cmd.get("extras") or {},
             )
         elif op == "quit":
             Gtk.main_quit()

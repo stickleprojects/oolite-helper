@@ -6,8 +6,9 @@ plugin.toml and its pages:
     name = "jump-lamp"           # must match the folder; lower case, digits, "-"
     version = "1.0.0"
     api = 1                      # the version of the `oolite` object it was written for
-    topics = ["drive"]           # what it reads: names from TOPICS below
+    topics = ["drive"]           # what it reads: names from plugin_api.TOPICS
     keys = ["key_jumpdrive"]     # optional: these actions' keys, as the "keys" topic
+    actions = ["ui/choose_tab"]  # optional: what it may send with oolite.dispatch()
     width = 200                  # its default size, until the page calls oolite.resize()
     height = 60
     entry = "index.html"         # optional
@@ -20,15 +21,9 @@ It's shown like a built-in view, in a widget of its own:
     dock = "game:top"
 
 Pages run sandboxed in the web host (helper/webhost). They get only the topics
-they list, as plain JSON in the shapes documented in TOPICS: a public API,
-kept stable for each `api` version, so the model's internals can change
-without breaking plugins.
-
-Constants for logic, text for showing: anything meant to be read by the
-player ("text", "keys", "description") comes with constants beside it
-("kind", "status", "action", "bindings"), so a plugin never has to parse
-display text, and keeps working if the text is ever in another language
-(Oolite has language add-ons; the helper's own words are English for now).
+they list, and may send only the actions they list; both are the public
+plugin API in helper/plugin_api.py. The helper's stylesheet is served to each
+page as _oolite/theme.css.
 """
 
 import os
@@ -38,138 +33,23 @@ import tomllib
 from dataclasses import dataclass
 
 from . import config
+from .plugin_api import (
+    ACTIONS,
+    API,
+    DEV_JS,
+    KEY_ACTION,
+    KEYS_TOPIC,
+    TOPICS,
+    check_action,
+    key_info,
+    theme_css,
+    topic_value,
+)
 from .webhost import WebHost, WebWindow
 from .widgets import VIEWS, place
 
-API = 1
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
-ALERTS = {0: "docked", 1: "green", 2: "yellow", 3: "red"}
-
-
-def _location(model):
-    system, reached, aimed_at = model.topic("location")
-    return {"system": system, "reached_target": reached, "aimed_at": aimed_at}
-
-
-def _drive(model):
-    lamps = {
-        label.lower(): {"ok": ok, "by": by or None} for label, ok, by in model.topic("indicators")
-    }
-    return lamps or None
-
-
-def _jump_blocker(model):
-    blocker = model.topic("jump_blocker")
-    return {"by": blocker["by"], "clear_at": blocker.get("clearAt")} if blocker else None
-
-
-def _clearance(model):
-    badge = model.topic("clearance")
-    if badge is None:
-        return None
-    text, colour, flashes = badge
-    state = model.state
-    if state.requires_clearance is False:
-        status = "not_required"
-    elif state.clearance_refused:
-        status = "refused"
-    else:
-        status = (state.clearance or "DOCKING_CLEARANCE_STATUS_NONE").removeprefix(
-            "DOCKING_CLEARANCE_STATUS_"
-        )
-        status = status.lower()
-    return {"status": status, "text": text, "colour": colour, "flashes": flashes}
-
-
-def _details(model):
-    return [
-        {"kind": kind, **fields, "text": text} for kind, fields, text in model.state.detail_items
-    ]
-
-
-def key_info(model, action):
-    """An action's keys: constants (action, bindings) and the Keys tab's text (keys, description).
-
-    keys is "" and bindings [] if it's unbound.
-    """
-    return {
-        "action": action,
-        "bindings": model.bindings(action),
-        "keys": model.keys(action),
-        "description": model.describe(action),
-    }
-
-
-def _key_sections(model):
-    return [
-        {"title": title, "keys": [key_info(model, a) for a in actions if model.keys(a)]}
-        for title, actions in model.topic("sections")
-    ]
-
-
-def _screen(model):
-    gui, view = model.topic("screen")
-    return {"gui": gui, "view": view}
-
-
-# name -> (selector giving JSON, what it is). The shapes are the plugin API:
-# add topics freely, but changing a shape needs a new API version.
-TOPICS = {
-    "context": (
-        lambda m: m.topic("context"),
-        'what the player is doing: "docked", "flying", "near station", "red alert", '
-        '"jump countdown", "menu", "ship destroyed", "waiting for game" or "game not running"',
-    ),
-    "alert": (
-        lambda m: ALERTS.get(m.state.alert),
-        '"docked", "green", "yellow" or "red"; null before the game says',
-    ),
-    "location": (
-        _location,
-        '{"system": name or null, "reached_target": true if the last jump arrived where '
-        'it was aimed, "aimed_at": the intended system when a jump went elsewhere, or null}',
-    ),
-    "screen": (_screen, '{"gui": the game screen, e.g. "GUI_SCREEN_STATUS", "view": the view}'),
-    "details": (
-        _details,
-        'short notes: [{"kind": "countdown", "galactic": false, "seconds": 9, '
-        '"text": "Jump in 9s"}, {"kind": "docking_computer", "text": "Docking computer on"}, '
-        '{"kind": "jump_failed", '
-        '"reason": ..., "text": ...}, {"kind": "destroyed", "by": ..., "cause": ..., "text": ...}]',
-    ),
-    "drive": (
-        _drive,
-        'while flying: {"torus": {"ok": bool, "by": ...}, "jump": {"ok": bool, "by": ...}}, '
-        'else null; by is what blocks it (a ship\'s name, or "planet" or "sun"), or null',
-    ),
-    "mass_lock": (
-        lambda m: m.topic("mass_lock"),
-        'what locks the torus drive: a ship\'s name, or "planet" or "sun"; null if nothing',
-    ),
-    "jump_blocker": (
-        _jump_blocker,
-        '{"by": the ship or station in the way, "clear_at": metres away it stops blocking}, '
-        "or null",
-    ),
-    "clearance": (
-        _clearance,
-        'near a station: {"status": "none", "requested", "granted", "timing_out", '
-        '"not_required" or "refused", "text": "Cleared to dock", "colour": "green", '
-        '"flashes": bool}, else null',
-    ),
-    "key_sections": (
-        _key_sections,
-        'what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", '
-        '"bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], '
-        '"keys": "←", "description": "Roll left"}, ...]}, ...]; unbound actions are left out',
-    ),
-}
-# Not in TOPICS: "keys", the actions a plugin lists in its manifest, as
-# {action: {"action", "keys", "description"}}. Key names and wording come from
-# the game's files and the player's settings, like everywhere else.
-KEYS_TOPIC = "keys"
-ACTION = re.compile(r"key_[a-z0-9_]{1,60}")
 
 
 @dataclass(frozen=True)
@@ -184,6 +64,7 @@ class Manifest:
     entry: str = "index.html"
     description: str = ""
     keys: tuple = ()  # actions whose keys it wants (the "keys" topic)
+    actions: tuple = ()  # UI actions it may dispatch (plugin_api.ACTIONS)
 
 
 def read_manifest(root):
@@ -222,14 +103,23 @@ def read_manifest(root):
         raise ValueError(f"entry page {entry!r} isn't in the plugin's folder")
     keys = data.get("keys", [])
     if not isinstance(keys, list) or not all(
-        isinstance(k, str) and ACTION.fullmatch(k) for k in keys
+        isinstance(k, str) and KEY_ACTION.fullmatch(k) for k in keys
     ):
         raise ValueError('keys must be a list of game actions, e.g. ["key_jumpdrive"]')
+    actions = data.get("actions", [])
+    if not isinstance(actions, list) or not all(a in ACTIONS for a in actions):
+        raise ValueError(f"actions must be a list of: {', '.join(ACTIONS)}")
     description = data.get("description", "")
     if not isinstance(description, str):
         raise ValueError("description must be a string")
     return Manifest(
-        **{**data, "root": os.path.abspath(root), "topics": tuple(topics), "keys": tuple(keys)}
+        **{
+            **data,
+            "root": os.path.abspath(root),
+            "topics": tuple(topics),
+            "keys": tuple(keys),
+            "actions": tuple(actions),
+        }
     )
 
 
@@ -262,6 +152,7 @@ class PluginPanels:
         self.monitors = monitors
         # panel id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
+        self.manifests = manifests
         self.panels = {}  # panel id -> (spec, manifest)
         self.sizes = {}  # panel id -> (w, h): the manifest's, or what the page asked for
         for n, spec in enumerate(specs, start=1):
@@ -285,7 +176,7 @@ class PluginPanels:
 
     def topics(self, wid):
         _, manifest = self.panels[wid]
-        values = [(name, TOPICS[name][0](self.model)) for name in manifest.topics]
+        values = [(name, topic_value(self.model, name)) for name in manifest.topics]
         if manifest.keys:
             keys = {action: key_info(self.model, action) for action in manifest.keys}
             values.append((KEYS_TOPIC, keys))
@@ -300,7 +191,8 @@ class PluginPanels:
         windows = {}
         for wid, (spec, manifest) in self.panels.items():
             rect = place(spec, game_window, self.sizes[wid], self.monitors)
-            windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect)
+            extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
+            windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows
 
     def sync(self, windows):
@@ -326,6 +218,8 @@ class PluginPanels:
                 self.sizes[wid] = (msg["width"], msg["height"])  # placed on the next pass
             elif msg["type"] == "log":
                 print(f"oolite-helper: plugin {name}: {msg['text']}", file=sys.stderr)
+            elif msg["type"] == "dispatch":
+                self.dispatch(name, msg["action"])
             return False
         if kind in ("error", "crashed") and name:
             why = event.get("message") or f"its page {event.get('reason', 'crashed')}"
@@ -339,6 +233,15 @@ class PluginPanels:
         else:
             return False
         return True
+
+    def dispatch(self, name, action):
+        """Apply a plugin's UI action if its manifest allows it and it checks out."""
+        checked = check_action(action, self.manifests[name].actions)
+        if checked is None:
+            print(f"oolite-helper: plugin {name}: refused action {action!r}", file=sys.stderr)
+            return
+        self.model.dispatch(checked)
+        self.model.notify()
 
     def report(self):
         text = "; ".join(self.problems.values()) or None

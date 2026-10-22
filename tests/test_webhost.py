@@ -62,12 +62,27 @@ def test_page_messages_are_whitelisted_and_clamped():
     for bad in (
         "not json",
         "[1]",
-        '{"type": "dispatch", "action": {}}',
+        '{"type": "dispatch", "action": "ui/choose_tab"}',
+        '{"type": "dispatch", "action": {"type": "%s"}}' % ("x" * 3000),
+        '{"type": "navigate", "to": "https://example.com/"}',
         '{"type": "resize", "width": "1", "height": 2}',
         '{"type": "resize", "width": true, "height": 2}',
         '{"type": "log", "text": 5}',
     ):
         assert host.page_message(bad) is None, bad
+
+
+def test_dispatches_pass_through_the_host_for_the_helper_to_check():
+    action = {"type": "ui/choose_tab", "tab": "trade"}
+    raw = '{"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "trade"}}'
+    assert host.page_message(raw) == {"type": "dispatch", "action": action}
+
+
+def test_helper_files_are_served_only_under_the_plugins_own_oolite_folder():
+    assert host.extra_name("radar", "plugin://radar/_oolite/theme.css") == "theme.css"
+    assert host.extra_name("radar", "plugin://radar/%5Foolite/theme.css") == "theme.css"
+    assert host.extra_name("radar", "plugin://other/_oolite/theme.css") is None
+    assert host.extra_name("radar", "plugin://radar/theme.css") is None
 
 
 def test_topic_values_reach_the_page_as_json_literals():
@@ -163,6 +178,7 @@ def test_windows_open_when_the_host_is_ready_with_their_place_and_topics(fake_ho
     assert sent(events) == [("open", "a"), ("topic", "a"), ("place", "a")]
     opened = next(e["cmd"] for e in events if e["ev"] == "got")
     assert (opened["plugin"], opened["root"], opened["background"]) == ("probe", PROBE, "#101418")
+    assert opened["extras"] == {}
 
 
 def test_unchanged_topics_and_places_are_not_resent(fake_host):

@@ -73,6 +73,18 @@ class Tip(View):
         self.label.config(text=text, pady=self.style.px(8) if text else 0)
 
 
+def status_line(status):
+    """(kind, text) for the status line: an error, a warning, a notice or the last message."""
+    if status.get("error"):
+        return "error", f"Error (still running): {status['error']}"
+    for kind, field in (("warning", "keymap_error"), ("warning", "plugins"), ("notice", "notice")):
+        if status.get(field):
+            return kind, status[field]
+    if status.get("last_message"):
+        return "message", status["last_message"]
+    return None, ""
+
+
 class Status(View):
     """The last message, or an error, along the bottom."""
 
@@ -84,7 +96,4 @@ class Status(View):
         return model.topic("status")
 
     def draw(self, status):
-        error = status.get("error")
-        text = f"Error (still running): {error}" if error else None
-        text = text or status.get("keymap_error") or status.get("plugins") or status.get("notice")
-        self.label.config(text=text or status.get("last_message") or "", fg=DIM)
+        self.label.config(text=status_line(status)[1], fg=DIM)
