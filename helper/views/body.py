@@ -7,6 +7,7 @@ from ..contexts import ACTION_NOTES, ALL_KEY_GROUPS
 from ..trade import ECONOMIES, GOVERNMENTS
 from .base import View
 from .style import ACCENT, BG, DIM, FG, GREEN, MONO, PANEL, RED, SANS
+from .trade_here import advice_panel
 
 # Trade table columns: (sort key, title, sorted high-to-low on the first click)
 TRADE_COLUMNS = (
@@ -289,8 +290,10 @@ class Body(View):
             self.draw_panel(self.frame, row, column, title, actions)
 
     def draw_advice(self, groups):
-        """The docked market panel: one heading per group, then its lines."""
-        panel = tk.Frame(self.frame, bg=PANEL, padx=self.style.px(18), pady=self.style.px(12))
+        """The Trade here panel, across the top of the body."""
+        panel = advice_panel(
+            self.frame, self.style, groups, self.style.desc_wrap * self.style.columns
+        )
         panel.grid(
             row=0,
             column=0,
@@ -299,23 +302,6 @@ class Body(View):
             padx=self.style.px(12),
             pady=self.style.px(12),
         )
-        tk.Label(
-            panel, text="TRADE HERE", font=self.style.font(SANS, 16, "bold"), fg=DIM, bg=PANEL
-        ).pack(anchor="w")
-        for heading, lines in groups:
-            tk.Label(
-                panel, text=heading, font=self.style.font(SANS, 18, "bold"), fg=ACCENT, bg=PANEL
-            ).pack(anchor="w", pady=self.style.px(8, 0))
-            for line in lines:
-                tk.Label(
-                    panel,
-                    text=line,
-                    font=self.style.font(SANS, 18),
-                    fg=RED if "illegal" in line else FG,
-                    bg=PANEL,
-                    justify="left",
-                    wraplength=self.style.desc_wrap * self.style.columns,
-                ).pack(anchor="w")
 
     def draw_all_keys(self, current):
         """The game's key groups as clickable chips, and the chosen group's keys."""

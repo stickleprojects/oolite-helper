@@ -10,6 +10,7 @@ import tkinter as tk
 import traceback
 
 from . import config
+from .gamewindow import GameWindow
 from .keys import load_keymap
 from .markets import MarketStore
 from .model import Model
@@ -20,8 +21,10 @@ from .views.body import Body
 from .views.chips import ClearanceBadge, DriveChips, Tabs
 from .views.header import Details, Heading, Location, Status, Tip
 from .views.style import ACCENT, BG, DIM, FG, MONO, SANS
+from .widgets import Widget, load_widgets
 
 POLL_MS = 200
+GAME_WINDOW_EVERY = 2  # ticks between game window checks (the #50 spike used 0.5 s)
 
 
 def should_quit_for_messages(messages, first_poll, quit_with_game=True):
@@ -31,7 +34,17 @@ def should_quit_for_messages(messages, first_poll, quit_with_game=True):
 
 
 class HelperWindow:
-    def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0, layout="large"):
+    def __init__(
+        self,
+        root,
+        source,
+        geometry,
+        quit_with_game=True,
+        font_scale=1.0,
+        layout="large",
+        widgets=(),
+        monitors=(),
+    ):
         self.root = root
         self.source = source
         self.quit_with_game = quit_with_game
@@ -107,6 +120,11 @@ class HelperWindow:
         ]
         self.body_view = Body(model, style, body)
         self.views.append(self.body_view)
+        # Widgets (#50): views in their own windows. Docked ones need the game
+        # window's position, polled a few times a second only when there are any.
+        self.widgets = [Widget(root, model, spec, monitors) for spec in widgets]
+        self.game_window = GameWindow() if self.widgets else None
+        self.ticks = 0
         self.tick()
 
     def tick(self):
@@ -138,6 +156,9 @@ class HelperWindow:
         if applied is not None:
             self.model.set_status(error=None, notice=None, last_message=json.dumps(applied))
         self.first_poll = False
+        self.ticks += 1
+        if self.game_window is not None and self.ticks % GAME_WINDOW_EVERY == 1:
+            self.model.dispatch(self.game_window.poll())
         self.model.notify()  # every tick: countdowns and blinking need the clock
         return True
 
@@ -235,5 +256,7 @@ def main():
         quit_with_game=not args.stay,
         font_scale=float(settings["font_scale"]),
         layout=settings["layout"],
+        widgets=load_widgets(),
+        monitors=monitors,
     )
     root.mainloop()

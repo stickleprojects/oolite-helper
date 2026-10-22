@@ -46,6 +46,7 @@ class DriveChips(View):
         return model.topic("indicators")
 
     def draw(self, indicators):
+        self.empty = not indicators
         shown = {name: (ok, why) for name, ok, why in indicators}
         for name, label in self.labels.items():
             if name not in shown:
@@ -72,6 +73,7 @@ class ClearanceBadge(View):
 
     def draw(self, value):
         badge, blink = value
+        self.empty = badge is None
         if badge is None:
             self.label.config(text="", bg=BG)
             return

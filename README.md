@@ -162,6 +162,23 @@ python -m tests.fakegame scenarios/docking.yaml --log /tmp/fake.log --speed 2
 
 The helper follows the scenario just as it follows Oolite's log; `--speed` changes the timeline speed. Try `jump`, `combat`, `menus`, `restart` or `quit` instead of `docking`. The scenario files are JSON-compatible YAML so the fake game needs no extra Python dependencies. The game does not need to be running, but the helper still reads key bindings and descriptions from the installed Oolite AppImage.
 
+### Widgets beside the game
+
+Besides the main window, the helper can show **widgets**: small windows with one or more views, docked to the game window or placed on any monitor. For example, the clearance badge and TORUS/JUMP chips along the top of the game, and Trade here down its right-hand side:
+
+```toml
+[[widgets]]
+views = ["clearance", "drive"]
+dock = "game:top"
+
+[[widgets]]
+views = ["trade_here"]
+dock = "game:right"
+width = 560
+```
+
+Docked widgets sit just outside the game window (it must be windowed), follow it when it moves, and show only while the game is the active window. A widget with nothing to show hides itself. All the settings are in [config.example.toml](config.example.toml). Widgets are opaque: without a compositor, X11 windows can't be see-through.
+
 ### Where the window goes
 
 By default the helper fills the first monitor that **isn't** your primary one, e.g. a laptop screen next to the monitor you play on. To change that, copy [config.example.toml](config.example.toml) to `~/.config/oolite-helper/config.toml`:
