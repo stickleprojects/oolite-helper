@@ -88,7 +88,7 @@ Plain JSON. **Constants for logic, text for showing:** anything meant to be read
 | `trade_rows` | one per commodity: [{"commodity": "food", "name": "Food", "unit": "t", "illegal", "stock", "here": {"price": decicredits or null, "note": "" or how old, "live"}, "best": {"price", "note", "estimate"}, "where": {"name", "distance": ly}, "margin": decicredits or null}, ...]; prices are decicredits (10 = 1 credit) |
 | `trade_detail` | the open commodity, or null: {"commodity", "name", "row": as in trade_rows, "offers": [{"system_id", "name", "price", "note", "estimate", "distance", "economy", "economy_name", "government", "government_name", "dangerous", "illegal"}, ...], "chosen": system id, "limit": {"most", "reason": "on_sale", "credits", "cargo_space" or "not_sold_here", "text"}, "quantity", "steps": [text]} |
 | `market_advice` | Trade here, while docked: [{"heading", "lines": [{"text", "warning"}]}, ...] |
-| `equipment` | what's fitted: [{"key": "EQ_ECM", "name": "E.C.M. System", "description": the game's own text, "count": 1, "ok": false if damaged}, ...] |
+| `equipment` | what's fitted: {"items": [{"key": "EQ_ECM", "name": "E.C.M. System", "description": the game's own text, "count": 1, "ok": false if damaged}, ...], "missiles": {"pylons": how many, or null before the game says, "loaded": [{"key": "EQ_MISSILE", "name": "Missile", "count": 2}, ...]}} |
 | `status` | the status line: {"kind": "error", "warning", "notice", "message" or null, "text"} |
 | `keys` | the actions in your manifest's `keys`: {action: {"action", "bindings", "keys", "description"}} |
 

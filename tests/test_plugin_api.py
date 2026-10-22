@@ -234,15 +234,24 @@ def test_the_plugin_docs_cover_every_topic_and_action():
 
 def test_equipment_gives_ok_instead_of_the_games_status_string():
     model = Model()
+    assert topic_value(model, "equipment") == {
+        "items": [],
+        "missiles": {"pylons": None, "loaded": []},
+    }
     ecm = {"key": "EQ_ECM", "name": "E.C.M. System", "description": "ECM.", "count": 1}
-    missile = {"key": "EQ_MISSILE", "name": "Missile", "description": "Boom.", "count": 2}
+    shield = {"key": "EQ_HEAT_SHIELD", "name": "Heat Shield", "description": "Hot.", "count": 2}
+    missile = {"key": "EQ_MISSILE", "name": "Missile", "count": 3}
     model.dispatch(
         {
             "type": "equipment",
             "items": [
                 {**ecm, "status": "EQUIPMENT_DAMAGED"},
-                {**missile, "status": "EQUIPMENT_OK"},
+                {**shield, "status": "EQUIPMENT_OK"},
             ],
+            "missiles": {"capacity": 4, "loaded": [missile]},
         }
     )
-    assert topic_value(model, "equipment") == [{**ecm, "ok": False}, {**missile, "ok": True}]
+    assert topic_value(model, "equipment") == {
+        "items": [{**ecm, "ok": False}, {**shield, "ok": True}],
+        "missiles": {"pylons": 4, "loaded": [missile]},
+    }

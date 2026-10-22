@@ -66,7 +66,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	// system.filteredEntities(this, predicate, relativeTo, range), nearest first:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
 	// player.ship.equipment (EquipmentInfo list, one entry per item carried) and
-	// player.ship.equipmentStatus(key), and EquipmentInfo equipmentKey, name,
+	// player.ship.equipmentStatus(key), missiles and missileCapacity, and
+	// EquipmentInfo equipmentKey, name,
 	// description and isVisible:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSEquipmentInfo.m
@@ -150,10 +151,12 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	const missile = equipmentInfo("EQ_MISSILE", "Missile", "A homing missile.");
 	const equipment = [
 		equipmentInfo("EQ_ECM", "E.C.M. System", "Electronic Counter Measures."),
-		missile,
-		missile,
+		equipmentInfo("EQ_HEAT_SHIELD", "Heat Shield", "Two of them."),
+		equipmentInfo("EQ_HEAT_SHIELD", "Heat Shield", "Two of them."),
 		equipmentInfo("EQ_HIDDEN", "Hidden", "Not shown on the status screen.", false),
 	];
+	// Missiles are on pylons, not in equipment (ShipEntity missilesList).
+	const missiles = [missile, missile];
 	const damaged = new Set();
 	const player = strictObject("player", {
 		alertCondition: 1,
@@ -175,6 +178,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			infoSystem: 8,
 			targetSystem: 9,
 			equipment,
+			missiles,
+			missileCapacity: 4,
 			equipmentStatus(key) {
 				return damaged.has(key) ? "EQUIPMENT_DAMAGED" : "EQUIPMENT_OK";
 			},

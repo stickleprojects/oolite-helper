@@ -269,7 +269,7 @@ TOPICS = {
     "trade_rows": (_trade_rows, 60),  # price ages are shown in minutes
     "trade_detail": (_trade_detail, 60),
     "market_advice": (_market_advice, 60),
-    "equipment": (lambda m: tuple(m.state.equipment), None),
+    "equipment": (lambda m: (tuple(m.state.equipment), m.state.missiles), None),
     "ui": (lambda m: m.ui, None),
     "status": (lambda m: dict(m.status), None),
     "game_window": (lambda m: m.game_window, None),

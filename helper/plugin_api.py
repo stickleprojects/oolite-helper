@@ -209,16 +209,27 @@ def _market_advice(model):
 
 
 def _equipment(model):
-    return [
-        {
-            "key": item.get("key"),
-            "name": item.get("name"),
-            "description": item.get("description"),
-            "count": item.get("count", 1),
-            "ok": item.get("status") != "EQUIPMENT_DAMAGED",
-        }
-        for item in model.topic("equipment")
-    ]
+    items, missiles = model.topic("equipment")
+    missiles = missiles or {}
+    return {
+        "items": [
+            {
+                "key": item.get("key"),
+                "name": item.get("name"),
+                "description": item.get("description"),
+                "count": item.get("count", 1),
+                "ok": item.get("status") != "EQUIPMENT_DAMAGED",
+            }
+            for item in items
+        ],
+        "missiles": {
+            "pylons": missiles.get("capacity"),
+            "loaded": [
+                {"key": m.get("key"), "name": m.get("name"), "count": m.get("count", 1)}
+                for m in missiles.get("loaded") or []
+            ],
+        },
+    }
 
 
 def _status(model):
@@ -340,8 +351,10 @@ TOPICS = {
     "equipment": (
         _equipment,
         None,
-        'what\'s fitted: [{"key": "EQ_ECM", "name": "E.C.M. System", "description": the '
-        'game\'s own text, "count": 1, "ok": false if damaged}, ...]',
+        'what\'s fitted: {"items": [{"key": "EQ_ECM", "name": "E.C.M. System", '
+        '"description": the game\'s own text, "count": 1, "ok": false if damaged}, ...], '
+        '"missiles": {"pylons": how many, or null before the game says, "loaded": [{"key": '
+        '"EQ_MISSILE", "name": "Missile", "count": 2}, ...]}}',
     ),
     "status": (
         _status,

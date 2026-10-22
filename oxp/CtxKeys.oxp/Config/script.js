@@ -232,29 +232,40 @@ this._massLock = function (ship, nearby) {
 // carry several of appear once each in player.ship.equipment, ShipEntity
 // equipmentListForScripting, 1.92.1). Items the game hides (isVisible) are left
 // out. equipmentStatus() is "EQUIPMENT_OK" or "EQUIPMENT_DAMAGED".
+// Missiles and mines sit on pylons and aren't in that list: player.ship.missiles
+// has one EquipmentInfo per loaded pylon, missileCapacity the pylon count.
 this._emitEquipment = function () {
 	var ship = player.ship;
+	var items = this._countEquipment(ship.equipment || [], function (eq) {
+		return { description: eq.description, status: ship.equipmentStatus(eq.equipmentKey) };
+	});
+	this._emit("equipment", {
+		items: items,
+		missiles: {
+			capacity: ship.missileCapacity,
+			loaded: this._countEquipment(ship.missiles || [], function () { return {}; })
+		}
+	});
+};
+
+// One entry per visible equipment key, with how many there are.
+this._countEquipment = function (list, extra) {
 	var items = [];
 	var byKey = {};
-	var fitted = ship.equipment || [];
-	for (var i = 0; i < fitted.length; i++) {
-		var eq = fitted[i];
+	for (var i = 0; i < list.length; i++) {
+		var eq = list[i];
 		if (!eq.isVisible) continue;
 		var item = byKey[eq.equipmentKey];
 		if (item) {
 			item.count++;
 			continue;
 		}
-		item = byKey[eq.equipmentKey] = {
-			key: eq.equipmentKey,
-			name: eq.name,
-			description: eq.description,
-			count: 1,
-			status: ship.equipmentStatus(eq.equipmentKey)
-		};
+		item = byKey[eq.equipmentKey] = { key: eq.equipmentKey, name: eq.name, count: 1 };
+		var more = extra(eq);
+		for (var field in more) item[field] = more[field];
 		items.push(item);
 	}
-	this._emit("equipment", { items: items });
+	return items;
 };
 
 /* Startup */
@@ -405,11 +416,14 @@ this.shipScoopedFuel = function () {
 
 // Buying fuel at the station (Equip ship) fires playerBoughtEquipment with
 // EQ_FUEL (PlayerEntity tryBuyingItem:, 1.92.1). The range, credits and fuel
-// all change, so the helper needs both lists again.
+// all change, so the helper needs both lists again. Missiles are mounted
+// without equipmentAdded, so any purchase sends the equipment again.
 this.playerBoughtEquipment = function (equipmentKey) {
 	if (equipmentKey === "EQ_FUEL") {
 		this._emitSystems(true);
 		this._emitMarket();
+	} else {
+		this._emitEquipment();
 	}
 };
 
@@ -429,6 +443,11 @@ this.equipmentDamaged = function (equipmentKey) {
 };
 
 this.equipmentRepaired = function (equipmentKey) {
+	this._emitEquipment();
+};
+
+// ShipEntity fireMissileWithIdentifier:andTarget: (1.92.1): one pylon fewer.
+this.shipFiredMissile = function (missile, target) {
 	this._emitEquipment();
 };
 
