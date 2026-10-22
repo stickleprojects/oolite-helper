@@ -124,3 +124,17 @@ def test_mass_lock_says_what_holds_the_torus_drive():
     state.apply({"type": "mass_lock", "by": "planet"})
     state.apply({"type": "docked"})
     assert state.mass_lock is None
+
+
+def test_drive_indicators_follow_mass_lock_and_jump_blocker_in_flight():
+    from helper.contexts import indicators
+    from helper.state import GameState
+
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    assert indicators(state) == [("TORUS", True, ""), ("JUMP", True, "")]
+    state.apply({"type": "mass_lock", "by": "planet"})
+    state.apply({"type": "jump_blocker", "by": "Coriolis Station", "clearAt": 6747})
+    assert indicators(state) == [("TORUS", False, "planet"), ("JUMP", False, "Coriolis Station")]
+    state.apply({"type": "docked"})
+    assert indicators(state) == []
