@@ -11,6 +11,7 @@ const state = {
   key_sections: [],
   all_keys: [],
   tabs: null,
+  selection: null, // subscribed like the rest: every key here is a topic
   market_age: null,
   trade_rows: [],
   trade_detail: null,
