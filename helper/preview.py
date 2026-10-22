@@ -11,8 +11,6 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from tests.fakegame import load_scenario
-
 from . import plugin_api
 from .keys import load_keymap
 from .markets import MarketStore
@@ -277,6 +275,11 @@ def main():
     parser.add_argument("--port", type=int, default=8565)
     parser.add_argument("--layout", choices=plugin_api.LAYOUTS, default="compact")
     args = parser.parse_args()
+    try:
+        # The fake game lives with the tests, so the preview runs from a checkout.
+        from tests.fakegame import load_scenario
+    except ImportError:
+        parser.error("run this from the oolite-helper repository (it needs tests/fakegame.py)")
     try:
         manifest = read_manifest(args.plugin)
         steps = load_scenario(args.scenario)
