@@ -86,5 +86,5 @@ class Status(View):
     def draw(self, status):
         error = status.get("error")
         text = f"Error (still running): {error}" if error else None
-        text = text or status.get("keymap_error") or status.get("notice")
+        text = text or status.get("keymap_error") or status.get("plugins") or status.get("notice")
         self.label.config(text=text or status.get("last_message") or "", fg=DIM)
