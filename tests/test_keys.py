@@ -155,3 +155,15 @@ def test_commodity_names_come_from_descriptions_with_a_fallback():
     keymap = keys.Keymap({}, {}, {"gem_stones": "Gem-Stones"})
     assert keymap.commodity("gem_stones") == "Gem-Stones"
     assert keymap.commodity("liquor_wines") == "Liquor Wines"
+
+
+def test_a_cache_that_cannot_be_pruned_does_not_stop_the_keys_loading(tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    monkeypatch.setattr(keys, "CACHE", str(cache))
+
+    def broken_scandir(path):
+        raise PermissionError(path)
+
+    monkeypatch.setattr(keys.os, "scandir", broken_scandir)
+    keys._prune_old_caches(str(tmp_path / "oolite.AppImage"), str(cache / "x"))  # no error

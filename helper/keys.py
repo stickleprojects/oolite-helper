@@ -183,13 +183,22 @@ def _extracted_config(appimage):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    prefix = os.path.basename(appimage) + "-"
-    with os.scandir(CACHE) as entries:
-        for entry in entries:
-            if (
-                entry.name.startswith(prefix)
-                and entry.name != os.path.basename(root)
-                and entry.is_dir(follow_symlinks=False)
-            ):
-                shutil.rmtree(entry.path)
+    _prune_old_caches(appimage, root)
     return config_dir
+
+
+def _prune_old_caches(appimage, root):
+    """Remove extractions of earlier versions of this AppImage. Best effort: a
+    folder that can't be removed mustn't stop the keys loading."""
+    prefix = os.path.basename(appimage) + "-"
+    try:
+        with os.scandir(CACHE) as entries:
+            for entry in entries:
+                if (
+                    entry.name.startswith(prefix)
+                    and entry.name != os.path.basename(root)
+                    and entry.is_dir(follow_symlinks=False)
+                ):
+                    shutil.rmtree(entry.path, ignore_errors=True)
+    except OSError:
+        pass
