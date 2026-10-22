@@ -7,6 +7,7 @@ and are read every time.
 """
 
 import os
+import shutil
 import subprocess
 
 from . import plist
@@ -182,4 +183,13 @@ def _extracted_config(appimage):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+    prefix = os.path.basename(appimage) + "-"
+    with os.scandir(CACHE) as entries:
+        for entry in entries:
+            if (
+                entry.name.startswith(prefix)
+                and entry.name != os.path.basename(root)
+                and entry.is_dir(follow_symlinks=False)
+            ):
+                shutil.rmtree(entry.path)
     return config_dir

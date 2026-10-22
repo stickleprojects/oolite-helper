@@ -65,7 +65,15 @@ def test_load_keymap_merges_default_layout_then_overrides(tmp_path, monkeypatch)
 def test_extracted_config_refreshes_when_appimage_changes(tmp_path, monkeypatch):
     appimage = tmp_path / "oolite.AppImage"
     appimage.touch()
-    monkeypatch.setattr(keys, "CACHE", str(tmp_path / "cache"))
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    monkeypatch.setattr(keys, "CACHE", str(cache))
+    stale_cache = cache / "oolite.AppImage-9999999999"
+    stale_cache.mkdir()
+    other_cache = cache / "other.AppImage-9999999999"
+    other_cache.mkdir()
+    outside_cache = tmp_path / "outside-cache"
+    outside_cache.mkdir()
     calls = []
 
     def extract(args, cwd, **kwargs):
@@ -86,12 +94,18 @@ def test_extracted_config_refreshes_when_appimage_changes(tmp_path, monkeypatch)
     monkeypatch.setattr(keys.subprocess, "run", extract)
     os.utime(appimage, (1_000_000_000, 1_000_000_000))
     first = keys._extracted_config(str(appimage))
+    first_root = Path(first).parents[4]
     assert len(calls) == 2
+    assert not stale_cache.exists()
+    assert other_cache.exists()
+    assert outside_cache.exists()
 
     os.utime(appimage, (1_000_000_002, 1_000_000_002))
     second = keys._extracted_config(str(appimage))
     assert second != first
     assert len(calls) == 4
+    assert not first_root.exists()
+    assert other_cache.exists()
 
 
 def test_real_in_game_remap_shows_ctrl_alt_quote(tmp_path, monkeypatch):
