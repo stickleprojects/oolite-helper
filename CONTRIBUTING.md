@@ -42,6 +42,11 @@ OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.
   .venv/bin/python -m tests.fakegame scenarios/docking.yaml --log /tmp/fake.log --speed 2 &
   .venv/bin/oolite-helper --log /tmp/fake.log --stay
   ```
+- **Plugin browser preview**: serve a plugin with live scenario data, without the helper or WebKit:
+  ```bash
+  .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
+  ```
+  Open the printed local URL. Use `--speed` to change the timeline or `--loop` to repeat it.
 - **Fake Oolite** (`tests/oxp/fake-oolite.js`): runs the add-on under Node with strict stand-ins for Oolite's script objects. It throws on any property it doesn't know, so typos fail a test instead of failing silently in the game.
 
 ## Project rules

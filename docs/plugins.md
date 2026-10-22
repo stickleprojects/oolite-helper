@@ -122,5 +122,14 @@ The built-in views size text in points times the scale, so `font-size: calc(20pt
 
 ## Developing
 
+- Preview a plugin in an ordinary browser with a fake game scenario:
+  ```bash
+  .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
+  ```
+  Open the printed URL. `--speed` changes the scenario timeline, `--loop` repeats
+  it, `--port` selects the local port (default 8565), and `--layout` selects the
+  theme scale (`compact` by default). The preview serves only on `127.0.0.1`.
+  Its CSP is slightly less strict than the helper's: the preview allows
+  same-origin connections for its event stream and message endpoint.
 - Run the helper with the fake game (see CONTRIBUTING.md) and your plugin in a widget: every topic is live, and `oolite.log` lines appear in the helper's output.
 - `.venv/bin/python -m helper.webhost <folder>` opens just the page, with only a ticking `clock` topic: handy for layout.
