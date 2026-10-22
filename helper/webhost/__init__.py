@@ -22,7 +22,8 @@ PROTOCOL (version 1): JSON objects, one per line.
 
   helper -> host (stdin)
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
-     "background": "#101418"}                         opens hidden
+     "background": "#101418", "extras": {NAME: TEXT}}  opens hidden; extras are
+                                                      served at plugin://NAME/_oolite/
     {"op": "place", "id": ID, "rect": [x, y, w, h]}   or "rect": null to hide
     {"op": "topic", "id": ID, "name": TOPIC, "value": JSON}
     {"op": "close", "id": ID}
@@ -32,6 +33,7 @@ PROTOCOL (version 1): JSON objects, one per line.
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
     {"ev": "page", "id": ID, "msg": {"type": "log", "text": "..."}}
+    {"ev": "page", "id": ID, "msg": {"type": "dispatch", "action": {...}}}  unchecked!
     {"ev": "error", "id": ID or null, "message": "..."}
     {"ev": "crashed", "id": ID, "reason": "crashed" | "exceeded-memory-limit" | ...}
     {"ev": "closed", "id": ID}
@@ -77,9 +79,10 @@ class WebWindow:
     root: str  # the plugin's folder: the only files its pages can load
     entry: str = "index.html"
     rect: tuple | None = None  # (x, y, w, h), or None to hide
+    extras: tuple = ()  # ((name, text), ...): files served at plugin://<plugin>/_oolite/<name>
 
     def page(self):
-        return (self.plugin, self.root, self.entry)
+        return (self.plugin, self.root, self.entry, self.extras)
 
 
 def runtime_dir(environ=os.environ):
@@ -327,8 +330,16 @@ class WebHost:
         for wid, window in wanted.items():
             old = self.opened.get(wid)
             if old is None:
-                plugin, root, entry = window.page()
-                self._send(op="open", id=wid, plugin=plugin, root=root, entry=entry, background=BG)
+                plugin, root, entry, extras = window.page()
+                self._send(
+                    op="open",
+                    id=wid,
+                    plugin=plugin,
+                    root=root,
+                    entry=entry,
+                    background=BG,
+                    extras=dict(extras),
+                )
                 for topic, value in self.topics.get(wid, {}).items():
                     self._send(op="topic", id=wid, name=topic, value=value)
             if old is None or old.rect != window.rect:

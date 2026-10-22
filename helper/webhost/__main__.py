@@ -36,7 +36,7 @@ def main():
                 print(json.dumps(event), flush=True)
                 if event.get("ev") == "page" and event["msg"]["type"] == "resize":
                     msg = event["msg"]
-                    window = WebWindow(*window.page(), (x, y, msg["width"], msg["height"]))
+                    window = WebWindow(*window.page()[:3], (x, y, msg["width"], msg["height"]))
                     host.sync({"dev": window})
             time.sleep(0.1)
     except KeyboardInterrupt:

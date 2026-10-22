@@ -1,0 +1,28 @@
+/* Sizes follow the Tk views: points times the layout's scale (--oo-scale). */
+body { padding: calc(12pt * var(--oo-scale)); }
+#tabs { display: flex; gap: calc(12pt * var(--oo-scale)); margin-bottom: calc(8pt * var(--oo-scale)); }
+.tab {
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  padding: 0 calc(12pt * var(--oo-scale));
+  background: var(--oo-panel);
+  color: var(--oo-dim);
+}
+.tab.active { background: var(--oo-accent); color: var(--oo-bg); }
+#panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(560px * var(--oo-scale)), 1fr));
+  gap: calc(16pt * var(--oo-scale));
+  align-items: start;
+}
+.panel { background: var(--oo-panel); padding: calc(12pt * var(--oo-scale)) calc(18pt * var(--oo-scale)); }
+.panel h2 {
+  margin: 0 0 calc(6pt * var(--oo-scale));
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  color: var(--oo-dim);
+  text-transform: uppercase;
+}
+.key { display: grid; grid-template-columns: max-content 1fr; column-gap: calc(18pt * var(--oo-scale)); }
+.key kbd { font: bold calc(20pt * var(--oo-scale)) var(--oo-mono); color: var(--oo-accent); }
+.key span { font-size: calc(20pt * var(--oo-scale)); }
+.key.unbound kbd, .key.unbound span { color: var(--oo-dim); }
+#groups { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: calc(8pt * var(--oo-scale)); }

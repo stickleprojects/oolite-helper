@@ -1,0 +1,9 @@
+# The Keys tab as a plugin (#59): an example of topics, the theme and clicks.
+name = "keys"
+version = "1.0.0"
+api = 1
+description = "The keys for what you're doing now, or every key by group"
+topics = ["context", "tabs", "key_sections", "all_keys"]
+actions = ["ui/choose_tab"]
+width = 900
+height = 600

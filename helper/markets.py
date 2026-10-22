@@ -243,14 +243,19 @@ class MarketStore:
                 os.unlink(temporary)
 
     @property
-    def price_age(self):
+    def price_seen(self):
+        """When the newest remembered prices were seen, or None."""
         if not self.data["markets"]:
             return None
         try:
-            seen = max(datetime.fromisoformat(market["seen_at"]) for market in self.data["markets"])
+            return max(datetime.fromisoformat(market["seen_at"]) for market in self.data["markets"])
         except (KeyError, TypeError, ValueError):
             return None
-        return age_text(seen, self.now())
+
+    @property
+    def price_age(self):
+        seen = self.price_seen
+        return None if seen is None else age_text(seen, self.now())
 
 
 def age_text(seen, now):
