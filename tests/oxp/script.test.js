@@ -98,7 +98,9 @@ const scenarios = [
 	{
 		name: "entering a station aegis",
 		run({ world, player, system }) {
-			player.ship.withinStationAegis = true;
+			// As in the game (ShipEntity checkForAegis): the property still has
+			// the old value while the event runs.
+			player.ship.withinStationAegis = false;
 			world.shipEnteredStationAegis(system.mainStation);
 		},
 		expected: [
@@ -109,11 +111,11 @@ const scenarios = [
 		name: "exiting a station aegis",
 		run({ world, player, system }) {
 			world.shipEnteredStationAegis(system.mainStation);
-			player.ship.withinStationAegis = false;
+			player.ship.withinStationAegis = true; // still true while the exit event runs
 			world.shipExitedStationAegis(system.mainStation);
 		},
 		expected: [
-			'{"inside":false,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
+			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
 			'{"inside":false,"station":null,"requiresClearance":null,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
 		],
 	},

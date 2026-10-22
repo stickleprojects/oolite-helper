@@ -20,8 +20,13 @@ this._emit = function (type, data) {
 };
 
 // Station aegis state, with what the helper needs to know about docking there.
-this._emitAegis = function (station) {
-	var inside = player.ship.withinStationAegis;
+// The aegis events pass "inside" themselves: ShipEntity checkForAegis (1.92.1)
+// fires them before it updates the status that withinStationAegis reads, so
+// during the event the property still has the old value.
+this._emitAegis = function (station, inside) {
+	if (inside === undefined) {
+		inside = player.ship.withinStationAegis;
+	}
 	if (!station && inside) {
 		station = system.mainStation;
 	}
@@ -280,11 +285,11 @@ this.shipLaunchedFromStation = function (station) {
 };
 
 this.shipEnteredStationAegis = function (station) {
-	this._emitAegis(station);
+	this._emitAegis(station, true);
 };
 
 this.shipExitedStationAegis = function (station) {
-	this._emitAegis(null);
+	this._emitAegis(null, false);
 };
 
 this.playerRequestedDockingClearance = function (message) {
