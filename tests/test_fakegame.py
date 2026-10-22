@@ -327,7 +327,7 @@ class ScenarioTests(unittest.TestCase):
 
     def test_every_scenario_step_uses_helper_message_contract(self):
         expected_contexts = {
-            "combat": ["flying", "red alert", "flying"],
+            "combat": ["flying", "flying", "red alert", "flying"],
             "menus": ["flying", "menu", "menu", "flying", "flying"],
             "restart": ["flying", "red alert", "docked", "docked"],
             "quit": ["flying"],

@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.4";
+this.version = "0.5";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -228,6 +228,35 @@ this._massLock = function (ship, nearby) {
 	return null;
 };
 
+// What's fitted, one item per equipment key (missiles and other items you can
+// carry several of appear once each in player.ship.equipment, ShipEntity
+// equipmentListForScripting, 1.92.1). Items the game hides (isVisible) are left
+// out. equipmentStatus() is "EQUIPMENT_OK" or "EQUIPMENT_DAMAGED".
+this._emitEquipment = function () {
+	var ship = player.ship;
+	var items = [];
+	var byKey = {};
+	var fitted = ship.equipment || [];
+	for (var i = 0; i < fitted.length; i++) {
+		var eq = fitted[i];
+		if (!eq.isVisible) continue;
+		var item = byKey[eq.equipmentKey];
+		if (item) {
+			item.count++;
+			continue;
+		}
+		item = byKey[eq.equipmentKey] = {
+			key: eq.equipmentKey,
+			name: eq.name,
+			description: eq.description,
+			count: 1,
+			status: ship.equipmentStatus(eq.equipmentKey)
+		};
+		items.push(item);
+	}
+	this._emit("equipment", { items: items });
+};
+
 /* Startup */
 
 this.startUp = function () {
@@ -249,6 +278,7 @@ this.startUpComplete = function () {
 	}
 	this._emitSystems();
 	this._emitChartTarget();
+	this._emitEquipment();
 };
 
 /* Screens and views */
@@ -381,6 +411,25 @@ this.playerBoughtEquipment = function (equipmentKey) {
 		this._emitSystems(true);
 		this._emitMarket();
 	}
+};
+
+/* Equipment: fitted, removed, damaged or repaired (PlayerEntity and
+   ShipEntity doScriptEvent, 1.92.1). Each sends the whole list again. */
+
+this.equipmentAdded = function (equipmentKey) {
+	this._emitEquipment();
+};
+
+this.equipmentRemoved = function (equipmentKey) {
+	this._emitEquipment();
+};
+
+this.equipmentDamaged = function (equipmentKey) {
+	this._emitEquipment();
+};
+
+this.equipmentRepaired = function (equipmentKey) {
+	this._emitEquipment();
 };
 
 /* Death */

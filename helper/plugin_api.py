@@ -208,6 +208,19 @@ def _market_advice(model):
     ]
 
 
+def _equipment(model):
+    return [
+        {
+            "key": item.get("key"),
+            "name": item.get("name"),
+            "description": item.get("description"),
+            "count": item.get("count", 1),
+            "ok": item.get("status") != "EQUIPMENT_DAMAGED",
+        }
+        for item in model.topic("equipment")
+    ]
+
+
 def _status(model):
     kind, text = status_line(model.topic("status"))
     return {"kind": kind, "text": text}
@@ -323,6 +336,12 @@ TOPICS = {
         _market_advice,
         60,
         'Trade here, while docked: [{"heading", "lines": [{"text", "warning"}]}, ...]',
+    ),
+    "equipment": (
+        _equipment,
+        None,
+        'what\'s fitted: [{"key": "EQ_ECM", "name": "E.C.M. System", "description": the '
+        'game\'s own text, "count": 1, "ok": false if damaged}, ...]',
     ),
     "status": (
         _status,

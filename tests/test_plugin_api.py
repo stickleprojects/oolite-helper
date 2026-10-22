@@ -230,3 +230,19 @@ def test_the_plugin_docs_cover_every_topic_and_action():
 
     for name in (*TOPICS, *ACTIONS):
         assert f"`{name}`" in docs, name
+
+
+def test_equipment_gives_ok_instead_of_the_games_status_string():
+    model = Model()
+    ecm = {"key": "EQ_ECM", "name": "E.C.M. System", "description": "ECM.", "count": 1}
+    missile = {"key": "EQ_MISSILE", "name": "Missile", "description": "Boom.", "count": 2}
+    model.dispatch(
+        {
+            "type": "equipment",
+            "items": [
+                {**ecm, "status": "EQUIPMENT_DAMAGED"},
+                {**missile, "status": "EQUIPMENT_OK"},
+            ],
+        }
+    )
+    assert topic_value(model, "equipment") == [{**ecm, "ok": False}, {**missile, "ok": True}]

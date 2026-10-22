@@ -55,6 +55,7 @@ class GameState:
         self.system_name = None  # the system the player is in
         self.jump_destination = None  # (id, name) the last jump was aimed at, until launch
         self.origin_market = {}
+        self.equipment = []  # fitted: [{"key", "name", "description", "count", "status"}]
 
     def apply(self, msg):
         kind = msg.get("type")
@@ -135,6 +136,8 @@ class GameState:
             self.current_system = msg.get("currentSystem")
             self.origin_market = msg.get("originMarket") or {}
             self.manifest = msg.get("manifest", self.manifest)
+        elif kind == "equipment":
+            self.equipment = msg.get("items") or []
         elif kind == "closed":
             self.reset()
             self.game_closed = True

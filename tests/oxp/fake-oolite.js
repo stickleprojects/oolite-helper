@@ -65,6 +65,11 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	// system.planets, system.sun, and
 	// system.filteredEntities(this, predicate, relativeTo, range), nearest first:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
+	// player.ship.equipment (EquipmentInfo list, one entry per item carried) and
+	// player.ship.equipmentStatus(key), and EquipmentInfo equipmentKey, name,
+	// description and isVisible:
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
+	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSEquipmentInfo.m
 	// Docking clearance expiry resets the status to NONE:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/StationEntity.m
 	const market = {
@@ -140,6 +145,16 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			},
 		},
 	].map((info) => strictObject("system info", info));
+	const equipmentInfo = (equipmentKey, name, description, isVisible = true) =>
+		strictObject("equipment info", { equipmentKey, name, description, isVisible });
+	const missile = equipmentInfo("EQ_MISSILE", "Missile", "A homing missile.");
+	const equipment = [
+		equipmentInfo("EQ_ECM", "E.C.M. System", "Electronic Counter Measures."),
+		missile,
+		missile,
+		equipmentInfo("EQ_HIDDEN", "Hidden", "Not shown on the status screen.", false),
+	];
+	const damaged = new Set();
 	const player = strictObject("player", {
 		alertCondition: 1,
 		dockingClearanceStatus: "DOCKING_CLEARANCE_STATUS_NONE",
@@ -159,6 +174,10 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			}),
 			infoSystem: 8,
 			targetSystem: 9,
+			equipment,
+			equipmentStatus(key) {
+				return damaged.has(key) ? "EQUIPMENT_DAMAGED" : "EQUIPMENT_OK";
+			},
 			isShip: true,
 			mass: 100000,
 			position: vector(5000),
@@ -239,6 +258,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		world,
 		player,
 		system,
+		equipmentInfo,
+		damaged,
 		logCalls,
 		debugMessages,
 		timers,
