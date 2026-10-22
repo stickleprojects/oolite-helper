@@ -487,3 +487,22 @@ ALL_KEY_GROUPS = [
         ],
     ),
 ]
+
+
+# Contexts where the ship is in normal flight and the drive indicators apply.
+IN_FLIGHT = ("flying", "near station", "red alert", "jump countdown")
+
+
+def indicators(state):
+    """Drive status while flying: [(label, ok, why), ...], else [].
+
+    Both come from the add-on's once-a-second checks of the game's rules
+    (mass lock and the jump blocker; see script.js _checkFlight).
+    """
+    if state.context not in IN_FLIGHT:
+        return []
+    blocker = (state.jump_blocker or {}).get("by")
+    return [
+        ("TORUS", not state.mass_lock, state.mass_lock or ""),
+        ("JUMP", not blocker, blocker or ""),
+    ]

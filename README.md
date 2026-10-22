@@ -7,6 +7,7 @@ A second-screen helper for the space game [Oolite](https://oolite.space/). It sh
 - **Near a station**: docking keys, your clearance status (none, requested, granted, timing out, not required) and docking tips
 - **Red alert**: combat and escape keys
 - **Jump countdown**: seconds left and how to cancel
+- **Drive status chips** while flying: **TORUS ✓/✗** and **JUMP ✓/✗**, with what is holding each, updated every second
 - **Torus drive locked**: what's holding the mass lock (a ship on the scanner, or the planet)
 - **Too close to jump**: a warning while a station or big ship is near enough to block a hyperspace jump, with how far to fly; a failed jump says why
 - **Menu screens in flight**: the keys for that screen
