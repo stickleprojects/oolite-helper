@@ -117,6 +117,10 @@ class HelperWindow:
         self.context_label = tk.Label(header, font=self.font(SANS, 44, "bold"), fg=ACCENT, bg=BG)
         narrow = self.columns == 1  # stack the details under the heading
         self.context_label.pack(side="top" if narrow else "left", anchor="w")
+        self.where_label = tk.Label(header, font=self.font(SANS, 28, "bold"), bg=BG)
+        self.where_label.pack(
+            side="top" if narrow else "left", anchor="w" if narrow else "s", padx=self.px(24, 0)
+        )
         self.detail_label = tk.Label(
             header, font=self.font(SANS, 20), fg=DIM, bg=BG, justify="left" if narrow else "right"
         )
@@ -232,6 +236,13 @@ class HelperWindow:
         self.context_label.config(
             text=context.upper(), fg=RED if context in ("red alert", "ship destroyed") else ACCENT
         )
+        name, reached, aimed_at = self.state.where
+        where = name or ""
+        if reached:
+            where += "  ✓ your jump target"
+        elif aimed_at:
+            where += f"  (aimed for {aimed_at})"
+        self.where_label.config(text=where, fg=GREEN if reached else (RED if aimed_at else FG))
         screen = (self.state.gui or "-").replace("GUI_SCREEN_", "").replace("_", " ").title()
         view = (self.state.view or "-").replace("VIEW_", "").replace("_", " ").title()
         lines = ["    ".join(self.state.details), f"Screen: {screen}    View: {view}"]
