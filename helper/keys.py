@@ -38,6 +38,7 @@ KEY_NAMES = {
     "backspace": "Backspace",
     "pause": "Pause",
     "printScreen": "PrtSc",
+    "/": "Slash",  # alternatives are joined with " / ", so "/ / Num /" was unreadable (#4)
 }
 
 # In-game key changes are saved with a numeric key code (src/SDL/MyOpenGLView.h,
