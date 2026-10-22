@@ -197,16 +197,29 @@ class GameState:
 
         Docking clearance has its own badge (contexts.clearance_badge).
         """
-        notes = []
+        return [text for _, _, text in self.detail_items]
+
+    @property
+    def detail_items(self):
+        """(kind, fields, text) for each note: plugins get the kind and fields
+        as constants beside the English text (#59)."""
+        items = []
         if self.died is not None:
             by, cause = self.died.get("by"), self.died.get("cause")
             text = f"Destroyed by {by}" if by else "Destroyed"
-            notes.append(f"{text} ({cause})" if cause else text)
+            items.append(
+                ("destroyed", {"by": by, "cause": cause}, f"{text} ({cause})" if cause else text)
+            )
         if self.countdown_left is not None:
-            jump = "Galactic jump" if self.countdown_kind == "galactic" else "Jump"
-            notes.append(f"{jump} in {self.countdown_left:.0f}s")
+            galactic = self.countdown_kind == "galactic"
+            jump = "Galactic jump" if galactic else "Jump"
+            text = f"{jump} in {self.countdown_left:.0f}s"
+            seconds = int(f"{self.countdown_left:.0f}")
+            items.append(("countdown", {"galactic": galactic, "seconds": seconds}, text))
         if self.jump_failed and not self.docked:
-            notes.append(JUMP_FAILED[self.jump_failed])
+            items.append(
+                ("jump_failed", {"reason": self.jump_failed}, JUMP_FAILED[self.jump_failed])
+            )
         if self.autopilot:
-            notes.append("Docking computer on")
-        return notes
+            items.append(("docking_computer", {}, "Docking computer on"))
+        return items

@@ -1,7 +1,10 @@
 import json
+from pathlib import Path
 
 import pytest
 
+from helper import plist
+from helper.keys import Keymap, from_override
 from helper.model import Model
 from helper.plugins import TOPICS, PluginPanels, discover, read_manifest
 from helper.widgets import WidgetSpec, load_widgets
@@ -111,8 +114,8 @@ def test_topics_have_documented_shapes():
     assert value["context"] == "red alert" and value["alert"] == "red"
     assert value["jump_blocker"] == {"by": "Coriolis Station", "clear_at": 6747}
     assert value["drive"] == {
-        "torus": {"ok": True, "why": ""},
-        "jump": {"ok": False, "why": "Coriolis Station"},
+        "torus": {"ok": True, "by": None},
+        "jump": {"ok": False, "by": "Coriolis Station"},
     }
 
 
@@ -210,3 +213,127 @@ def test_no_plugin_widgets_means_no_web_host():
     assert made.host is None
     made.tick()
     made.close()
+
+
+# -- key bindings ---------------------------------------------------------------
+
+
+def keyed_model():
+    data = plist.load(Path(__file__).parent / "fixtures" / "keyconfig2.plist")
+    keymap = Keymap(data["default"], {"key_roll_left": "Roll left"})
+    return Model(keymap=keymap)
+
+
+def test_key_sections_are_what_the_keys_tab_shows():
+    model = keyed_model()
+    model.dispatch({"type": "ready", "docked": False, "alert": 1})
+    sections = TOPICS["key_sections"][0](model)
+    assert [s["title"] for s in sections] == [title for title, _ in model.topic("sections")]
+    flight = next(s for s in sections if any(k["action"] == "key_roll_left" for k in s["keys"]))
+    roll = next(k for k in flight["keys"] if k["action"] == "key_roll_left")
+    assert roll == {
+        "action": "key_roll_left",
+        "bindings": [{"key": "arrowLeft", "shift": False, "ctrl": False, "alt": False}],
+        "keys": "←",
+        "description": "Roll left",
+    }
+    assert all(k["keys"] for s in sections for k in s["keys"])  # unbound ones left out
+    json.dumps(sections)
+
+
+def test_descriptions_carry_our_notes_and_work_without_a_keymap():
+    assert keyed_model().describe("key_docking_music").endswith("(while docking computer is on)")
+    assert Model().describe("key_launch_ship") == "launch ship"
+    assert Model().keys("key_launch_ship") == ""
+
+
+def test_a_plugin_gets_the_keys_it_lists(tmp_path):
+    make_plugin(tmp_path, manifest=LAMP + 'keys = ["key_jumpdrive", "key_not_in_this_game"]\n')
+    manifests, _ = discover(tmp_path)
+    assert manifests["lamp"].keys == ("key_jumpdrive", "key_not_in_this_game")
+    model, host = keyed_model(), StubHost()
+    PluginPanels(model, [WidgetSpec(views=("lamp",))], manifests, host=host)
+    keys = {topic: value for _, topic, value in host.published}["keys"]
+    assert keys["key_jumpdrive"]["keys"] == model.keys("key_jumpdrive") != ""
+    assert keys["key_not_in_this_game"] == {
+        "action": "key_not_in_this_game",
+        "bindings": [],
+        "keys": "",
+        "description": "not in this game",
+    }
+
+
+def test_keys_in_a_manifest_must_be_action_names(tmp_path):
+    root = make_plugin(tmp_path, manifest=LAMP + 'keys = ["rm -rf"]\n')
+    with pytest.raises(ValueError, match="keys must be a list of game actions"):
+        read_manifest(root)
+
+
+# -- constants beside display text (localisation-ready) -------------------------
+
+
+def test_bindings_are_constants_in_the_games_key_names():
+    keymap = Keymap(
+        {
+            "key_a": [{"key": "L"}],  # a capital letter means Shift
+            "key_b": [{"key": "c", "shift": "YES", "mod1": 1}, {"key": "f1", "mod2": "true"}],
+            "key_c": [from_override({"key": 34, "mod1": 1})],  # Ctrl+" changed in the game
+        },
+        {},
+    )
+    off = {"shift": False, "ctrl": False, "alt": False}
+    assert keymap.bindings_of("key_a") == [{"key": "l", **off, "shift": True}]
+    assert keymap.bindings_of("key_b") == [
+        {"key": "c", "shift": True, "ctrl": True, "alt": False},
+        {"key": "f1", **off, "alt": True},
+    ]
+    assert keymap.bindings_of("key_c") == [{"key": '"', **off, "ctrl": True}]
+    assert keymap.bindings_of("key_unbound") == []
+
+
+def test_details_have_a_kind_and_fields_beside_their_text():
+    model = Model(clock=lambda: 100.0)
+    model.state._clock = model.clock
+    model.dispatch({"type": "ready", "docked": False, "alert": 1})
+    model.dispatch({"type": "countdown", "kind": "galactic", "seconds": 9})
+    model.dispatch({"type": "autopilot", "on": True})
+    details = TOPICS["details"][0](model)
+    assert details[0] == {
+        "kind": "countdown",
+        "galactic": True,
+        "seconds": 9,
+        "text": "Galactic jump in 9s",
+    }
+    assert details[-1] == {"kind": "docking_computer", "text": "Docking computer on"}
+    assert [d["text"] for d in details] == model.state.details
+
+
+@pytest.mark.parametrize(
+    ("messages", "status"),
+    [
+        (
+            [{"type": "aegis", "inside": True, "clearance": "DOCKING_CLEARANCE_STATUS_GRANTED"}],
+            "granted",
+        ),
+        ([{"type": "aegis", "inside": True, "clearance": None}], "none"),
+        ([{"type": "aegis", "inside": True, "requiresClearance": False}], "not_required"),
+        (
+            [
+                {"type": "aegis", "inside": True},
+                {
+                    "type": "clearance",
+                    "status": "DOCKING_CLEARANCE_STATUS_NONE",
+                    "event": "refused",
+                },
+            ],
+            "refused",
+        ),
+    ],
+)
+def test_clearance_has_a_status_constant_beside_its_text(messages, status):
+    model = Model()
+    model.dispatch({"type": "ready", "docked": False, "alert": 1})
+    for message in messages:
+        model.dispatch(message)
+    clearance = TOPICS["clearance"][0](model)
+    assert clearance["status"] == status and clearance["text"]

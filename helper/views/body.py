@@ -3,7 +3,7 @@
 import tkinter as tk
 
 from ..browser import sort_rows
-from ..contexts import ACTION_NOTES, ALL_KEY_GROUPS
+from ..contexts import ALL_KEY_GROUPS
 from ..trade import ECONOMIES, GOVERNMENTS
 from .base import View
 from .style import ACCENT, BG, DIM, FG, GREEN, MONO, PANEL, RED, SANS
@@ -363,12 +363,9 @@ class Body(View):
                 bg=PANEL,
                 anchor="w",
             ).grid(row=row, column=0, sticky="w", padx=self.style.px(0, 18))
-            text = self.model.keymap.describe(action)
-            if action in ACTION_NOTES:
-                text += f" ({ACTION_NOTES[action]})"
             tk.Label(
                 panel,
-                text=text,
+                text=self.model.describe(action),
                 font=self.style.font(SANS, 20),
                 fg=FG if keys else DIM,
                 bg=PANEL,
