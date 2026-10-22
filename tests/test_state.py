@@ -122,7 +122,7 @@ def test_countdown_uses_injected_clock_and_stops_at_zero():
 
 def test_fake_game_scenarios_drive_expected_contexts():
     expected = {
-        "combat": ["flying", "red alert", "flying"],
+        "combat": ["flying", "flying", "red alert", "flying"],
         "docking": [
             "docked",
             "flying",
@@ -227,3 +227,18 @@ def test_a_jump_that_lands_elsewhere_says_where_it_was_aimed():
     state.apply({"type": "arrived", "system": "Interstellar space", "alert": 3})
     state.apply({"type": "chart_target", "targetSystem": 8, "currentSystem": 200})
     assert state.where == ("Interstellar space", False, "Qutiri")
+
+
+def test_equipment_is_replaced_by_each_message_and_cleared_by_a_new_game():
+    state = GameState()
+    ecm = {"key": "EQ_ECM", "name": "E.C.M. System", "count": 1, "status": "EQUIPMENT_OK"}
+    missiles = {"capacity": 4, "loaded": [{"key": "EQ_MISSILE", "name": "Missile", "count": 1}]}
+    state.apply({"type": "equipment", "items": [ecm], "missiles": missiles})
+    assert state.equipment == [ecm]
+    assert state.missiles == missiles
+    state.apply({"type": "equipment", "items": []})
+    assert state.equipment == []
+    state.apply({"type": "equipment", "items": [ecm]})
+    state.apply({"type": "hello"})
+    assert state.equipment == []
+    assert state.missiles is None

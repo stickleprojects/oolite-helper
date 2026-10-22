@@ -1,5 +1,6 @@
 [
   {"after": 0, "msg": {"type": "ready", "docked": false, "view": "VIEW_FORWARD", "alert": 1}},
+  {"after": 0, "msg": {"type": "equipment", "items": [{"key": "EQ_ECM", "name": "E.C.M. System", "description": "Electronic Counter Measures.", "count": 1, "status": "EQUIPMENT_OK"}, {"key": "EQ_FUEL_INJECTION", "name": "Fuel Injectors", "description": "Fuel injection system.", "count": 1, "status": "EQUIPMENT_DAMAGED"}], "missiles": {"capacity": 4, "loaded": [{"key": "EQ_MISSILE", "name": "Missile", "count": 3}]}}},
   {"after": 5, "msg": {"type": "alert", "level": 3}},
   {"after": 10, "msg": {"type": "alert", "level": 1}}
 ]

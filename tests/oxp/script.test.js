@@ -10,7 +10,7 @@ const scenarios = [
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.4","type":"hello"}'],
+		expected: ['{"version":"0.5","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
@@ -25,6 +25,7 @@ const scenarios = [
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
+			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK"},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
 		],
 	},
 	{
@@ -39,6 +40,7 @@ const scenarios = [
 			'{"inside":false,"station":null,"requiresClearance":null,"clearance":"DOCKING_CLEARANCE_STATUS_NONE","type":"aegis"}',
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
+			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK"},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
 		],
 	},
 	{
@@ -247,11 +249,42 @@ const scenarios = [
 		name: "buying fuel sends the systems now in range and the market",
 		run({ world }) {
 			world.playerBoughtEquipment("EQ_FUEL", 12);
-			world.playerBoughtEquipment("EQ_ECM", 600); // other equipment: nothing
+			world.playerBoughtEquipment("EQ_ECM", 600); // other equipment: the list again
 		},
 		expected: [
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
+			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK"},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+		],
+	},
+	{
+		name: "equipment fitted, damaged, repaired and removed",
+		run({ world, player, equipmentInfo, damaged }) {
+			player.ship.equipment.length = 0;
+			player.ship.equipment.push(equipmentInfo("EQ_FUEL_INJECTION", "Fuel Injectors", "Burn fuel."));
+			world.equipmentAdded("EQ_FUEL_INJECTION");
+			damaged.add("EQ_FUEL_INJECTION");
+			world.equipmentDamaged("EQ_FUEL_INJECTION");
+			damaged.clear();
+			world.equipmentRepaired("EQ_FUEL_INJECTION");
+			player.ship.equipment.length = 0;
+			world.equipmentRemoved("EQ_FUEL_INJECTION");
+		},
+		expected: [
+			'{"items":[{"key":"EQ_FUEL_INJECTION","name":"Fuel Injectors","count":1,"description":"Burn fuel.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+			'{"items":[{"key":"EQ_FUEL_INJECTION","name":"Fuel Injectors","count":1,"description":"Burn fuel.","status":"EQUIPMENT_DAMAGED"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+			'{"items":[{"key":"EQ_FUEL_INJECTION","name":"Fuel Injectors","count":1,"description":"Burn fuel.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+			'{"items":[],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+		],
+	},
+	{
+		name: "a missile fired leaves one pylon fewer",
+		run({ world, player }) {
+			player.ship.missiles.pop();
+			world.shipFiredMissile({}, null);
+		},
+		expected: [
+			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK"},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK"}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":1}]},"type":"equipment"}',
 		],
 	},
 	{
