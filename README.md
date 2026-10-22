@@ -38,6 +38,8 @@ Oolite + CtxKeys.oxp ──JSON lines──▶ Latest.log ──follow──▶ 
 2. **[helper/](helper/)** follows `Latest.log`, works out the current context and draws the matching key list. The window has no title bar, sits on a second screen and never takes focus from the game.
 3. On startup the helper reads the key bindings and the game's own key descriptions from the AppImage. It caches them until the AppImage changes, then applies your layout and key changes from the game's settings.
 
+Any add-on can write `[ctxkeys]` lines to the log, so a misbehaving add-on could make the helper show the wrong context. The impact is cosmetic.
+
 ### Messages
 
 Each add-on line in the log looks like `HH:MM:SS.mmm [ctxkeys]: {json}`, and every message has a `type`.
