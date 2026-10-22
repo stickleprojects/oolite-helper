@@ -26,6 +26,12 @@ def test_format_entry_named_numpad_and_function_keys():
     assert keys.format_entry({"key": "f1"}) == "F1"
 
 
+def test_the_slash_key_is_named_so_alternatives_stay_readable():
+    keymap = keys.Keymap({"key_market_sorter_cycle": [{"key": "/"}, {"key": "numpad/"}]}, {})
+    assert keymap.keys("key_market_sorter_cycle") == "Slash / Num /"
+    assert keys.format_entry({"key": keys.decode_key(47), "mod1": 1}) == "Ctrl+Slash"
+
+
 def test_load_keymap_merges_default_layout_then_overrides(tmp_path, monkeypatch):
     settings = tmp_path / "OoliteDefaults.plist"
     settings.write_text(
