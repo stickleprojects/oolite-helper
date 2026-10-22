@@ -245,15 +245,26 @@ def market_advice(state, markets, cost_basis, now, name, places=3):
         if not quantity or price is None:
             continue
         basis = (cost_basis or {}).get(commodity) or {}
-        paid = basis.get("average_price")
-        if paid:
-            profit = (price - paid) * quantity
-            hold.append(
-                f"{name(commodity)} ×{quantity}: sells for {_cr(price)} here, "
-                f"paid {_cr(paid)}, {_signed(profit)} cr"
+        paid = basis.get("average_price") or None
+        # What you'd make, against what you paid where known, else today's price here.
+        base = paid if paid else price
+        line = f"{name(commodity)} ×{quantity}"
+        line += (
+            f": paid {_cr(paid)}, sells for {_cr(price)} here" if paid else f": {_cr(price)} here"
+        )
+        if paid and price != paid:
+            line += f" ({_signed((price - paid) * quantity)} cr)"
+        best = next(
+            (o for o in commodity_offers(state, markets, now, commodity) if o.price > base), None
+        )
+        if best is not None:
+            line += (
+                f". Best: {_system_text(best)} at {_cr(best.price)} ({best.note}), "
+                f"{_signed((best.price - base) * quantity)} cr"
             )
         else:
-            hold.append(f"{name(commodity)} ×{quantity}: sells for {_cr(price)} here")
+            line += ". Nowhere in range pays more"
+        hold.append(line)
     if hold:
         groups.append(("Your hold", hold))
 
@@ -306,7 +317,7 @@ def market_advice(state, markets, cost_basis, now, name, places=3):
     skip = target if target != state.current_system else None
     best = _ranked_buys(state, markets, now, here, offers, name, skip=skip)
     if best:
-        groups.append(("Best buys in range", best[:places]))
+        groups.append(("Best buys you can still afford and fit", best[:places]))
     return groups
 
 
