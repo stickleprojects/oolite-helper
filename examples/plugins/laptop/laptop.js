@@ -102,7 +102,7 @@ function drawTabs() {
 function panel(title, keys) {
   return el(
     "section",
-    { className: "panel" },
+    { className: "panel keys" },
     el("h2", { textContent: title }),
     ...keys.map((key) =>
       el(
@@ -253,13 +253,14 @@ function drawDetail(parent, detail) {
     for (const offer of detail.offers) {
       const chosen = detail.chosen != null && offer.system_id === detail.chosen;
       const margin = row && row.here.price != null ? offer.price - row.here.price : null;
+      const plain = chosen ? "accent" : ""; // the whole chosen row is accent, as in Tk
       const cells = [
         [`${chosen ? "▶ " : "  "}${offer.name}${offer.illegal ? "  illegal" : ""}`, offer.illegal ? "warning" : chosen ? "accent" : ""],
-        [LaptopFormat.formatPrice(offer.price, offer.note), ""],
-        [LaptopFormat.formatMargin(margin), margin == null ? "" : margin > 0 ? "good" : "dim"],
-        [offer.distance == null ? "" : `${offer.distance.toFixed(1)} ly`, ""],
-        [offer.economy_name || "?", ""],
-        [`${offer.government_name || "?"}${offer.dangerous ? " ⚠" : ""}`, offer.dangerous ? "warning" : ""],
+        [LaptopFormat.formatPrice(offer.price, offer.note), plain],
+        [LaptopFormat.formatMargin(margin), margin == null ? plain : margin > 0 ? "good" : "dim"],
+        [offer.distance == null ? "" : `${offer.distance.toFixed(1)} ly`, plain],
+        [offer.economy_name || "?", plain],
+        [`${offer.government_name || "?"}${offer.dangerous ? " ⚠" : ""}`, offer.dangerous ? "warning" : plain],
       ];
       const tr = el("tr", { className: "clickable" });
       for (const [value, className] of cells) tr.append(el("td", { className, textContent: value }));
