@@ -7,6 +7,7 @@ plugin.toml and its pages:
     version = "1.0.0"
     api = 1                      # the version of the `oolite` object it was written for
     topics = ["drive"]           # what it reads: names from TOPICS below
+    keys = ["key_jumpdrive"]     # optional: these actions' keys, as the "keys" topic
     width = 200                  # its default size, until the page calls oolite.resize()
     height = 60
     entry = "index.html"         # optional
@@ -63,6 +64,18 @@ def _clearance(model):
     return {"text": text, "colour": colour, "flashes": flashes}
 
 
+def key_info(model, action):
+    """{"action", "keys", "description"} as the Keys tab shows it; keys is "" if unbound."""
+    return {"action": action, "keys": model.keys(action), "description": model.describe(action)}
+
+
+def _key_sections(model):
+    return [
+        {"title": title, "keys": [key_info(model, a) for a in actions if model.keys(a)]}
+        for title, actions in model.topic("sections")
+    ]
+
+
 def _screen(model):
     gui, view = model.topic("screen")
     return {"gui": gui, "view": view}
@@ -106,7 +119,17 @@ TOPICS = {
         'near a station: {"text": "Clearance granted", "colour": "green", "flashes": bool}, '
         "else null",
     ),
+    "key_sections": (
+        _key_sections,
+        'what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", '
+        '"keys": "←", "description": "Roll left"}, ...]}, ...]; unbound actions are left out',
+    ),
 }
+# Not in TOPICS: "keys", the actions a plugin lists in its manifest, as
+# {action: {"action", "keys", "description"}}. Key names and wording come from
+# the game's files and the player's settings, like everywhere else.
+KEYS_TOPIC = "keys"
+ACTION = re.compile(r"key_[a-z0-9_]{1,60}")
 
 
 @dataclass(frozen=True)
@@ -120,6 +143,7 @@ class Manifest:
     height: int
     entry: str = "index.html"
     description: str = ""
+    keys: tuple = ()  # actions whose keys it wants (the "keys" topic)
 
 
 def read_manifest(root):
@@ -156,10 +180,17 @@ def read_manifest(root):
     full = os.path.realpath(os.path.join(root, str(entry)))
     if not full.startswith(os.path.realpath(root) + os.sep) or not os.path.isfile(full):
         raise ValueError(f"entry page {entry!r} isn't in the plugin's folder")
+    keys = data.get("keys", [])
+    if not isinstance(keys, list) or not all(
+        isinstance(k, str) and ACTION.fullmatch(k) for k in keys
+    ):
+        raise ValueError('keys must be a list of game actions, e.g. ["key_jumpdrive"]')
     description = data.get("description", "")
     if not isinstance(description, str):
         raise ValueError("description must be a string")
-    return Manifest(**{**data, "root": os.path.abspath(root), "topics": tuple(topics)})
+    return Manifest(
+        **{**data, "root": os.path.abspath(root), "topics": tuple(topics), "keys": tuple(keys)}
+    )
 
 
 def discover(folder=DIR):
@@ -214,7 +245,11 @@ class PluginPanels:
 
     def topics(self, wid):
         _, manifest = self.panels[wid]
-        return tuple((name, TOPICS[name][0](self.model)) for name in manifest.topics)
+        values = [(name, TOPICS[name][0](self.model)) for name in manifest.topics]
+        if manifest.keys:
+            keys = {action: key_info(self.model, action) for action in manifest.keys}
+            values.append((KEYS_TOPIC, keys))
+        return tuple(values)
 
     def send(self, wid, values):
         for name, value in values:

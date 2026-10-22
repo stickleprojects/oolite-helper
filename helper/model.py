@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, replace
 
 from .browser import buy_limit, commodity_offers, commodity_rows, held, market_advice, trade_steps
-from .contexts import clearance_badge, indicators, sections, tip
+from .contexts import ACTION_NOTES, clearance_badge, indicators, sections, tip
 from .keys import commodity_fallback
 from .state import GameState
 
@@ -139,6 +139,15 @@ class Model:
 
     def keys(self, action):
         return self.keymap.keys(action) if self.keymap else ""
+
+    def describe(self, action):
+        """An action as the game describes it, plus our note on when it works, if any."""
+        if self.keymap:
+            text = self.keymap.describe(action)
+        else:
+            text = action.removeprefix("key_").replace("_", " ")
+        note = ACTION_NOTES.get(action)
+        return f"{text} ({note})" if note else text
 
     # -- notification ----------------------------------------------------
 

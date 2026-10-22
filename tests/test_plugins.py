@@ -1,7 +1,10 @@
 import json
+from pathlib import Path
 
 import pytest
 
+from helper import plist
+from helper.keys import Keymap
 from helper.model import Model
 from helper.plugins import TOPICS, PluginPanels, discover, read_manifest
 from helper.widgets import WidgetSpec, load_widgets
@@ -210,3 +213,55 @@ def test_no_plugin_widgets_means_no_web_host():
     assert made.host is None
     made.tick()
     made.close()
+
+
+# -- key bindings ---------------------------------------------------------------
+
+
+def keyed_model():
+    data = plist.load(Path(__file__).parent / "fixtures" / "keyconfig2.plist")
+    keymap = Keymap(data["default"], {"key_roll_left": "Roll left"})
+    return Model(keymap=keymap)
+
+
+def test_key_sections_are_what_the_keys_tab_shows():
+    model = keyed_model()
+    model.dispatch({"type": "ready", "docked": False, "alert": 1})
+    sections = TOPICS["key_sections"][0](model)
+    assert [s["title"] for s in sections] == [title for title, _ in model.topic("sections")]
+    flight = next(s for s in sections if any(k["action"] == "key_roll_left" for k in s["keys"]))
+    roll = next(k for k in flight["keys"] if k["action"] == "key_roll_left")
+    assert roll == {
+        "action": "key_roll_left",
+        "keys": model.keys("key_roll_left"),
+        "description": "Roll left",
+    }
+    assert all(k["keys"] for s in sections for k in s["keys"])  # unbound ones left out
+    json.dumps(sections)
+
+
+def test_descriptions_carry_our_notes_and_work_without_a_keymap():
+    assert keyed_model().describe("key_docking_music").endswith("(while docking computer is on)")
+    assert Model().describe("key_launch_ship") == "launch ship"
+    assert Model().keys("key_launch_ship") == ""
+
+
+def test_a_plugin_gets_the_keys_it_lists(tmp_path):
+    make_plugin(tmp_path, manifest=LAMP + 'keys = ["key_jumpdrive", "key_not_in_this_game"]\n')
+    manifests, _ = discover(tmp_path)
+    assert manifests["lamp"].keys == ("key_jumpdrive", "key_not_in_this_game")
+    model, host = keyed_model(), StubHost()
+    PluginPanels(model, [WidgetSpec(views=("lamp",))], manifests, host=host)
+    keys = {topic: value for _, topic, value in host.published}["keys"]
+    assert keys["key_jumpdrive"]["keys"] == model.keys("key_jumpdrive") != ""
+    assert keys["key_not_in_this_game"] == {
+        "action": "key_not_in_this_game",
+        "keys": "",
+        "description": "not in this game",
+    }
+
+
+def test_keys_in_a_manifest_must_be_action_names(tmp_path):
+    root = make_plugin(tmp_path, manifest=LAMP + 'keys = ["rm -rf"]\n')
+    with pytest.raises(ValueError, match="keys must be a list of game actions"):
+        read_manifest(root)
