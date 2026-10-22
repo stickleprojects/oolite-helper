@@ -53,6 +53,10 @@ These are cited in `contexts.py` TIPS/ACTION_NOTES:
 
 All of these are confirmed present in the 1.92.1 binary: `startUp`, `startUpComplete`, `shipEnteredStationAegis`, `shipExitedStationAegis`, `shipDockedWithStation`, `shipWillLaunchFromStation`, `shipLaunchedFromStation`, `alertConditionChanged`, `shipWillEnterWitchspace`, `shipWillExitWitchspace`, `shipExitedWitchspace`, `shipScoopedFuel`, `shipTargetAcquired`, `shipTargetLost`, `shipTargetDestroyed`, `guiScreenWillChange`, `guiScreenChanged`, `infoSystemChanged`, `playerBoughtCargo`, `playerSoldCargo`, `playerBoughtEquipment` (fuel is `EQ_FUEL`), `playerStartedJumpCountdown`, `playerCancelledJumpCountdown`, `playerJumpFailed`, `shipEnteredPlanetaryVicinity`, `shipExitedPlanetaryVicinity`, `playerStartedAutoPilot`, `playerCancelledAutoPilot`, `playerRequestedDockingClearance`, `playerDockingClearanceGranted`, `missionScreenOpportunity`. Also `shipDied(whom, damageType)`, checked in the source: the player fires it from `getDestroyedBy:` via `noteKilledBy:`, and after the game-over screen (Space, or 30 s) the last save reloads, which runs `startUp` again.
 
+### Architecture
+
+State and views follow a Redux-style store: see [docs/architecture.md](docs/architecture.md). New visualisations are `View`s (`select` + `draw`) over `Model` topics: never read or change `GameState` from widget code directly.
+
 ## Environment
 
 - Oolite 1.92.1 AppImage: `~/Games/Oolite/oolite-1.92.1-x86_64.AppImage`

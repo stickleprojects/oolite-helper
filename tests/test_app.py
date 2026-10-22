@@ -2,7 +2,8 @@ import pytest
 
 from helper.app import HelperWindow, should_quit_for_messages
 from helper.markets import MarketStore
-from helper.state import GameState
+from helper.model import Model
+from helper.views.header import Status
 
 
 @pytest.mark.parametrize(
@@ -52,20 +53,16 @@ class FakeSource:
 
 
 def window(source, tmp_path):
-    w = HelperWindow.__new__(HelperWindow)  # no Tk: just the polling parts
+    """The polling parts of the window, with a status line but no Tk."""
+    w = HelperWindow.__new__(HelperWindow)
     w.root = FakeRoot()
-    w.status_label = FakeLabel()
     w.source = source
-    w.state = GameState()
-    w.market_store = MarketStore(tmp_path / "markets.json")
-    w.shown_market_age = None
     w.first_poll = False
     w.quit_with_game = True
-    w.keymap_error = None
-    w.notice = None
-    w.error = None
-    w.last_message = ""
-    w.render = lambda: w.status_label.config(text=w.status_text())
+    w.model = Model(markets=MarketStore(tmp_path / "markets.json"))
+    w.model.on_error = lambda exc, where: w.report(exc)
+    w.status_label = FakeLabel()
+    Status(w.model, None, w.status_label)
     return w
 
 
@@ -80,7 +77,7 @@ def test_polling_continues_after_an_unexpected_error(tmp_path, capsys):
 
     w.tick()
     assert len(w.root.scheduled) == 2
-    assert w.state.context == "docked"
+    assert w.model.state.context == "docked"
     assert w.status_label.text == '{"type": "ready", "docked": true}'
 
 
@@ -88,7 +85,7 @@ def test_one_bad_message_does_not_drop_the_rest(tmp_path):
     bad = {"type": "countdown", "kind": "standard", "seconds": "soon"}
     w = window(FakeSource([bad, {"type": "ready", "docked": True}]), tmp_path)
     w.tick()
-    assert w.state.context == "docked"
+    assert w.model.state.context == "docked"
     assert w.root.scheduled == [w.tick]
 
 
@@ -105,25 +102,23 @@ def test_closing_game_stops_polling(tmp_path):
     assert w.root.destroyed and w.root.scheduled == []
 
 
-def test_urgent_contexts_show_keys_then_the_chosen_tab_returns(tmp_path):
-    w = window(FakeSource(), tmp_path)
-    w.tab = "all"
-    w.state.apply({"type": "ready", "docked": False, "alert": 1})
-    assert w.visible_tab() == "all"
-    w.state.apply({"type": "alert", "level": 3})
-    assert w.visible_tab() == "keys"
-    w.state.apply({"type": "alert", "level": 1})
-    assert w.visible_tab() == "all"
-    w.state.apply({"type": "died", "cause": "energy damage", "by": None})
-    assert w.visible_tab() == "keys"
+def test_a_failing_view_shows_in_the_status_line_and_polling_goes_on(tmp_path, capsys):
+    w = window(FakeSource([{"type": "mass_lock", "by": "planet"}]), tmp_path)
+
+    def broken(value):
+        raise RuntimeError("draw failed")
+
+    w.model.subscribe("mass_lock", broken, initial=False)
+    w.tick()
+    w.model.notify()
+    assert w.root.scheduled == [w.tick]
+    assert w.status_label.text == "Error (still running): RuntimeError: draw failed"
 
 
 def test_trade_detail_picks_the_best_offer_and_caps_the_quantity(tmp_path):
-    w = window(FakeSource(), tmp_path)
-    w.keymap = None
-    w.trade_commodity, w.trade_destination, w.trade_quantity = "furs", None, 99
-    w.state.apply({"type": "ready", "docked": True})
-    w.state.apply(
+    model = Model(markets=MarketStore(tmp_path / "markets.json"))
+    for msg in (
+        {"type": "ready", "docked": True},
         {
             "type": "market",
             "galaxy": 0,
@@ -131,9 +126,7 @@ def test_trade_detail_picks_the_best_offer_and_caps_the_quantity(tmp_path):
             "credits": 1000,
             "cargoSpace": {"available": 20, "capacity": 20},
             "market": {"furs": {"price": 700, "quantity": 5}},
-        }
-    )
-    w.state.apply(
+        },
         {
             "type": "systems",
             "galaxy": 0,
@@ -142,9 +135,12 @@ def test_trade_detail_picks_the_best_offer_and_caps_the_quantity(tmp_path):
                 {"id": 8, "name": "Zaonce", "distance": 6.5, "samplePrices": {"furs": 800}},
                 {"id": 9, "name": "Diso", "distance": 3.0, "samplePrices": {"furs": 750}},
             ],
-        }
-    )
-    _, commodity, row, offers, offer, limit, quantity, steps = w.trade_detail()
+        },
+        {"type": "ui/open_commodity", "commodity": "furs"},
+        {"type": "ui/change_quantity", "quantity": 99},
+    ):
+        model.dispatch(msg)
+    commodity, row, offers, offer, limit, quantity, steps = model.topic("trade_detail")
     assert (commodity, offer.name, quantity, limit.most) == ("furs", "Zaonce", 5, 5)
-    w.trade_destination = 9
-    assert w.trade_detail()[4].name == "Diso"
+    model.dispatch({"type": "ui/choose_destination", "system": 9})
+    assert model.topic("trade_detail")[3].name == "Diso"
