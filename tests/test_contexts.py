@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from helper import contexts, plist
+from helper.contexts import ALL_KEY_GROUPS, MISSILE_ACTIONS, NEEDS, missing, tip
 from helper.keys import Keymap
 from helper.state import GameState
 
@@ -173,3 +174,53 @@ def test_clearance_badge_by_status_with_the_players_key():
     assert clearance_badge(state, Keys())[:2] == ("Clearance refused", "red")
     state.requires_clearance = False
     assert clearance_badge(state, Keys()) == ("No clearance needed", "green", False)
+
+
+def equipped(*items, loaded=1):
+    """A flying state with these (key, status, provides) items and missiles loaded."""
+    state = GameState()
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    state.apply(
+        {
+            "type": "equipment",
+            "items": [{"key": k, "status": s, "provides": p} for k, s, p in items],
+            "missiles": {
+                "capacity": 4,
+                "loaded": [{"key": "EQ_MISSILE", "name": "Missile", "count": loaded}]
+                if loaded
+                else [],
+            },
+        }
+    )
+    return state
+
+
+def test_keys_need_their_equipment_fitted_and_working():
+    assert missing(GameState()) == frozenset()  # unknown: nothing hidden
+    bare = missing(equipped())
+    assert {"key_ecm", "key_inject_fuel", "key_next_target", "key_autopilot"} <= bare
+    assert "key_launch_missile" not in bare
+    state = equipped(
+        ("EQ_ECM", "EQUIPMENT_OK", []),
+        ("EQ_FUEL_INJECTION", "EQUIPMENT_DAMAGED", []),
+        ("EQ_SOME_OXP_COMPUTER", "EQUIPMENT_OK", ["EQ_TARGET_MEMORY"]),
+    )
+    assert "key_ecm" not in missing(state)
+    assert "key_inject_fuel" in missing(state)  # damaged: the game ignores the key
+    assert "key_next_target" not in missing(state)  # provided by another item
+    assert set(MISSILE_ACTIONS) <= missing(equipped(loaded=0))
+
+
+def test_every_equipment_need_is_a_real_action():
+    actions = {a for _, group in ALL_KEY_GROUPS for a in group}
+    assert set(NEEDS) | set(MISSILE_ACTIONS) <= actions
+
+
+def test_near_station_tip_leaves_out_next_target_without_target_memory():
+    keymap = fixture_keymap()
+    state = equipped()
+    state.apply({"type": "aegis", "inside": True, "station": "Coriolis", "requiresClearance": True})
+    assert keymap.keys("key_next_target") not in tip(state, keymap)
+    memory = {"key": "EQ_TARGET_MEMORY", "status": "EQUIPMENT_OK"}
+    state.apply({"type": "equipment", "items": [memory]})
+    assert keymap.keys("key_next_target") in tip(state, keymap)

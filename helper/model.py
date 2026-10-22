@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, replace
 
 from .browser import buy_limit, commodity_offers, commodity_rows, held, market_advice, trade_steps
-from .contexts import ACTION_NOTES, clearance_badge, indicators, sections, tip
+from .contexts import ACTION_NOTES, clearance_badge, indicators, missing, sections, tip
 from .keys import commodity_fallback
 from .state import GameState
 
@@ -76,8 +76,12 @@ _UNSET = object()
 
 
 class Model:
-    def __init__(self, state=None, markets=None, keymap=None, clock=time.monotonic):
+    def __init__(
+        self, state=None, markets=None, keymap=None, clock=time.monotonic, missing_equipment="grey"
+    ):
         self.state = state if state is not None else GameState()
+        # Keys for equipment the ship hasn't got: "grey" shows them dimmed, "hide" leaves them out.
+        self.missing_equipment = missing_equipment
         self.markets = markets  # MarketStore (remembered markets and cost basis), or None
         self.keymap = keymap
         self.clock = clock
@@ -248,6 +252,15 @@ def _trade_detail(model):
     return (commodity, row, offers, offer, limit, quantity, tuple(steps))
 
 
+def _sections(model):
+    """The Keys tab's (title, actions), without missing equipment's keys if set to hide."""
+    hide = model.missing_equipment == "hide" and model.topic("missing")
+    return tuple(
+        (title, tuple(a for a in actions if not (hide and a in hide)))
+        for title, actions in sections(model.state)
+    )
+
+
 def _visible_tab(model):
     return "keys" if model.state.context in URGENT else model.ui.tab
 
@@ -265,11 +278,12 @@ TOPICS = {
     "clearance": (lambda m: clearance_badge(m.state, m.keymap), None),
     "clock": (lambda m: int(m.clock() * 2), 0),  # half seconds, for blinking
     "tab": (_visible_tab, None),
-    "sections": (lambda m: tuple((t, tuple(a)) for t, a in sections(m.state)), None),
+    "missing": (lambda m: missing(m.state), None),
+    "sections": (_sections, None),
     "trade_rows": (_trade_rows, 60),  # price ages are shown in minutes
     "trade_detail": (_trade_detail, 60),
     "market_advice": (_market_advice, 60),
-    "equipment": (lambda m: (tuple(m.state.equipment), m.state.missiles), None),
+    "equipment": (lambda m: (tuple(m.state.equipment or ()), m.state.missiles), None),
     "ui": (lambda m: m.ui, None),
     "status": (lambda m: dict(m.status), None),
     "game_window": (lambda m: m.game_window, None),

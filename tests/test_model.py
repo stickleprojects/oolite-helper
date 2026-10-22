@@ -155,3 +155,19 @@ def test_trade_here_is_offered_whenever_docked_on_any_screen(tmp_path):
     )
     groups = dict(model.topic("market_advice"))
     assert groups["Your hold"][0].startswith("Food ×2: 4.0 here")
+
+
+def test_missing_equipment_keys_are_greyed_by_default_or_hidden():
+    def flying(setting):
+        model = Model(missing_equipment=setting)
+        model.dispatch({"type": "ready", "docked": False, "alert": 3})
+        model.dispatch(
+            {"type": "equipment", "items": [], "missiles": {"capacity": 0, "loaded": []}}
+        )
+        return [a for _, actions in model.topic("sections") for a in actions], model
+
+    shown, model = flying("grey")
+    assert "key_ecm" in shown and "key_ecm" in model.topic("missing")
+    shown, model = flying("hide")
+    assert "key_ecm" not in shown and "key_launch_missile" not in shown
+    assert "key_fire_lasers" in shown

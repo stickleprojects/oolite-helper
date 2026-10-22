@@ -46,7 +46,7 @@ class Body(View):
             return None
         if tab == "all":
             return ("all", self.group)
-        return ("keys", model.topic("sections"))
+        return ("keys", model.topic("sections"), model.topic("missing"))
 
     def draw(self, wanted):
         for child in self.frame.winfo_children():
@@ -284,10 +284,10 @@ class Body(View):
                 wraplength=self.style.desc_wrap * self.style.columns,
             ).pack(anchor="w", pady=self.style.px(8 if i == 1 else 2, 0))
 
-    def draw_sections(self, wanted):
+    def draw_sections(self, wanted, missing=frozenset()):
         for i, (title, actions) in enumerate(wanted):
             row, column = i // self.style.columns, i % self.style.columns
-            self.draw_panel(self.frame, row, column, title, actions)
+            self.draw_panel(self.frame, row, column, title, actions, dimmed=missing)
 
     def draw_advice(self, groups):
         """The Trade here panel, across the top of the body."""
@@ -336,7 +336,10 @@ class Body(View):
         )
         panel.grid(columnspan=self.style.columns)
 
-    def draw_panel(self, parent, row, column, title, actions, show_unbound=False):
+    def draw_panel(
+        self, parent, row, column, title, actions, show_unbound=False, dimmed=frozenset()
+    ):
+        """Key rows; unbound ones, and those in dimmed (equipment not fitted), in grey."""
         panel = tk.Frame(parent, bg=PANEL, padx=self.style.px(18), pady=self.style.px(12))
         panel.grid(
             row=row, column=column, sticky="new", padx=self.style.px(12), pady=self.style.px(12)
@@ -355,11 +358,12 @@ class Body(View):
             keys = self.model.keymap.keys(action)
             if not keys and not show_unbound:
                 continue  # unbound in this setup
+            usable = keys and action not in dimmed
             tk.Label(
                 panel,
                 text=keys or "—",
                 font=self.style.font(MONO, 20, "bold"),
-                fg=ACCENT if keys else DIM,
+                fg=ACCENT if usable else DIM,
                 bg=PANEL,
                 anchor="w",
             ).grid(row=row, column=0, sticky="w", padx=self.style.px(0, 18))
@@ -367,7 +371,7 @@ class Body(View):
                 panel,
                 text=self.model.describe(action),
                 font=self.style.font(SANS, 20),
-                fg=FG if keys else DIM,
+                fg=FG if usable else DIM,
                 bg=PANEL,
                 anchor="w",
                 justify="left",

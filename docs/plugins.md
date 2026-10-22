@@ -80,7 +80,7 @@ Plain JSON. **Constants for logic, text for showing:** anything meant to be read
 | `jump_blocker` | {"by": the ship or station in the way, "clear_at": metres away it stops blocking}, or null |
 | `clearance` | near a station: {"status": "none", "requested", "granted", "timing_out", "not_required" or "refused", "text": "Cleared to dock", "colour": "green", "amber" or "red", "flashes": bool}, else null |
 | `tip` | the tip lines under the tabs: ["Waiting for clearance. ...", ...] |
-| `key_sections` | what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", "bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], "keys": "←", "description": "Roll left"}, ...]}, ...]; unbound actions are left out |
+| `key_sections` | what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", "bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], "keys": "←", "description": "Roll left", "available": false if the ship lacks the equipment it needs (grey it out)}, ...]}, ...]; unbound actions are left out, and unavailable ones too if the player set missing_equipment = "hide" |
 | `all_keys` | every key, by the game's groups: [{"group": "header-screen-access", "title": ..., "keys": [the same entries as key_sections, unbound ones too]}, ...] |
 | `tabs` | {"shown": "keys", "all" or "trade", "chosen": the player's choice, "urgent": true while an emergency shows Keys whatever was chosen, "tabs": [{"id", "text"}, ...]} |
 | `selection` | {"commodity": open in the trade detail or null, "destination": system id or null (null = the best price), "quantity": units or null (null = the most you can buy)} |
