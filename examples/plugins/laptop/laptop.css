@@ -120,4 +120,13 @@ td { font-family: var(--oo-sans); }
 .summary, .step { margin: calc(8px * var(--oo-scale)) 0 0; font-size: calc(18pt * var(--oo-scale)); }
 .summary { white-space: pre; }
 .step { max-width: 60vw; } /* the Tk steps wrap at 60% of the window */
-#status { padding: 0 calc(40px * var(--oo-scale)) calc(12px * var(--oo-scale)); color: var(--oo-dim); font: calc(12pt * var(--oo-scale)) var(--oo-mono); }
+/* One line, cut off like the Tk label: the last message can be a whole market. */
+#status {
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0 calc(40px * var(--oo-scale)) calc(12px * var(--oo-scale));
+  color: var(--oo-dim);
+  font: calc(12pt * var(--oo-scale)) var(--oo-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
