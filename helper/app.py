@@ -19,7 +19,7 @@ from .browser import (
     sort_rows,
     trade_steps,
 )
-from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, sections, tip
+from .contexts import ACTION_NOTES, ALL_KEY_GROUPS, indicators, sections, tip
 from .keys import commodity_fallback, load_keymap
 from .markets import MarketStore
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
@@ -126,6 +126,12 @@ class HelperWindow:
             # Left-click only: clicking never moves keyboard focus off the game (#20).
             label.bind("<Button-1>", lambda e, name=name: self.choose_tab(name))
             self.tab_labels[name] = label
+        # Drive status chips on the right of the tab row, while flying.
+        self.indicator_labels = {}
+        for name in ("JUMP", "TORUS"):
+            label = tk.Label(tabs, font=self.font(SANS, 16, "bold"), bg=BG)
+            label.pack(side="right", padx=self.px(12, 0))
+            self.indicator_labels[name] = label
 
         self.tip_label = tk.Label(
             root,
@@ -231,6 +237,14 @@ class HelperWindow:
         for name, label in self.tab_labels.items():
             active = name == tab
             label.config(fg=BG if active else DIM, bg=ACCENT if active else PANEL)
+        shown = {name: (ok, why) for name, ok, why in indicators(self.state)}
+        for name, label in self.indicator_labels.items():
+            if name not in shown:
+                label.config(text="", bg=BG)
+                continue
+            ok, why = shown[name]
+            text = f"  {name} ✓  " if ok else f"  {name} ✗ {why}  "
+            label.config(text=text, fg=BG, bg=GREEN if ok else RED)
         if tab == "trade" and self.trade_commodity:
             wanted = self.trade_detail()
         elif tab == "trade":
