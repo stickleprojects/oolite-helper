@@ -182,7 +182,7 @@ def _trade_rows(model):
 
 def _market_advice(model):
     state = model.state
-    if not (state.docked and state.gui == "GUI_SCREEN_MARKET"):
+    if not state.docked:
         return ()
     markets, basis, now = _markets(model)
     if now is None:
