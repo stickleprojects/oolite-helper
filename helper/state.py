@@ -52,6 +52,8 @@ class GameState:
         self.target_system = None
         self.chart_system = None
         self.current_system = None
+        self.system_name = None  # the system the player is in
+        self.jump_destination = None  # (id, name) the last jump was aimed at, until launch
         self.origin_market = {}
 
     def apply(self, msg):
@@ -75,6 +77,7 @@ class GameState:
             self.end_countdown()
         elif kind == "launching":
             self.docked = False
+            self.jump_destination = None
         elif kind == "jump_blocker":
             self.jump_blocker = msg if msg.get("by") else None
         elif kind == "mass_lock":
@@ -97,6 +100,7 @@ class GameState:
         elif kind == "alert":
             self.alert = msg.get("level")
         elif kind == "countdown":
+            self.jump_destination = self._target()
             self.countdown_kind = msg.get("kind")
             self.countdown_ends = self._clock() + float(msg.get("seconds") or 0)
             self.jump_failed = None
@@ -104,12 +108,14 @@ class GameState:
             self.end_countdown()
             self.jump_failed = msg.get("reason") if msg.get("reason") in JUMP_FAILED else None
         elif kind == "arrived":
+            self.system_name = msg.get("system", self.system_name)
             self.end_countdown()
             self.jump_failed = None
             self.alert = msg.get("alert")
         elif kind == "market":
             self.galaxy = msg.get("galaxy", self.galaxy)
             self.current_system = msg.get("systemID", self.current_system)
+            self.system_name = msg.get("systemName", self.system_name)
             self.market_station = msg.get("station")
             self.market = msg.get("market")
             self.credits = msg.get("credits")
@@ -132,6 +138,28 @@ class GameState:
         elif kind == "closed":
             self.reset()
             self.game_closed = True
+
+    def _target(self):
+        """(id, name) of the jump target, with its name from the systems in range."""
+        target = self.target_system
+        if target is None:
+            return None
+        name = next((s.get("name") for s in self.systems if s.get("id") == target), None)
+        return target, name
+
+    @property
+    def where(self):
+        """(system name, reached_target, aimed_at) for the heading; name may be None.
+
+        reached_target is True when this is where the last jump was aimed, and
+        aimed_at names the intended system when a jump landed elsewhere.
+        """
+        destination = self.jump_destination
+        if destination is None or self.current_system is None:
+            return self.system_name, False, None
+        if destination[0] == self.current_system:
+            return self.system_name, True, None
+        return self.system_name, False, destination[1]
 
     def end_countdown(self):
         self.countdown_kind = None
