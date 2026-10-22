@@ -3,7 +3,6 @@
 import argparse
 import json
 import math
-import re
 import sys
 import tempfile
 import threading
@@ -19,9 +18,7 @@ from .keys import load_keymap
 from .markets import MarketStore
 from .model import Model
 from .plugins import read_manifest
-from .webhost.host import content_type, csp, page_message, resolve
-
-_MIME_TYPE = re.compile(r"[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+")
+from .webhost.host import MIME, csp, page_message, resolve
 
 
 def _preview_csp(name):
@@ -227,7 +224,8 @@ class PreviewHandler(BaseHTTPRequestHandler):
         except OSError:
             self.send_error(404)
             return
-        self._respond(200, data, content_type(path))
+        mime = MIME.get(Path(path).suffix.lower(), "application/octet-stream")
+        self._respond(200, data, mime)
 
     def _events(self):
         self.send_response(200)
@@ -255,8 +253,6 @@ class PreviewHandler(BaseHTTPRequestHandler):
             pass
 
     def _respond(self, status, data, mime):
-        if not _MIME_TYPE.fullmatch(mime):
-            mime = "application/octet-stream"
         self.send_response(status)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
