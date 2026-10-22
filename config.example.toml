@@ -33,3 +33,24 @@ font_scale = 1.0
 #   width = "33%"
 #   anchor = "right"
 #   font_scale = 0.9
+
+# Widgets: views in their own small windows, docked to the game window or
+# placed on a monitor. Optional; with none, the helper looks as before.
+# Docked widgets sit just outside the game window, follow it when it moves,
+# and show only while the game is the active window. A widget with nothing to
+# show (e.g. the drive chips while docked) hides itself.
+#
+# views:      one or more of "drive" (TORUS/JUMP), "clearance", "trade_here"
+# dock:       "game:top", "game:bottom", "game:left" or "game:right"
+# screen/x/y: for a free widget instead of dock (x/y are an offset when docked)
+# width/height, layout ("compact" default, or "large"), font_scale,
+# show ("with_game" default when docked, or "always")
+#
+# [[widgets]]
+# views = ["clearance", "drive"]
+# dock = "game:top"
+#
+# [[widgets]]
+# views = ["trade_here"]
+# dock = "game:right"
+# width = 560

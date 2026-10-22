@@ -82,6 +82,9 @@ class Model:
         self.keymap = keymap
         self.clock = clock
         self.ui = UI()
+        # The game window, from gamewindow.GameWindow: ((x, y, w, h) or None,
+        # frame borders (left, right, top, bottom), whether it's the active window).
+        self.game_window = (None, (0, 0, 0, 0), False)
         self.status = {}  # app status for the status line: error, notice, last message
         self.version = 0  # bumped on every change; memoised topics key on it
         self.on_error = None  # called as on_error(exc, where) when a view fails
@@ -91,9 +94,20 @@ class Model:
     # -- changing state --------------------------------------------------
 
     def dispatch(self, action):
-        """Apply a game message or a "ui/..." action. Call notify() after a batch."""
-        if str(action.get("type", "")).startswith("ui/"):
+        """Apply a game message, a "ui/..." action or a "window/game" update.
+
+        Call notify() after a batch.
+        """
+        kind = str(action.get("type", ""))
+        if kind.startswith("ui/"):
             self.ui = reduce_ui(self.ui, action)
+        elif kind == "window/game":
+            geometry = action.get("geometry")
+            self.game_window = (
+                tuple(geometry) if geometry else None,
+                tuple(action.get("frame") or (0, 0, 0, 0)),
+                bool(action.get("active")),
+            )
         else:
             if self.markets is not None:
                 self.markets.apply(action)
@@ -240,4 +254,5 @@ TOPICS = {
     "market_advice": (_market_advice, 60),
     "ui": (lambda m: m.ui, None),
     "status": (lambda m: dict(m.status), None),
+    "game_window": (lambda m: m.game_window, None),
 }

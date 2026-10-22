@@ -59,6 +59,7 @@ def window(source, tmp_path):
     w.source = source
     w.first_poll = False
     w.quit_with_game = True
+    w.ticks, w.game_window = 0, None  # no widgets
     w.model = Model(markets=MarketStore(tmp_path / "markets.json"))
     w.model.on_error = lambda exc, where: w.report(exc)
     w.status_label = FakeLabel()

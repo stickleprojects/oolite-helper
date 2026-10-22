@@ -7,6 +7,8 @@ class View:
     Constructing a view subscribes it, and it draws straight away.
     """
 
+    empty = False  # True while there's nothing to show (a widget of empty views hides)
+
     def __init__(self, model, style):
         self.model = model
         self.style = style
