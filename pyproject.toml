@@ -20,5 +20,5 @@ dev = ["pytest>=9.1.1", "mypy>=2.4.0"]
 [project.scripts]
 oolite-helper = "helper.app:main"
 
-[tool.setuptools]
-packages = ["helper"]
+[tool.setuptools.packages.find]
+include = ["helper*"]  # helper.views and helper.webhost too

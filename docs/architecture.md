@@ -57,6 +57,31 @@ Rules:
 - **Keys and descriptions come from the game's files**, through `model.keys(action)`, `model.keymap` and `model.commodity_name(key)`.
 - **Use `Style`** (`style.font`, `style.px`, the colours in `views/style.py`) so the view follows the large and compact layouts.
 
+## Plugins: web views in a separate process (#59)
+Plugin visualisations are HTML and JavaScript pages, run in WebKit's sandbox by a separate **web host** process ([helper/webhost/host.py](../helper/webhost/host.py)), because Tk and GTK don't share a main loop. The helper drives it with JSON lines over a pipe; the protocol is in [helper/webhost/\_\_init\_\_.py](../helper/webhost/__init__.py).
+
+```
+helper (Tk)                                  web host (GTK, system Python)
+  Model ──topics──▶ WebHost.publish ──pipe──▶ window per plugin ──▶ WebKit web process
+  layout ─────────▶ WebHost.sync    ──pipe──▶ open / place / close    (bubblewrap sandbox)
+  status ◀───────── WebHost.poll    ◀──pipe── loaded / page / error / crashed
+```
+
+- **The page's whole API is the `oolite` object**: `oolite.on(topic, fn)`, `oolite.resize(w, h)`, `oolite.log(text)`. It gets only the topics the helper sends it, and it can't dispatch actions.
+- **Lockdown:** the `plugin://<name>/` scheme serves only that plugin's folder, with a strict CSP (no network, no `eval`, no inline scripts); other navigation, pop-ups, downloads and developer tools are refused. Each window has its own ephemeral web context.
+- **The host's environment closes the holes the #59 spike found** (`sandbox_env`): its own cache folder, an *untrusted* X cookie (no XTEST, RECORD, XInput or GLX), and no sound server. If the untrusted cookie can't be made, plugins don't start: it never falls back to the trusted one. `tests/test_webhost_live.py` checks the web process's mounts; run it after WebKit upgrades.
+- **Failures stay contained:** a page that fails or crashes is closed and reported (`failed`), the others carry on, and a host that dies is restarted with backoff and its windows replayed.
+- **Developing a plugin:** `.venv/bin/python -m helper.webhost <plugin folder> --at X,Y` opens it on its own, with a ticking `clock` topic.
+
+## Layouts and the admin panel (planned)
+A player-facing admin panel should eventually let the player swap layouts, add panels and reopen closed ones, by clicking. It isn't built yet, but the pieces are shaped for it:
+
+- **Windows are declarative.** `WebHost.sync({id: WebWindow})` (and later the Tk widgets too) takes the full set of windows that should exist, and opens, moves and closes to match. A layout change is just a new set; nothing calls "open" or "close" imperatively.
+- **Panel ids are stable** (`"radar"`, `"trade_here"`, or ids from the layout), so a closed panel can be reopened where it was, and failures are kept per id (`WebHost.retry(id)` is the "reopen" button).
+- **Next, the layout moves into the model:** a `layout` slice (the panels, each with a stable id, its views or plugin, where it docks and whether it's open) changed only by `layout/...` actions such as `layout/switch`, `layout/open_panel`, `layout/close_panel`, `layout/move_panel`. A watcher turns `model.topic("layout")` plus `game_window` into the `sync()` call. `config.toml` stays the player's hand-written defaults; layout changes made in the panel are saved to a helper-owned file beside it, never by rewriting `config.toml`.
+- **The admin panel is a built-in Tk view, never a plugin.** Plugins can only ask about themselves (`resize`; perhaps "close me" later). Discovered plugins and their status (loaded, failed, crashed) become a `plugins` topic the panel can list.
+- **It's opened by a click, not a key** (the game keeps keyboard focus), and #50's edit mode (move, resize, close) belongs in it.
+
 ## Where things live
 - `helper/state.py`: `GameState`, the reducer for game messages, plus derived properties (`context`, `details`, `where`).
 - `helper/markets.py`: remembered markets and cost basis (persisted).
@@ -64,3 +89,5 @@ Rules:
 - `helper/model.py`: the store, topics and notification.
 - `helper/views/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
+- `helper/widgets.py`, `gamewindow.py`: views in their own windows, docked to the game (#50).
+- `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
