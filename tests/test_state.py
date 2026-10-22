@@ -198,3 +198,32 @@ def test_a_blocked_jump_says_why_until_the_next_try():
     assert not any("blocked" in note for note in state.details)
     state.apply({"type": "countdown_end", "reason": "cancelled"})
     assert state.jump_failed is None
+
+
+def test_heading_says_where_you_are_and_whether_it_was_the_jump_target():
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    state.apply(
+        {"type": "systems", "galaxy": 0, "fuel": 7, "systems": [{"id": 8, "name": "Qutiri"}]}
+    )
+    state.apply({"type": "chart_target", "targetSystem": 8, "currentSystem": 154})
+    state.system_name = "Isinor"
+    assert state.where == ("Isinor", False, None)
+    state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
+    state.apply({"type": "countdown_end", "reason": "jumped"})
+    state.apply({"type": "arrived", "system": "Qutiri", "alert": 1})
+    state.apply({"type": "chart_target", "targetSystem": 8, "currentSystem": 8})
+    assert state.where == ("Qutiri", True, None)
+    state.apply({"type": "launching"})
+    assert state.where == ("Qutiri", False, None)
+
+
+def test_a_jump_that_lands_elsewhere_says_where_it_was_aimed():
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    state.apply({"type": "systems", "systems": [{"id": 8, "name": "Qutiri"}]})
+    state.apply({"type": "chart_target", "targetSystem": 8, "currentSystem": 154})
+    state.apply({"type": "countdown", "kind": "standard", "seconds": 15})
+    state.apply({"type": "arrived", "system": "Interstellar space", "alert": 3})
+    state.apply({"type": "chart_target", "targetSystem": 8, "currentSystem": 200})
+    assert state.where == ("Interstellar space", False, "Qutiri")
