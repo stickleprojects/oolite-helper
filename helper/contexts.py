@@ -506,3 +506,33 @@ def indicators(state):
         ("TORUS", not state.mass_lock, state.mass_lock or ""),
         ("JUMP", not blocker, blocker or ""),
     ]
+
+
+# The clearance badge near a station (#1): (text, colour, flashes), by status.
+# {key} is the player's docking clearance key.
+CLEARANCE_BADGES = {
+    "DOCKING_CLEARANCE_STATUS_GRANTED": ("Cleared to dock", "green", False),
+    "DOCKING_CLEARANCE_STATUS_REQUESTED": ("Waiting for clearance", "amber", False),
+    "DOCKING_CLEARANCE_STATUS_TIMING_OUT": (
+        "Clearance expiring: press {key} to extend",
+        "amber",
+        True,
+    ),
+    "DOCKING_CLEARANCE_STATUS_NOT_REQUIRED": ("No clearance needed", "green", False),
+}
+
+
+def clearance_badge(state, keymap):
+    """(text, colour, flashes) for the docking clearance badge, or None."""
+    if not state.in_aegis or state.context not in IN_FLIGHT:
+        return None
+    if state.requires_clearance is False:
+        text, colour, flashes = CLEARANCE_BADGES["DOCKING_CLEARANCE_STATUS_NOT_REQUIRED"]
+    elif state.clearance_refused:
+        text, colour, flashes = "Clearance refused", "red", False
+    else:
+        text, colour, flashes = CLEARANCE_BADGES.get(
+            state.clearance, ("No clearance", "red", False)
+        )
+    key = (keymap.keys("key_docking_clearance_request") if keymap else "") or "the clearance key"
+    return text.format(key=key), colour, flashes

@@ -138,3 +138,38 @@ def test_drive_indicators_follow_mass_lock_and_jump_blocker_in_flight():
     assert indicators(state) == [("TORUS", False, "planet"), ("JUMP", False, "Coriolis Station")]
     state.apply({"type": "docked"})
     assert indicators(state) == []
+
+
+def test_clearance_badge_by_status_with_the_players_key():
+    from helper.contexts import clearance_badge
+    from helper.state import GameState
+
+    class Keys:
+        def keys(self, action):
+            return "Shift+L" if action == "key_docking_clearance_request" else ""
+
+    state = GameState(clock=lambda: 0)
+    state.apply({"type": "ready", "docked": False, "alert": 1})
+    assert clearance_badge(state, Keys()) is None  # not near a station
+    state.apply(
+        {
+            "type": "aegis",
+            "inside": True,
+            "station": "Lave Station",
+            "requiresClearance": True,
+            "clearance": "DOCKING_CLEARANCE_STATUS_NONE",
+        }
+    )
+    assert clearance_badge(state, Keys()) == ("No clearance", "red", False)
+    state.apply({"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_TIMING_OUT"})
+    assert clearance_badge(state, Keys()) == (
+        "Clearance expiring: press Shift+L to extend",
+        "amber",
+        True,
+    )
+    state.apply(
+        {"type": "clearance", "status": "DOCKING_CLEARANCE_STATUS_NONE", "event": "refused"}
+    )
+    assert clearance_badge(state, Keys())[:2] == ("Clearance refused", "red")
+    state.requires_clearance = False
+    assert clearance_badge(state, Keys()) == ("No clearance needed", "green", False)

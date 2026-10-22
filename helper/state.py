@@ -32,6 +32,7 @@ class GameState:
         self.station = None
         self.requires_clearance = None
         self.clearance = None
+        self.clearance_refused = False  # the station refused the last request
         self.autopilot = False
         self.countdown_kind = None
         self.countdown_ends = None  # time.monotonic() when the jump happens
@@ -87,8 +88,10 @@ class GameState:
             self.station = msg.get("station")
             self.requires_clearance = msg.get("requiresClearance")
             self.clearance = msg.get("clearance")
+            self.clearance_refused = False
         elif kind == "clearance":
             self.clearance = msg.get("status")
+            self.clearance_refused = msg.get("event") == "refused"
         elif kind == "autopilot":
             self.autopilot = bool(msg.get("on"))
         elif kind == "alert":
@@ -162,7 +165,10 @@ class GameState:
 
     @property
     def details(self):
-        """Short status notes for the header, e.g. clearance and autopilot."""
+        """Short status notes for the header, e.g. a countdown or the autopilot.
+
+        Docking clearance has its own badge (contexts.clearance_badge).
+        """
         notes = []
         if self.died is not None:
             by, cause = self.died.get("by"), self.died.get("cause")
@@ -173,12 +179,6 @@ class GameState:
             notes.append(f"{jump} in {self.countdown_left:.0f}s")
         if self.jump_failed and not self.docked:
             notes.append(JUMP_FAILED[self.jump_failed])
-        if self.in_aegis and not self.docked:
-            if self.requires_clearance is False:
-                notes.append(f"{self.station or 'Station'}: clearance not required")
-            elif self.clearance:
-                status = self.clearance.replace("DOCKING_CLEARANCE_STATUS_", "").replace("_", " ")
-                notes.append(f"Clearance: {status.lower()}")
         if self.autopilot:
             notes.append("Docking computer on")
         return notes
