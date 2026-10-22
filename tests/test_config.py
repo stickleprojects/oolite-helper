@@ -41,3 +41,23 @@ def test_layout_defaults_to_large_and_rejects_unknown_names(tmp_path):
     bad.write_text('[window]\nlayout = "tiny"\n')
     with pytest.raises(SystemExit, match="layout must be one of"):
         load_window_settings(bad)
+
+
+@pytest.mark.parametrize("geometry", ["1200x1000+2640+40", "1200x1000-2640+40"])
+def test_valid_geometry_is_accepted(tmp_path, geometry):
+    assert (
+        config.load_window_settings(tmp_path / "missing.toml", {"geometry": geometry})["geometry"]
+        == geometry
+    )
+
+
+@pytest.mark.parametrize("geometry", ["1200x1000", "WxH+X+Y", "0x100+0+0", 123])
+def test_invalid_geometry_is_rejected(tmp_path, geometry):
+    with pytest.raises(SystemExit, match="geometry must match WxH\\+X\\+Y"):
+        config.load_window_settings(tmp_path / "missing.toml", {"geometry": geometry})
+
+
+@pytest.mark.parametrize("font_scale", [0, -1, "large", "nan", float("inf"), True])
+def test_invalid_font_scale_is_rejected(tmp_path, font_scale):
+    with pytest.raises(SystemExit, match="font_scale must be a positive number"):
+        config.load_window_settings(tmp_path / "missing.toml", {"font_scale": font_scale})

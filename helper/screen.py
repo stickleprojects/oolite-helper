@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 ANCHORS = (
@@ -29,19 +30,19 @@ class Monitor:
     x: int
     y: int
 
-    def __str__(self):
+    def __str__(self) -> str:
         flag = " (primary)" if self.primary else ""
         return f"{self.name}: {self.width}x{self.height}+{self.x}+{self.y}{flag}"
 
 
-def list_monitors():
+def list_monitors() -> list[Monitor]:
     try:
         out = subprocess.run(
             ["xrandr", "--listmonitors"], capture_output=True, text=True, check=True
         ).stdout
     except (OSError, subprocess.CalledProcessError):
         return []
-    monitors = []
+    monitors: list[Monitor] = []
     for line in out.splitlines():
         m = _MONITOR_RE.match(line)
         if m:
@@ -50,7 +51,7 @@ def list_monitors():
     return monitors
 
 
-def choose_monitor(monitors, name=None):
+def choose_monitor(monitors: Sequence[Monitor], name: str | None = None) -> Monitor | None:
     """The named monitor, else the first non-primary one, else the primary."""
     if name:
         for m in monitors:
@@ -59,10 +60,12 @@ def choose_monitor(monitors, name=None):
         names = ", ".join(m.name for m in monitors) or "none found"
         raise SystemExit(f"Screen {name!r} not found (available: {names})")
     others = [m for m in monitors if not m.primary]
-    return (others or monitors or [None])[0]
+    if others:
+        return others[0]
+    return monitors[0] if monitors else None
 
 
-def _length(value, total):
+def _length(value: object, total: int) -> int:
     """'60%' -> share of total; '800' or 800 -> pixels (capped at total)."""
     text = str(value).strip()
     if text.endswith("%"):
@@ -70,7 +73,13 @@ def _length(value, total):
     return min(int(text), total)
 
 
-def geometry(monitor, width="100%", height="100%", anchor="top-left", margin=0):
+def geometry(
+    monitor: Monitor,
+    width: object = "100%",
+    height: object = "100%",
+    anchor: str = "top-left",
+    margin: int = 0,
+) -> str:
     """X geometry string (WxH+X+Y) for a window placed on monitor."""
     if anchor not in ANCHORS:
         raise SystemExit(f"Unknown anchor {anchor!r} (use one of: {', '.join(ANCHORS)})")
