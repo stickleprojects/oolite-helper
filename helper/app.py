@@ -32,6 +32,8 @@ def should_quit_for_messages(messages, first_poll, quit_with_game=True):
 
 class HelperWindow:
     def __init__(self, root, source, geometry, quit_with_game=True, font_scale=1.0, layout="large"):
+        if not isinstance(geometry, str) or not config._GEOMETRY.fullmatch(geometry):
+            raise SystemExit(f"geometry must match WxH+X+Y, not {geometry!r}")
         self.root = root
         self.source = source
         self.quit_with_game = quit_with_game

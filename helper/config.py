@@ -12,7 +12,9 @@ font_scale = 1.0      # multiplies the layout's text size
 # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
 """
 
+import math
 import os
+import re
 import tomllib
 
 PATH = os.path.join(
@@ -32,6 +34,7 @@ WINDOW_DEFAULTS = {
     "geometry": None,
 }
 LAYOUTS = ("large", "compact")
+_GEOMETRY = re.compile(r"[1-9]\d*x[1-9]\d*[+-]\d+[+-]\d+")
 
 
 def load_window_settings(path=PATH, overrides=None):
@@ -49,4 +52,17 @@ def load_window_settings(path=PATH, overrides=None):
             settings[key] = value
     if settings["layout"] not in LAYOUTS:
         raise SystemExit(f"layout must be one of {', '.join(LAYOUTS)}, not {settings['layout']!r}")
+    geometry = settings["geometry"]
+    if geometry is not None and (
+        not isinstance(geometry, str) or not _GEOMETRY.fullmatch(geometry)
+    ):
+        raise SystemExit(f"geometry must match WxH+X+Y, not {geometry!r}")
+    font_scale = settings["font_scale"]
+    if (
+        isinstance(font_scale, bool)
+        or not isinstance(font_scale, (int, float))
+        or not math.isfinite(font_scale)
+        or font_scale <= 0
+    ):
+        raise SystemExit(f"font_scale must be a positive number, not {font_scale!r}")
     return settings
