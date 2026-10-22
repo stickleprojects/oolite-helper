@@ -39,18 +39,19 @@ class Body(View):
                 "trade",
                 self.sort,
                 tuple(sort_rows(list(model.topic("trade_rows")), *self.sort)),
+                model.topic("market_advice"),  # Trade here, while docked
             )
         if not model.keymap:
             return None
         if tab == "all":
             return ("all", self.group)
-        return ("keys", model.topic("sections"), model.topic("market_advice"))
+        return ("keys", model.topic("sections"))
 
     def draw(self, wanted):
         for child in self.frame.winfo_children():
             child.destroy()
         if wanted and wanted[0] == "trade":
-            self.draw_trade(wanted[2])
+            self.draw_trade(wanted[2], wanted[3])
         elif wanted and wanted[0] == "detail":
             self.draw_detail(*wanted[1:])
         elif wanted and wanted[0] == "all":
@@ -80,11 +81,14 @@ class Body(View):
 
     # -- drawing -----------------------------------------------------------
 
-    def draw_trade(self, rows):
-        """Each commodity's price here against the best price within fuel range."""
+    def draw_trade(self, rows, advice=()):
+        """Trade here (while docked), then each commodity's price here against the
+        best price within fuel range."""
+        if advice:
+            self.draw_advice(advice)
         panel = tk.Frame(self.frame, bg=PANEL, padx=self.style.px(18), pady=self.style.px(12))
         panel.grid(
-            row=0,
+            row=1 if advice else 0,
             column=0,
             columnspan=self.style.columns,
             sticky="new",
@@ -279,13 +283,9 @@ class Body(View):
                 wraplength=self.style.desc_wrap * self.style.columns,
             ).pack(anchor="w", pady=self.style.px(8 if i == 1 else 2, 0))
 
-    def draw_sections(self, wanted, advice=()):
-        first = 0
-        if advice:
-            self.draw_advice(advice)
-            first = 1
+    def draw_sections(self, wanted):
         for i, (title, actions) in enumerate(wanted):
-            row, column = first + i // self.style.columns, i % self.style.columns
+            row, column = i // self.style.columns, i % self.style.columns
             self.draw_panel(self.frame, row, column, title, actions)
 
     def draw_advice(self, groups):
