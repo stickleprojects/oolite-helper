@@ -1,0 +1,8 @@
+name = "laptop"
+version = "1.0.0"
+api = 1
+description = "The complete Oolite Key Helper laptop window"
+topics = ["context", "location", "screen", "details", "drive", "clearance", "tip", "key_sections", "all_keys", "tabs", "selection", "market_age", "trade_rows", "trade_detail", "market_advice", "status"]
+actions = ["ui/choose_tab", "ui/open_commodity", "ui/choose_destination", "ui/change_quantity"]
+width = 1920
+height = 1080
