@@ -23,6 +23,12 @@ Pages run sandboxed in the web host (helper/webhost). They get only the topics
 they list, as plain JSON in the shapes documented in TOPICS: a public API,
 kept stable for each `api` version, so the model's internals can change
 without breaking plugins.
+
+Constants for logic, text for showing: anything meant to be read by the
+player ("text", "keys", "description") comes with constants beside it
+("kind", "status", "action", "bindings"), so a plugin never has to parse
+display text, and keeps working if the text is ever in another language
+(Oolite has language add-ons; the helper's own words are English for now).
 """
 
 import os
@@ -47,7 +53,9 @@ def _location(model):
 
 
 def _drive(model):
-    lamps = {label.lower(): {"ok": ok, "why": why} for label, ok, why in model.topic("indicators")}
+    lamps = {
+        label.lower(): {"ok": ok, "by": by or None} for label, ok, by in model.topic("indicators")
+    }
     return lamps or None
 
 
@@ -61,12 +69,36 @@ def _clearance(model):
     if badge is None:
         return None
     text, colour, flashes = badge
-    return {"text": text, "colour": colour, "flashes": flashes}
+    state = model.state
+    if state.requires_clearance is False:
+        status = "not_required"
+    elif state.clearance_refused:
+        status = "refused"
+    else:
+        status = (state.clearance or "DOCKING_CLEARANCE_STATUS_NONE").removeprefix(
+            "DOCKING_CLEARANCE_STATUS_"
+        )
+        status = status.lower()
+    return {"status": status, "text": text, "colour": colour, "flashes": flashes}
+
+
+def _details(model):
+    return [
+        {"kind": kind, **fields, "text": text} for kind, fields, text in model.state.detail_items
+    ]
 
 
 def key_info(model, action):
-    """{"action", "keys", "description"} as the Keys tab shows it; keys is "" if unbound."""
-    return {"action": action, "keys": model.keys(action), "description": model.describe(action)}
+    """An action's keys: constants (action, bindings) and the Keys tab's text (keys, description).
+
+    keys is "" and bindings [] if it's unbound.
+    """
+    return {
+        "action": action,
+        "bindings": model.bindings(action),
+        "keys": model.keys(action),
+        "description": model.describe(action),
+    }
 
 
 def _key_sections(model):
@@ -100,15 +132,21 @@ TOPICS = {
     ),
     "screen": (_screen, '{"gui": the game screen, e.g. "GUI_SCREEN_STATUS", "view": the view}'),
     "details": (
-        lambda m: list(m.topic("details")),
-        'short notes, e.g. ["Jump in 9s", "Docking computer on"]',
+        _details,
+        'short notes: [{"kind": "countdown", "galactic": false, "seconds": 9, '
+        '"text": "Jump in 9s"}, {"kind": "docking_computer", "text": "Docking computer on"}, '
+        '{"kind": "jump_failed", '
+        '"reason": ..., "text": ...}, {"kind": "destroyed", "by": ..., "cause": ..., "text": ...}]',
     ),
     "drive": (
         _drive,
-        'while flying: {"torus": {"ok": bool, "why": ""}, "jump": {"ok": bool, "why": ""}}, '
-        "else null",
+        'while flying: {"torus": {"ok": bool, "by": ...}, "jump": {"ok": bool, "by": ...}}, '
+        'else null; by is what blocks it (a ship\'s name, or "planet" or "sun"), or null',
     ),
-    "mass_lock": (lambda m: m.topic("mass_lock"), 'what locks the torus drive, e.g. "planet"'),
+    "mass_lock": (
+        lambda m: m.topic("mass_lock"),
+        'what locks the torus drive: a ship\'s name, or "planet" or "sun"; null if nothing',
+    ),
     "jump_blocker": (
         _jump_blocker,
         '{"by": the ship or station in the way, "clear_at": metres away it stops blocking}, '
@@ -116,12 +154,14 @@ TOPICS = {
     ),
     "clearance": (
         _clearance,
-        'near a station: {"text": "Clearance granted", "colour": "green", "flashes": bool}, '
-        "else null",
+        'near a station: {"status": "none", "requested", "granted", "timing_out", '
+        '"not_required" or "refused", "text": "Cleared to dock", "colour": "green", '
+        '"flashes": bool}, else null',
     ),
     "key_sections": (
         _key_sections,
         'what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", '
+        '"bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], '
         '"keys": "←", "description": "Roll left"}, ...]}, ...]; unbound actions are left out',
     ),
 }

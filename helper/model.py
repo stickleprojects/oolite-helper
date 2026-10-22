@@ -140,6 +140,9 @@ class Model:
     def keys(self, action):
         return self.keymap.keys(action) if self.keymap else ""
 
+    def bindings(self, action):
+        return self.keymap.bindings_of(action) if self.keymap else []
+
     def describe(self, action):
         """An action as the game describes it, plus our note on when it works, if any."""
         if self.keymap:

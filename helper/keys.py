@@ -82,6 +82,27 @@ class Keymap:
         """Display text for an action's keys, e.g. "Shift+L", or "" if unbound."""
         return " / ".join(format_entry(e) for e in self.bindings.get(action, []))
 
+    def bindings_of(self, action):
+        """An action's keys as constants: [{"key", "shift", "ctrl", "alt"}, ...].
+
+        key is the game's own name for the key (keyconfig2.plist), e.g. "l",
+        "f1", "arrowUp"; a capital letter is shown as its letter with shift.
+        For plugins (#59), which may show keys in another language.
+        """
+        out = []
+        for entry in self.bindings.get(action, []):
+            key = str(entry.get("key", "?"))
+            capital = len(key) == 1 and key.isupper()
+            out.append(
+                {
+                    "key": key.lower() if capital else key,
+                    "shift": capital or is_on(entry.get("shift")),
+                    "ctrl": is_on(entry.get("mod1")),
+                    "alt": is_on(entry.get("mod2")),
+                }
+            )
+        return out
+
     def describe(self, action):
         return self.descriptions.get(action, action.removeprefix("key_").replace("_", " "))
 
