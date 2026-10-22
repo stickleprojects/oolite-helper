@@ -29,6 +29,12 @@ shellcheck scripts/*.sh                          # launcher
 
 None of these need Oolite or a display.
 
+The plugin web host (#59) also has a live test that needs a display, GTK 3, WebKit2 4.1 (`gir1.2-webkit2-4.1`) and `xauth`. It checks the WebKit sandbox, so run it after WebKit upgrades:
+
+```bash
+OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.py
+```
+
 ## Testing tools
 
 - **Fake game** (`tests/fakegame.py`, `scenarios/*.yaml`): writes add-on-style log lines on a timeline. Use it to drive `GameState` in tests, or to see the helper without Oolite:

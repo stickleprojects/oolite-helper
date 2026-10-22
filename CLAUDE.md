@@ -35,7 +35,8 @@ Each message is a JSON object with a `type` field, e.g. `{"type":"gui","to":"GUI
 5. ✅ Near station, red alert and jump countdown (aegis, alert, clearance with a 1 s check for `TIMING_OUT`, autopilot and countdown events). Verified in play. Precedence in `GameState.context`: docked > menu > jump countdown > red alert > near station > flying.
 6. ✅ Tests and CI (#6): fake game (`tests/fakegame.py`, `scenarios/`), fake Oolite (`tests/oxp/`), pytest suite, and CI with required checks. The code review is on #12; follow-ups #26 (key remaps, high) and #27 (robustness).
 7. ⏳ Trade advisor (#17): add-on market/trade/systems/chart messages (#18, done); market memory (#19); interactive trade browser (#20); chart advice (#21).
-8. Later: HUD panels, on top of phase 2.
+8. ⏳ Plugins as sandboxed web views (#59). Spike passed; step 1 is the web host process ([helper/webhost/](helper/webhost/)). Later steps: discovery and `plugin.toml`, docs and an example, plugins in widget configs. A player-facing admin panel (layouts, add/reopen panels) is planned: see "Layouts and the admin panel" in [docs/architecture.md](docs/architecture.md).
+9. Later: HUD panels, on top of phase 2.
 
 ### Game facts checked in the 1.92.1 source
 
