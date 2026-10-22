@@ -15,6 +15,7 @@ from .browser import (
     commodity_offers,
     commodity_rows,
     held,
+    market_advice,
     sort_rows,
     trade_steps,
 )
@@ -242,7 +243,7 @@ class HelperWindow:
         elif tab == "all":
             wanted = ("all", self.all_group)
         else:
-            wanted = sections(self.state)
+            wanted = ("keys", sections(self.state), self.market_panel())
         if wanted != self.shown:
             for child in self.body.winfo_children():
                 child.destroy()
@@ -253,7 +254,7 @@ class HelperWindow:
             elif wanted and wanted[0] == "all":
                 self.draw_all_keys(self.all_group)
             elif wanted:
-                self.draw_sections(wanted)
+                self.draw_sections(*wanted[1:])
             self.shown = wanted
 
     def visible_tab(self):
@@ -506,9 +507,56 @@ class HelperWindow:
                 wraplength=self.desc_wrap * self.columns,
             ).pack(anchor="w", pady=self.px(8 if i == 1 else 2, 0))
 
-    def draw_sections(self, wanted):
+    def market_panel(self):
+        """Trade advice while docked on the market screen (#20), else ()."""
+        if not (self.state.docked and self.state.gui == "GUI_SCREEN_MARKET"):
+            return ()
+        groups = market_advice(
+            self.state,
+            self.market_store.data["markets"],
+            self.market_store.data.get("cost_basis"),
+            self.market_store.now(),
+            self.commodity_name,
+        )
+        return tuple((heading, tuple(lines)) for heading, lines in groups)
+
+    def draw_sections(self, wanted, advice=()):
+        first = 0
+        if advice:
+            self.draw_advice(advice)
+            first = 1
         for i, (title, actions) in enumerate(wanted):
-            self.draw_panel(self.body, i // self.columns, i % self.columns, title, actions)
+            row, column = first + i // self.columns, i % self.columns
+            self.draw_panel(self.body, row, column, title, actions)
+
+    def draw_advice(self, groups):
+        """The docked market panel: one heading per group, then its lines."""
+        panel = tk.Frame(self.body, bg=PANEL, padx=self.px(18), pady=self.px(12))
+        panel.grid(
+            row=0,
+            column=0,
+            columnspan=self.columns,
+            sticky="new",
+            padx=self.px(12),
+            pady=self.px(12),
+        )
+        tk.Label(panel, text="TRADE HERE", font=self.font(SANS, 16, "bold"), fg=DIM, bg=PANEL).pack(
+            anchor="w"
+        )
+        for heading, lines in groups:
+            tk.Label(
+                panel, text=heading, font=self.font(SANS, 18, "bold"), fg=ACCENT, bg=PANEL
+            ).pack(anchor="w", pady=self.px(8, 0))
+            for line in lines:
+                tk.Label(
+                    panel,
+                    text=line,
+                    font=self.font(SANS, 18),
+                    fg=RED if "illegal" in line else FG,
+                    bg=PANEL,
+                    justify="left",
+                    wraplength=self.desc_wrap * self.columns,
+                ).pack(anchor="w")
 
     def draw_all_keys(self, current):
         """The game's key groups as clickable chips, and the chosen group's keys."""

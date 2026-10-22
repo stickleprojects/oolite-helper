@@ -222,6 +222,144 @@ def trade_steps(keys, name, quantity, most, offer, state, holding=0):
     return steps
 
 
+def market_advice(state, markets, cost_basis, now, name, places=3):
+    """The docked market panel: [(heading, [line, ...]), ...].
+
+    Profit on the hold at today's prices, prices against the last market seen,
+    the hold and best buys at the jump destination, and the best buys for any
+    system in range ranked by total profit (margin x units you can buy).
+    """
+    here = state.market if state.docked and isinstance(state.market, dict) else None
+    if here is None:
+        return []
+
+    def price_here(commodity):
+        entry = here.get(commodity)
+        return entry.get("price") if isinstance(entry, dict) else None
+
+    groups = []
+    hold = []
+    for item in state.manifest or []:
+        commodity, quantity = item.get("commodity"), item.get("quantity") or 0
+        price = price_here(commodity)
+        if not quantity or price is None:
+            continue
+        basis = (cost_basis or {}).get(commodity) or {}
+        paid = basis.get("average_price")
+        if paid:
+            profit = (price - paid) * quantity
+            hold.append(
+                f"{name(commodity)} ×{quantity}: sells for {_cr(price)} here, "
+                f"paid {_cr(paid)}, {_signed(profit)} cr"
+            )
+        else:
+            hold.append(f"{name(commodity)} ×{quantity}: sells for {_cr(price)} here")
+    if hold:
+        groups.append(("Your hold", hold))
+
+    last = _last_other_market(markets, state)
+    if last:
+        changes = []
+        for commodity, entry in (last.get("prices") or {}).items():
+            then = entry.get("price") if isinstance(entry, dict) else None
+            now_price = price_here(commodity)
+            if isinstance(then, (int, float)) and now_price is not None and then != now_price:
+                changes.append((now_price - then, commodity))
+        changes.sort()
+        cheaper = [f"{name(c)} {_signed(d)}" for d, c in changes[:places] if d < 0]
+        dearer = [f"{name(c)} {_signed(d)}" for d, c in reversed(changes[-places:]) if d > 0]
+        where = f"{last.get('system_name') or 'last market'} ({_age(last, now)})"
+        lines = []
+        if cheaper:
+            lines.append("Cheaper here: " + ", ".join(cheaper))
+        if dearer:
+            lines.append("Dearer here: " + ", ".join(dearer))
+        if lines:
+            groups.append((f"Against {where}", lines))
+
+    offers = {}  # commodity -> [Offer, ...]
+    for commodity in here:
+        offers[commodity] = commodity_offers(state, markets, now, commodity)
+
+    target = state.target_system
+    if target is not None and target != state.current_system:
+        lines = []
+        destination = None
+        for commodity in sorted(here):
+            offer = next((o for o in offers[commodity] if o.system_id == target), None)
+            price = price_here(commodity)
+            if offer is None or price is None:
+                continue
+            destination = offer
+            holding = held(state, commodity)
+            if holding:
+                lines.append(
+                    f"Sell {name(commodity)} ×{holding} at {_cr(offer.price)} "
+                    f"({offer.note}): {_signed((offer.price - price) * holding)} cr vs here"
+                )
+        buys = _ranked_buys(state, markets, now, here, offers, name, only=target)
+        lines += [f"Buy {line}" for line in buys[:places]]
+        if destination is not None and lines:
+            groups.append((f"For {_system_text(destination)}", lines))
+
+    # Buys whose best price is at the destination are already listed above.
+    skip = target if target != state.current_system else None
+    best = _ranked_buys(state, markets, now, here, offers, name, skip=skip)
+    if best:
+        groups.append(("Best buys in range", best[:places]))
+    return groups
+
+
+def _ranked_buys(state, markets, now, here, offers, name, only=None, skip=None):
+    """Lines for profitable buys here, best total profit first."""
+    ranked = []
+    for commodity, entry in here.items():
+        if not isinstance(entry, dict) or not entry.get("price"):
+            continue
+        choices = [o for o in offers[commodity] if only is None or o.system_id == only]
+        if not choices:
+            continue
+        offer = choices[0]
+        if skip is not None and offer.system_id == skip:
+            continue
+        margin = offer.price - entry["price"]
+        most = buy_limit(state, markets, now, commodity).most
+        if margin <= 0 or most <= 0:
+            continue
+        illegal = "  illegal" if is_illegal(entry) else ""
+        where = "" if only is not None else f" → {_system_text(offer)}"
+        ranked.append(
+            (
+                margin * most,
+                f"{name(commodity)}{illegal}: {_signed(margin)}/{unit(entry)} × {most} = "
+                f"{_signed(margin * most)} cr ({offer.note}){where}",
+            )
+        )
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [line for _, line in ranked]
+
+
+def _system_text(offer):
+    distance = f" {offer.distance:.1f} ly" if offer.distance is not None else ""
+    danger = " ⚠" if offer.dangerous else ""
+    return f"{offer.name}{distance}{danger}"
+
+
+def _last_other_market(markets, state):
+    """The most recently seen market anywhere but this station."""
+    here = (state.galaxy, state.current_system, state.market_station)
+    others = [m for m in markets if (m.get("galaxy"), m.get("system_id"), m.get("station")) != here]
+    return max(others, key=lambda m: m.get("seen_at") or "", default=None)
+
+
+def _cr(decicredits):
+    return f"{decicredits / 10:.1f}"
+
+
+def _signed(decicredits):
+    return f"{decicredits / 10:+.1f}"
+
+
 def _first(keys_text):
     return keys_text.split(" / ")[0] if keys_text else "(unbound)"
 

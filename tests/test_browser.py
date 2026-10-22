@@ -5,6 +5,7 @@ from helper.browser import (
     commodity_offers,
     commodity_rows,
     held,
+    market_advice,
     sort_rows,
     trade_steps,
 )
@@ -236,3 +237,69 @@ def test_held_counts_the_commodity_in_the_manifest():
     s = state()
     s.manifest = [{"commodity": "furs", "quantity": 14, "unit": "t"}, {"commodity": "food"}]
     assert (held(s, "furs"), held(s, "food"), held(s, "gold")) == (14, 0, 0)
+
+
+def advice_state():
+    s = state(
+        here=market(computers=(677, "0"), food=(43, "0"), narcotics=(820, "2")),
+        systems=[
+            {
+                "id": 8,
+                "name": "Isinor",
+                "distance": 3.6,
+                "government": 5,
+                "samplePrices": {"computers": 1013, "food": 40, "narcotics": 1100},
+            },
+            {
+                "id": 9,
+                "name": "Zaalela",
+                "distance": 6.0,
+                "government": 1,
+                "samplePrices": {"computers": 961, "food": 90, "narcotics": 1500},
+            },
+        ],
+    )
+    s.credits, s.cargo_space = 10000, {"available": 20, "capacity": 20}
+    s.market_station = "Coriolis"
+    s.manifest = [{"commodity": "computers", "quantity": 14, "unit": "t"}]
+    s.target_system = 8
+    return s
+
+
+def name(key):
+    return key.title()
+
+
+def test_market_panel_covers_hold_last_market_destination_and_best_buys():
+    last = remembered(5, "Tionisla", market(computers=(700, "0"), food=(30, "0")))
+    basis = {"computers": {"units": 14, "average_price": 600}}
+    groups = dict(market_advice(advice_state(), [last], basis, NOW, name))
+
+    assert groups["Your hold"] == ["Computers ×14: sells for 67.7 here, paid 60.0, +107.8 cr"]
+    assert groups["Against Tionisla (5m ago)"] == [
+        "Cheaper here: Computers -2.3",
+        "Dearer here: Food +1.3",
+    ]
+    assert groups["For Isinor 3.6 ly"] == [
+        "Sell Computers ×14 at 101.3 (est.): +470.4 cr vs here",
+        "Buy Computers: +33.6/t × 5 = +168.0 cr (est.)",
+        "Buy Narcotics  illegal: +28.0/t × 5 = +140.0 cr (est.)",
+    ]
+    # Ranked by total profit, with the dangerous system marked.
+    assert groups["Best buys in range"][0] == (
+        "Narcotics  illegal: +68.0/t × 5 = +340.0 cr (est.) → Zaalela 6.0 ly ⚠"
+    )
+
+
+def test_market_panel_is_empty_unless_docked():
+    s = advice_state()
+    s.docked = False
+    assert market_advice(s, [], {}, NOW, name) == []
+
+
+def test_best_buys_leave_out_what_the_destination_already_lists():
+    s = advice_state()
+    s.target_system = 9  # Zaalela: the best price for narcotics
+    groups = dict(market_advice(s, [], {}, NOW, name))
+    assert any(line.startswith("Buy Narcotics") for line in groups["For Zaalela 6.0 ly ⚠"])
+    assert [line.split(":")[0] for line in groups["Best buys in range"]] == ["Computers"]
