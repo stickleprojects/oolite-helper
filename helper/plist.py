@@ -7,6 +7,10 @@ extended forms: <*BY>/<*BN> as "YES"/"NO", <*I12> as "12", <*R1.5> as "1.5".
 """
 
 import re
+from os import PathLike
+from typing import TypeAlias, cast
+
+PlistValue: TypeAlias = str | bytes | list["PlistValue"] | dict[str, "PlistValue"]
 
 _BARE = re.compile(r"[A-Za-z0-9_.$/:+\-]+")
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\"}
@@ -16,7 +20,7 @@ class PlistError(ValueError):
     pass
 
 
-def loads(text):
+def loads(text: str) -> PlistValue:
     p = _Parser(text)
     value = p.value()
     p.skip()
@@ -25,21 +29,21 @@ def loads(text):
     return value
 
 
-def load(path):
+def load(path: str | PathLike[str]) -> PlistValue:
     with open(path, encoding="utf-8") as f:
         return loads(f.read())
 
 
 class _Parser:
-    def __init__(self, s):
+    def __init__(self, s: str) -> None:
         self.s = s
         self.i = 0
 
-    def error(self, msg):
+    def error(self, msg: str) -> PlistError:
         line = self.s.count("\n", 0, self.i) + 1
         return PlistError(f"{msg} at line {line}")
 
-    def skip(self):
+    def skip(self) -> None:
         s = self.s
         while self.i < len(s):
             c = s[self.i]
@@ -56,16 +60,16 @@ class _Parser:
             else:
                 break
 
-    def peek(self):
+    def peek(self) -> str:
         self.skip()
         return self.s[self.i] if self.i < len(self.s) else ""
 
-    def expect(self, ch):
+    def expect(self, ch: str) -> None:
         if self.peek() != ch:
             raise self.error(f"expected {ch!r}")
         self.i += 1
 
-    def value(self):
+    def value(self) -> PlistValue:
         c = self.peek()
         if c == "{":
             return self.dict()
@@ -81,11 +85,11 @@ class _Parser:
         self.i = m.end()
         return m.group()
 
-    def dict(self):
+    def dict(self) -> dict[str, PlistValue]:
         self.expect("{")
-        d = {}
+        d: dict[str, PlistValue] = {}
         while self.peek() != "}":
-            key = self.value()
+            key = cast(str, self.value())
             self.expect("=")
             d[key] = self.value()
             if self.peek() == ";":
@@ -93,9 +97,9 @@ class _Parser:
         self.i += 1
         return d
 
-    def array(self):
+    def array(self) -> list[PlistValue]:
         self.expect("(")
-        items = []
+        items: list[PlistValue] = []
         while self.peek() != ")":
             items.append(self.value())
             if self.peek() == ",":
@@ -103,11 +107,12 @@ class _Parser:
         self.i += 1
         return items
 
-    def angled(self):
+    def angled(self) -> str | bytes:
         end = self.s.find(">", self.i)
         if end < 0:
             raise self.error("unterminated <...>")
         body = self.s[self.i + 1 : end]
+        value: str | bytes
         if body.startswith("*"):
             kind, text = body[1:2], body[2:].strip()
             if kind == "B" and text in ("Y", "N"):
@@ -124,9 +129,9 @@ class _Parser:
         self.i = end + 1
         return value
 
-    def quoted(self):
+    def quoted(self) -> str:
         self.i += 1  # opening quote
-        out = []
+        out: list[str] = []
         s = self.s
         while True:
             if self.i >= len(s):

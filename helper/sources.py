@@ -9,6 +9,8 @@ import contextlib
 import json
 import os
 import re
+from os import PathLike
+from typing import TextIO
 
 from .paths import LOG as DEFAULT_LOG
 
@@ -25,15 +27,17 @@ class LogSource:
     state is right even if the helper starts after the game.
     """
 
-    def __init__(self, path=DEFAULT_LOG):
+    def __init__(self, path: str | PathLike[str] = DEFAULT_LOG) -> None:
         self.path = path
-        self._file = None
-        self._inode = None
-        self._partial = ""
+        self._file: TextIO | None = None
+        self._inode: int | None = None
+        self._partial: str = ""
 
-    def poll(self):
+    def poll(self) -> list[dict[str, object]]:
         # A new file means a new game run, so start the state again.
-        messages = [{"type": "session"}] if self._reopen_if_needed() else []
+        messages: list[dict[str, object]] = (
+            [{"type": "session"}] if self._reopen_if_needed() else []
+        )
         if self._file is None:
             return messages
         chunk = self._file.read()
@@ -51,7 +55,7 @@ class LogSource:
                     messages.append(json.loads(m.group(1)))
         return messages
 
-    def _reopen_if_needed(self):
+    def _reopen_if_needed(self) -> bool:
         """Open the log if it's new; returns True when a new file was opened."""
         try:
             st = os.stat(self.path)

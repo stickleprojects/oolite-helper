@@ -16,6 +16,7 @@ import math
 import os
 import re
 import tomllib
+from collections.abc import Mapping
 
 PATH = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
@@ -37,9 +38,11 @@ LAYOUTS = ("large", "compact")
 _GEOMETRY = re.compile(r"[1-9]\d*x[1-9]\d*[+-]\d+[+-]\d+")
 
 
-def load_window_settings(path=PATH, overrides=None):
+def load_window_settings(
+    path: str | os.PathLike[str] = PATH, overrides: Mapping[str, object] | None = None
+) -> dict[str, object]:
     """Defaults, then the config file's [window] table, then non-None overrides."""
-    settings = dict(WINDOW_DEFAULTS)
+    settings: dict[str, object] = dict(WINDOW_DEFAULTS)
     if os.path.exists(path):
         with open(path, "rb") as f:
             data = tomllib.load(f)
