@@ -90,8 +90,16 @@ def _screen(model):
 
 
 def _key_sections(model):
+    missing = model.topic("missing")
     return [
-        {"title": title, "keys": [key_info(model, a) for a in actions if model.keys(a)]}
+        {
+            "title": title,
+            "keys": [
+                {**key_info(model, a), "available": a not in missing}
+                for a in actions
+                if model.keys(a)
+            ],
+        }
         for title, actions in model.topic("sections")
     ]
 
@@ -301,7 +309,9 @@ TOPICS = {
         None,
         'what the Keys tab shows now: [{"title": "Flight", "keys": [{"action": "key_roll_left", '
         '"bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], '
-        '"keys": "←", "description": "Roll left"}, ...]}, ...]; unbound actions are left out',
+        '"keys": "←", "description": "Roll left", "available": false if the ship lacks the '
+        "equipment it needs (grey it out)}, ...]}, ...]; unbound actions are left out, and "
+        'unavailable ones too if the player set missing_equipment = "hide"',
     ),
     "all_keys": (
         _all_keys,

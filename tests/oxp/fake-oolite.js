@@ -67,7 +67,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m
 	// player.ship.equipment (EquipmentInfo list, one entry per item carried) and
 	// player.ship.equipmentStatus(key), missiles and missileCapacity, and
-	// EquipmentInfo equipmentKey, name,
+	// EquipmentInfo equipmentKey, name, provides,
 	// description and isVisible:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSEquipmentInfo.m
@@ -146,8 +146,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			},
 		},
 	].map((info) => strictObject("system info", info));
-	const equipmentInfo = (equipmentKey, name, description, isVisible = true) =>
-		strictObject("equipment info", { equipmentKey, name, description, isVisible });
+	const equipmentInfo = (equipmentKey, name, description, isVisible = true, provides = []) =>
+		strictObject("equipment info", { equipmentKey, name, description, isVisible, provides });
 	const missile = equipmentInfo("EQ_MISSILE", "Missile", "A homing missile.");
 	const equipment = [
 		equipmentInfo("EQ_ECM", "E.C.M. System", "Electronic Counter Measures."),

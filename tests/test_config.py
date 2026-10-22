@@ -61,3 +61,13 @@ def test_invalid_geometry_is_rejected(tmp_path, geometry):
 def test_invalid_font_scale_is_rejected(tmp_path, font_scale):
     with pytest.raises(SystemExit, match="font_scale must be a positive number"):
         config.load_window_settings(tmp_path / "missing.toml", {"font_scale": font_scale})
+
+
+def test_missing_equipment_is_grey_or_hide(tmp_path):
+    path = tmp_path / "config.toml"
+    assert config.load_window_settings(path)["missing_equipment"] == "grey"
+    path.write_text('[window]\nmissing_equipment = "hide"\n')
+    assert config.load_window_settings(path)["missing_equipment"] == "hide"
+    path.write_text('[window]\nmissing_equipment = "invisible"\n')
+    with pytest.raises(SystemExit, match="missing_equipment"):
+        config.load_window_settings(path)

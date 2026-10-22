@@ -55,7 +55,9 @@ class GameState:
         self.system_name = None  # the system the player is in
         self.jump_destination = None  # (id, name) the last jump was aimed at, until launch
         self.origin_market = {}
-        self.equipment = []  # fitted: [{"key", "name", "description", "count", "status"}]
+        # fitted: [{"key", "name", "description", "count", "status", "provides"}],
+        # or None before the add-on says (older add-ons never do)
+        self.equipment = None
         self.missiles = None  # {"capacity": pylons, "loaded": [{"key", "name", "count"}]}
 
     def apply(self, msg):
@@ -143,6 +145,23 @@ class GameState:
         elif kind == "closed":
             self.reset()
             self.game_closed = True
+
+    @property
+    def fitted(self):
+        """Equipment keys the game's checks accept, or None before the add-on says.
+
+        The game asks hasEquipmentItemProviding: (ShipEntity, 1.92.1), which
+        counts what working items provide too; a damaged item is stored as
+        EQ_..._DAMAGED, so it doesn't count.
+        """
+        if self.equipment is None:
+            return None
+        keys = set()
+        for item in self.equipment:
+            if item.get("status") != "EQUIPMENT_DAMAGED":
+                keys.add(item.get("key"))
+                keys.update(item.get("provides") or ())
+        return keys
 
     def _target(self):
         """(id, name) of the jump target, with its name from the systems in range."""

@@ -107,7 +107,7 @@ function panel(title, keys) {
     ...keys.map((key) =>
       el(
         "div",
-        { className: key.keys ? "key" : "key unbound" },
+        { className: key.keys && key.available !== false ? "key" : "key unbound" },
         el("kbd", { textContent: key.keys || "—" }),
         el("span", { textContent: key.description }),
       ),

@@ -237,7 +237,11 @@ this._massLock = function (ship, nearby) {
 this._emitEquipment = function () {
 	var ship = player.ship;
 	var items = this._countEquipment(ship.equipment || [], function (eq) {
-		return { description: eq.description, status: ship.equipmentStatus(eq.equipmentKey) };
+		return {
+			description: eq.description,
+			status: ship.equipmentStatus(eq.equipmentKey),
+			provides: eq.provides || []  // the game's checks accept these too
+		};
 	});
 	this._emit("equipment", {
 		items: items,

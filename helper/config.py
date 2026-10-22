@@ -9,6 +9,7 @@ anchor = "right"      # top-left, top, top-right, left, center, right,
 margin = 0            # pixels from the screen edges
 layout = "large"      # or "compact": smaller text and spacing, up to 6 key columns
 font_scale = 1.0      # multiplies the layout's text size
+missing_equipment = "grey"  # or "hide": keys for equipment you haven't got
 # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
 """
 
@@ -33,8 +34,10 @@ WINDOW_DEFAULTS = {
     "layout": "large",
     "font_scale": 1.0,
     "geometry": None,
+    "missing_equipment": "grey",
 }
 LAYOUTS = ("large", "compact")
+MISSING_EQUIPMENT = ("grey", "hide")
 _GEOMETRY = re.compile(r"[1-9]\d*x[1-9]\d*[+-]\d+[+-]\d+")
 
 
@@ -55,6 +58,11 @@ def load_window_settings(
             settings[key] = value
     if settings["layout"] not in LAYOUTS:
         raise SystemExit(f"layout must be one of {', '.join(LAYOUTS)}, not {settings['layout']!r}")
+    if settings["missing_equipment"] not in MISSING_EQUIPMENT:
+        raise SystemExit(
+            f"missing_equipment must be one of {', '.join(MISSING_EQUIPMENT)}, "
+            f"not {settings['missing_equipment']!r}"
+        )
     geometry = settings["geometry"]
     if geometry is not None and (
         not isinstance(geometry, str) or not _GEOMETRY.fullmatch(geometry)

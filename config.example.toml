@@ -25,6 +25,10 @@ layout = "large"
 # the window width.
 font_scale = 1.0
 
+# Keys for equipment your ship hasn't got (or that's damaged), e.g. ECM or
+# fuel injectors: "grey" shows them dimmed, "hide" leaves them out.
+missing_equipment = "grey"
+
 # Exact X geometry (WxH+X+Y). If set, it overrides all of the above.
 # geometry = "1200x1000+2640+40"
 

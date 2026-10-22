@@ -236,6 +236,7 @@ def test_key_sections_are_what_the_keys_tab_shows():
         "bindings": [{"key": "arrowLeft", "shift": False, "ctrl": False, "alt": False}],
         "keys": "←",
         "description": "Roll left",
+        "available": True,
     }
     assert all(k["keys"] for s in sections for k in s["keys"])  # unbound ones left out
     json.dumps(sections)

@@ -191,12 +191,59 @@ TIPS = {
     # performDockingRequest: is called with the primary target only.
     "near station": "{key_docking_clearance_request} asks your current target, so target "
     "the station first ({key_ident_system} with it ahead, or {key_next_target}).",
+    # Next target needs EQ_TARGET_MEMORY (see NEEDS).
+    "near station without target memory": "{key_docking_clearance_request} asks your current "
+    "target, so target the station first ({key_ident_system} with it ahead).",
     # The hyperspace key during a countdown calls cancelWitchspaceCountdown.
     "jump countdown": "Press {key_hyperspace} again to cancel the countdown.",
     # pollGameOverControls checks Space directly (not a key binding); after
     # kDeadResetTime (30 s) handleGameOver reloads the last save anyway.
     "ship destroyed": "Press Space, or wait 30 seconds, and the game reloads your last save.",
 }
+
+
+# What an action needs: without it fitted (and working) the game ignores the
+# key. PlayerEntityControls.m pollFlightControls / pollGuiArrowKeyControls and
+# ShipEntity hasECM, hasFuelInjection etc., all hasEquipmentItemProviding:, 1.92.1.
+NEEDS = {
+    "key_inject_fuel": "EQ_FUEL_INJECTION",
+    "key_ecm": "EQ_ECM",
+    "key_launch_escapepod": "EQ_ESCAPE_POD",
+    "key_autopilot": "EQ_DOCK_COMP",
+    "key_autodock": "EQ_DOCK_COMP",
+    "key_docking_music": "EQ_DOCK_COMP",
+    "key_galactic_hyperspace": "EQ_GAL_DRIVE",
+    "key_next_target": "EQ_TARGET_MEMORY",
+    "key_previous_target": "EQ_TARGET_MEMORY",
+    # The mode keys do nothing in COMPASS_MODE_BASIC, the only mode without
+    # an advanced compass (PlayerEntity.m: compassMode is set to PLANET when one
+    # is fitted; the mode keys check compassMode != COMPASS_MODE_BASIC).
+    "key_next_compass_mode": "EQ_ADVANCED_COMPASS",
+    "key_prev_compass_mode": "EQ_ADVANCED_COMPASS",
+    "key_advanced_nav_array_next": "EQ_ADVANCED_NAVIGATIONAL_ARRAY",
+    "key_advanced_nav_array_previous": "EQ_ADVANCED_NAVIGATIONAL_ARRAY",
+}
+# Missile keys need something on a pylon (missile_entity[activeMissile]).
+MISSILE_ACTIONS = (
+    "key_target_missile",
+    "key_launch_missile",
+    "key_next_missile",
+    "key_untarget_missile",
+)
+
+
+def missing(state):
+    """Actions that do nothing with the ship's current equipment.
+
+    Empty until the add-on has said what's fitted, so nothing is hidden by mistake.
+    """
+    fitted = state.fitted
+    actions = set()
+    if fitted is not None:
+        actions.update(action for action, needs in NEEDS.items() if needs not in fitted)
+    if state.missiles is not None and not state.missiles.get("loaded"):
+        actions.update(MISSILE_ACTIONS)
+    return frozenset(actions)
 
 
 # Short qualifiers shown after an action's description, for keys that share a
@@ -228,6 +275,8 @@ def tip(state, keymap):
     if state.gui in ("GUI_SCREEN_SHORT_RANGE_CHART", "GUI_SCREEN_LONG_RANGE_CHART"):
         return chart_advice(state)
     text = TIPS.get(state.context)
+    if state.context == "near station" and "key_next_target" in missing(state):
+        text = TIPS["near station without target memory"]
     if state.context == "near station":
         text = CLEARANCE_TIPS.get(state.clearance, text)
     text = text.format_map(_KeysLookup(keymap)) if text and keymap else ""

@@ -43,6 +43,7 @@ class HelperWindow:
         quit_with_game=True,
         font_scale=1.0,
         layout="large",
+        missing_equipment="grey",
         widgets=(),
         monitors=(),
         plugins=({}, {}),
@@ -59,7 +60,7 @@ class HelperWindow:
             keymap, keymap_error = load_keymap(), None
         except Exception as e:  # show the problem instead of dying
             keymap, keymap_error = None, f"Couldn't read the game's key settings: {e}"
-        self.model = Model(markets=markets, keymap=keymap)
+        self.model = Model(markets=markets, keymap=keymap, missing_equipment=missing_equipment)
         self.model.on_error = lambda exc, where: self.report(exc)
         # The notice is shown until the game sends something.
         self.model.set_status(keymap_error=keymap_error, notice=markets.load_error)
@@ -266,6 +267,7 @@ def main():
         quit_with_game=not args.stay,
         font_scale=float(settings["font_scale"]),
         layout=settings["layout"],
+        missing_equipment=settings["missing_equipment"],
         widgets=load_widgets(plugins=set(plugins[0]) | set(plugins[1])),
         monitors=monitors,
         plugins=plugins,
