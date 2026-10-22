@@ -275,7 +275,10 @@ def test_market_panel_covers_hold_last_market_destination_and_best_buys():
     basis = {"computers": {"units": 14, "average_price": 600}}
     groups = dict(market_advice(advice_state(), [last], basis, NOW, name))
 
-    assert groups["Your hold"] == ["Computers ×14: sells for 67.7 here, paid 60.0, +107.8 cr"]
+    assert groups["Your hold"] == [
+        "Computers ×14: paid 60.0, sells for 67.7 here (+107.8 cr). "
+        "Best: Isinor 3.6 ly at 101.3 (est.), +578.2 cr"
+    ]
     assert groups["Against Tionisla (5m ago)"] == [
         "Cheaper here: Computers -2.3",
         "Dearer here: Food +1.3",
@@ -286,7 +289,7 @@ def test_market_panel_covers_hold_last_market_destination_and_best_buys():
         "Buy Narcotics  illegal: +28.0/t × 5 = +140.0 cr (est.)",
     ]
     # Ranked by total profit, with the dangerous system marked.
-    assert groups["Best buys in range"][0] == (
+    assert groups["Best buys you can still afford and fit"][0] == (
         "Narcotics  illegal: +68.0/t × 5 = +340.0 cr (est.) → Zaalela 6.0 ly ⚠"
     )
 
@@ -302,4 +305,22 @@ def test_best_buys_leave_out_what_the_destination_already_lists():
     s.target_system = 9  # Zaalela: the best price for narcotics
     groups = dict(market_advice(s, [], {}, NOW, name))
     assert any(line.startswith("Buy Narcotics") for line in groups["For Zaalela 6.0 ly ⚠"])
-    assert [line.split(":")[0] for line in groups["Best buys in range"]] == ["Computers"]
+    assert [line.split(":")[0] for line in groups["Best buys you can still afford and fit"]] == [
+        "Computers"
+    ]
+
+
+def test_just_bought_cargo_says_where_to_sell_it():
+    s = advice_state()
+    s.target_system = s.current_system  # no jump target yet
+    basis = {"computers": {"units": 14, "average_price": 677}}
+    groups = dict(market_advice(s, [], basis, NOW, name))
+    assert groups["Your hold"] == [
+        "Computers ×14: paid 67.7, sells for 67.7 here. "
+        "Best: Isinor 3.6 ly at 101.3 (est.), +470.4 cr"
+    ]
+    s.manifest = [{"commodity": "food", "quantity": 3}]
+    groups = dict(market_advice(s, [], {}, NOW, name))
+    assert groups["Your hold"] == [
+        "Food ×3: 4.3 here. Best: Zaalela 6.0 ly ⚠ at 9.0 (est.), +14.1 cr"
+    ]
