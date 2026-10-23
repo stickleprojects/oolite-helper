@@ -214,7 +214,8 @@ class PluginPanels:
         for wid, manifest in self.panels.items():
             panel = panels[wid]
             spec = panel.spec
-            shown = panel.open and wid not in self.hidden
+            empty = wid in self.hidden and spec.hide_empty
+            shown = panel.open and not empty
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.builtin:

@@ -69,3 +69,12 @@ def test_the_model_keeps_the_game_window_for_widgets():
     )
     model.notify()
     assert seen == [GAME]
+
+
+def test_hide_empty_must_be_a_boolean(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[[widgets]]\nviews = ["drive"]\nhide_empty = "no"\n')
+    with pytest.raises(SystemExit, match="hide_empty must be true or false"):
+        load_widgets(path)
+    path.write_text('[[widgets]]\nviews = ["drive"]\nhide_empty = false\n')
+    assert load_widgets(path)[0].hide_empty is False

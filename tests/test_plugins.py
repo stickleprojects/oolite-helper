@@ -417,3 +417,14 @@ def test_the_bundled_page_reads_only_what_its_views_need():
     manifest = read_manifest(BUILTIN)
     assert set(manifest.topics) == {"drive", "clearance", "market_advice"}
     assert manifest.actions == ()
+
+
+def test_hide_empty_false_keeps_an_empty_page_shown():
+    specs = [WidgetSpec(views=("drive",), dock="game:top", hide_empty=False)]
+    model = Model(layout=panels_from_specs(specs))
+    host = StubHost()
+    made = PluginPanels(model, {}, host=host, builtin=read_manifest(BUILTIN))
+    model.dispatch({**GAME, "active": True})
+    made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
+    model.notify()
+    assert host.windows["widget1:drive"].rect is not None
