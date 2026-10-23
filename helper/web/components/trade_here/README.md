@@ -18,6 +18,7 @@ Use it in a widget: `components = ["trade_here"]`. Try it: `python -m helper.har
 
 From `trade_here.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>not docked yet</b><br><img src="images/not-docked-yet.png" width="440" alt="not docked yet"></td><td valign="top"><b>docked with cargo</b><br><img src="images/docked-with-cargo.png" width="440" alt="docked with cargo"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **not docked yet** | <img src="images/not-docked-yet.png" width="560" alt="not docked yet"> |
+| **docked with cargo** | <img src="images/docked-with-cargo.png" width="560" alt="docked with cargo"> |

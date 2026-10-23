@@ -18,8 +18,8 @@ Use it in a widget: `components = ["tip"]`. Try it: `python -m helper.harness ti
 
 From `tip.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>no tip</b><br><i>shows nothing</i></td></tr>
-<tr><td valign="top"><b>one line</b><br><img src="images/one-line.png" width="900" alt="one line"></td></tr>
-<tr><td valign="top"><b>two lines</b><br><img src="images/two-lines.png" width="900" alt="two lines"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **no tip** | *shows nothing* |
+| **one line** | <img src="images/one-line.png" width="700" alt="one line"> |
+| **two lines** | *shows nothing* |

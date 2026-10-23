@@ -18,7 +18,8 @@ Use it in a widget: `components = ["trade_table"]`. Try it: `python -m helper.ha
 
 From `trade_table.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>no market data</b><br><img src="images/no-market-data.png" width="440" alt="no market data"></td><td valign="top"><b>three commodities</b><br><img src="images/three-commodities.png" width="440" alt="three commodities"></td></tr>
-<tr><td valign="top"><b>food open</b><br><img src="images/food-open.png" width="440" alt="food open"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **no market data** | <img src="images/no-market-data.png" width="560" alt="no market data"> |
+| **three commodities** | <img src="images/three-commodities.png" width="560" alt="three commodities"> |
+| **food open** | <img src="images/food-open.png" width="560" alt="food open"> |

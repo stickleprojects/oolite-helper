@@ -18,6 +18,7 @@ Use it in a widget: `components = ["all_keys"]`. Try it: `python -m helper.harne
 
 From `all_keys.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>before the keys are known</b><br><i>shows nothing</i></td><td valign="top"><b>two groups</b><br><img src="images/two-groups.png" width="440" alt="two groups"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **before the keys are known** | *shows nothing* |
+| **two groups** | <img src="images/two-groups.png" width="560" alt="two groups"> |
