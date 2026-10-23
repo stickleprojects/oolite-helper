@@ -22,4 +22,4 @@ From `tip.states.json`. *Shows nothing* means it draws nothing in that state; a 
 |---|---|
 | **no tip** | *shows nothing* |
 | **one line** | <img src="images/one-line.png" width="700" alt="one line"> |
-| **two lines** | *shows nothing* |
+| **two lines** | <img src="images/two-lines.png" width="700" alt="two lines"> |
