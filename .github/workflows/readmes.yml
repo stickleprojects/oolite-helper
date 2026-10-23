@@ -1,0 +1,65 @@
+# Refreshes each web component's generated README.md and the pictures of its
+# named states (python -m helper.harness --readmes) on pull requests, and
+# commits them to the PR branch. CI makes the pictures so they're the same
+# whoever changes a component: fonts and rendering differ between machines.
+name: Component READMEs
+
+on:
+  pull_request:
+    paths:
+      - "helper/web/**"
+      - "helper/harness.py"
+      - "helper/plugin_api.py"
+      - "helper/plugins.py"
+      - "helper/tk/components/style.py"
+
+permissions:
+  contents: write # commit the refreshed READMEs to the PR branch
+  actions: write # start CI on that commit
+
+concurrency:
+  group: readmes-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  readmes:
+    name: Refresh
+    # Not on its own commits: they're the refreshed READMEs already.
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0 # the base branch too, to see what changed
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      # Only the components changed on this branch (and those that need them);
+      # all of them if a shared file changed.
+      - name: Make the READMEs and pictures
+        run: python -m helper.harness --readmes --since "origin/${{ github.base_ref }}" --config /dev/null
+      - name: Commit them, and run CI on that commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          git add helper/web/components
+          if git diff --cached --quiet; then
+            echo "READMEs and pictures are up to date."
+            exit 0
+          fi
+          git diff --cached --stat
+          if [ "$SAME_REPO" != "true" ]; then
+            echo "::warning::Component READMEs are out of date; a maintainer will refresh them."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Refresh component READMEs and pictures"
+          git push
+          # A push with this token doesn't start workflows, so start CI here:
+          # its checks are required on the new commit.
+          gh workflow run ci.yml --ref "${{ github.head_ref }}"

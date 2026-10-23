@@ -73,7 +73,7 @@ Rules:
 Give it **named states** beside it, `<name>.states.json` (`{"expiring": {"clearance": {...}}}`, only its own topics): the situations worth seeing. The same states feed three things:
 - the **component harness** (`python -m helper.harness jump_status`, see CONTRIBUTING.md): pick a state or a scenario snapshot, edit any topic as JSON, and watch it react;
 - its **tests** beside it (`<name>.test.js`, `node --test`, the fake DOM in `lib/testing.js`): `render("jump_status", states("jump_status").blocked)`, one state or one action per test;
-- **pictures** of each state (`--shots`, or `tests/test_component_images.py` with `OOLITE_HELPER_SHOTS` set), and its generated **README.md** (`python -m helper.harness --readmes`): what `component.toml` says, with a picture of each state.
+- **pictures** of each state (`--shots`, or `tests/test_component_images.py` with `OOLITE_HELPER_SHOTS` set), and its generated **README.md** (`python -m helper.harness --readmes`, refreshed by CI on pull requests): what `component.toml` says, with a picture of each state.
 
 The Tk fallback (`helper/tk/components/`, a `Component` with `select(model)` and `draw(value)`) has versions of `drive`, `clearance` and `trade_here` only; new components are web components.
 

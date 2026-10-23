@@ -18,8 +18,10 @@ Use it in a widget: `components = ["heading"]`. Try it: `python -m helper.harnes
 
 From `heading.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>waiting for game</b><br><img src="images/waiting-for-game.png" width="440" alt="waiting for game"></td><td valign="top"><b>docked</b><br><img src="images/docked.png" width="440" alt="docked"></td></tr>
-<tr><td valign="top"><b>flying, aimed for a target</b><br><img src="images/flying-aimed-for-a-target.png" width="440" alt="flying, aimed for a target"></td><td valign="top"><b>arrived at the target</b><br><img src="images/arrived-at-the-target.png" width="440" alt="arrived at the target"></td></tr>
-<tr><td valign="top"><b>red alert</b><br><img src="images/red-alert.png" width="440" alt="red alert"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **waiting for game** | <img src="images/waiting-for-game.png" width="560" alt="waiting for game"> |
+| **docked** | <img src="images/docked.png" width="560" alt="docked"> |
+| **flying, aimed for a target** | <img src="images/flying-aimed-for-a-target.png" width="560" alt="flying, aimed for a target"> |
+| **arrived at the target** | <img src="images/arrived-at-the-target.png" width="560" alt="arrived at the target"> |
+| **red alert** | <img src="images/red-alert.png" width="560" alt="red alert"> |

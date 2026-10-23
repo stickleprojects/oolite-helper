@@ -253,15 +253,19 @@ def test_a_readme_shows_each_states_picture():
 
 
 def test_a_readme_says_when_a_state_shows_nothing():
-    assert "<b>away from stations</b><br><i>shows nothing</i>" in clearance_readme()
+    assert "| **away from stations** | *shows nothing* |" in clearance_readme()
 
 
-def test_strips_are_one_to_a_row():
-    assert clearance_readme().count("<tr>") == 2
+def test_a_readmes_states_are_a_row_each_name_then_picture():
+    assert '| **expiring** | <img src="images/expiring.png"' in clearance_readme()
 
 
-def test_bigger_components_are_two_to_a_row():
-    assert clearance_readme(size=(1600, 900)).count("<tr>") == 1
+def test_strips_are_shown_at_their_own_width():
+    assert 'width="640"' in clearance_readme()
+
+
+def test_bigger_components_are_scaled_down():
+    assert 'width="560"' in clearance_readme(size=(1600, 900))
 
 
 @pytest.mark.parametrize("name", list(COMPONENTS))
@@ -269,4 +273,42 @@ def test_each_components_readme_is_up_to_date_with_its_states(name):
     """Run `python -m helper.harness --readmes` after changing a states file."""
     text = (Path(harness.web.COMPONENTS_DIR) / name / "README.md").read_text()
     for state, _ in COMPONENTS[name].states:
-        assert f"<b>{state}</b>" in text, f"{name}: {state!r} isn't in its README"
+        assert f"| **{state}** |" in text, f"{name}: {state!r} isn't in its README"
+
+
+def show_url():
+    return f"s/{harness.BLANK}/component.clearance/_oolite/show"
+
+
+def test_the_latest_show_report_wins_whatever_order_they_arrive_in(clearance_server):
+    post(clearance_server, show_url(), {"shown": True, "seq": 2})
+    post(clearance_server, show_url(), {"shown": False, "seq": 1})  # older, arriving late
+    assert clearance_server.shown[(harness.BLANK, "component.clearance")] == (2, True)
+
+
+# -- which READMEs to remake -----------------------------------------------------------
+
+
+def test_a_components_own_change_remakes_its_readme():
+    assert harness.affected(["helper/web/components/drive/drive.css"]) == ["drive"]
+
+
+def test_a_change_remakes_the_components_that_need_it_too():
+    assert set(harness.affected(["helper/web/components/keys/keys.js"])) == {"keys", "all_keys"}
+
+
+def test_a_change_to_the_shared_stylesheet_remakes_every_readme():
+    assert harness.affected(["helper/web/lib/base.css"]) == list(COMPONENTS)
+
+
+def test_a_change_to_the_themes_colours_remakes_every_readme():
+    assert harness.affected(["helper/tk/components/style.py"]) == list(COMPONENTS)
+
+
+def test_the_readmes_and_pictures_themselves_dont_count():
+    paths = ["helper/web/components/tip/README.md", "helper/web/components/tip/images/a.png"]
+    assert harness.affected(paths) == []
+
+
+def test_files_outside_the_components_dont_count():
+    assert harness.affected(["helper/state.py", "README.md"]) == []

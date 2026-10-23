@@ -18,7 +18,8 @@ Use it in a widget: `components = ["last_message"]`. Try it: `python -m helper.h
 
 From `last_message.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>before any</b><br><i>shows nothing</i></td><td valign="top"><b>short</b><br><img src="images/short.png" width="440" alt="short"></td></tr>
-<tr><td valign="top"><b>a whole market</b><br><img src="images/a-whole-market.png" width="440" alt="a whole market"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **before any** | *shows nothing* |
+| **short** | <img src="images/short.png" width="560" alt="short"> |
+| **a whole market** | <img src="images/a-whole-market.png" width="560" alt="a whole market"> |

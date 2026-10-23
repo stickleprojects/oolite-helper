@@ -18,7 +18,8 @@ Use it in a widget: `components = ["keys"]`. Try it: `python -m helper.harness k
 
 From `keys.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>no keys</b><br><i>shows nothing</i></td><td valign="top"><b>near a station</b><br><img src="images/near-a-station.png" width="440" alt="near a station"></td></tr>
-<tr><td valign="top"><b>missing and unbound</b><br><img src="images/missing-and-unbound.png" width="440" alt="missing and unbound"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **no keys** | *shows nothing* |
+| **near a station** | <img src="images/near-a-station.png" width="560" alt="near a station"> |
+| **missing and unbound** | <img src="images/missing-and-unbound.png" width="560" alt="missing and unbound"> |

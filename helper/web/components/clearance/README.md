@@ -18,11 +18,11 @@ Use it in a widget: `components = ["clearance"]`. Try it: `python -m helper.harn
 
 From `clearance.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>away from stations</b><br><i>shows nothing</i></td></tr>
-<tr><td valign="top"><b>none</b><br><img src="images/none.png" width="640" alt="none"></td></tr>
-<tr><td valign="top"><b>requested</b><br><img src="images/requested.png" width="640" alt="requested"></td></tr>
-<tr><td valign="top"><b>granted</b><br><img src="images/granted.png" width="640" alt="granted"></td></tr>
-<tr><td valign="top"><b>expiring</b><br><img src="images/expiring.png" width="640" alt="expiring"></td></tr>
-<tr><td valign="top"><b>refused</b><br><img src="images/refused.png" width="640" alt="refused"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **away from stations** | *shows nothing* |
+| **none** | <img src="images/none.png" width="640" alt="none"> |
+| **requested** | <img src="images/requested.png" width="640" alt="requested"> |
+| **granted** | <img src="images/granted.png" width="640" alt="granted"> |
+| **expiring** | <img src="images/expiring.png" width="640" alt="expiring"> |
+| **refused** | <img src="images/refused.png" width="640" alt="refused"> |

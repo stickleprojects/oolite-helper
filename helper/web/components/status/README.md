@@ -18,10 +18,10 @@ Use it in a widget: `components = ["status"]`. Try it: `python -m helper.harness
 
 From `status.states.json`. *Shows nothing* means it draws nothing in that state; a widget hides while all its components do.
 
-<table>
-<tr><td valign="top"><b>all well</b><br><i>shows nothing</i></td></tr>
-<tr><td valign="top"><b>a message only</b><br><i>shows nothing</i></td></tr>
-<tr><td valign="top"><b>notice</b><br><img src="images/notice.png" width="900" alt="notice"></td></tr>
-<tr><td valign="top"><b>warning</b><br><img src="images/warning.png" width="900" alt="warning"></td></tr>
-<tr><td valign="top"><b>error</b><br><img src="images/error.png" width="900" alt="error"></td></tr>
-</table>
+| State | Picture |
+|---|---|
+| **all well** | *shows nothing* |
+| **a message only** | *shows nothing* |
+| **notice** | <img src="images/notice.png" width="700" alt="notice"> |
+| **warning** | <img src="images/warning.png" width="700" alt="warning"> |
+| **error** | <img src="images/error.png" width="700" alt="error"> |
