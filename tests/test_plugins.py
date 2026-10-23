@@ -5,6 +5,7 @@ import pytest
 
 from helper import plist
 from helper.keys import Keymap, from_override
+from helper.layout import panels_from_specs
 from helper.model import Model
 from helper.plugins import TOPICS, PluginPanels, discover, read_manifest
 from helper.widgets import WidgetSpec, load_widgets
@@ -145,10 +146,10 @@ def panels(tmp_path):
     make_plugin(tmp_path)
     make_plugin(tmp_path, "bad", LAMP.replace('"lamp"', '"bad"').replace("api = 1", "api = 9"))
     manifests, broken = discover(tmp_path)
-    model = Model()
-    host = StubHost()
     specs = [WidgetSpec(views=("lamp",), dock="game:top"), WidgetSpec(views=("gone",))]
-    made = PluginPanels(model, specs, manifests, broken, host=host)
+    model = Model(layout=panels_from_specs(specs))
+    host = StubHost()
+    made = PluginPanels(model, manifests, broken, host=host)
     return model, host, made
 
 
@@ -173,7 +174,7 @@ def test_panels_dock_like_widgets_and_follow_page_resizes(panels):
     model.dispatch({**GAME, "active": True})
     model.notify()
     window = host.windows["widget1:lamp"]
-    assert (window.plugin, window.root) == ("lamp", made.panels["widget1:lamp"][1].root)
+    assert (window.plugin, window.root) == ("lamp", made.panels["widget1:lamp"].root)
     assert window.rect == (100, 200 - 24 - 60, 1280, 60)  # above the title bar, full width
     host.events = [
         {"ev": "page", "id": "widget1:lamp", "msg": {"type": "resize", "width": 300, "height": 90}}
@@ -209,7 +210,7 @@ def test_page_logs_go_to_the_helpers_log(panels, capsys):
 
 
 def test_no_plugin_widgets_means_no_web_host():
-    made = PluginPanels(Model(), [], {})
+    made = PluginPanels(Model(), {})
     assert made.host is None
     made.tick()
     made.close()
@@ -253,7 +254,8 @@ def test_a_plugin_gets_the_keys_it_lists(tmp_path):
     manifests, _ = discover(tmp_path)
     assert manifests["lamp"].keys == ("key_jumpdrive", "key_not_in_this_game")
     model, host = keyed_model(), StubHost()
-    PluginPanels(model, [WidgetSpec(views=("lamp",))], manifests, host=host)
+    model.layout = panels_from_specs([WidgetSpec(views=("lamp",))])
+    PluginPanels(model, manifests, host=host)
     keys = {topic: value for _, topic, value in host.published}["keys"]
     assert keys["key_jumpdrive"]["keys"] == model.keys("key_jumpdrive") != ""
     assert keys["key_not_in_this_game"] == {
@@ -338,3 +340,17 @@ def test_clearance_has_a_status_constant_beside_its_text(messages, status):
         model.dispatch(message)
     clearance = TOPICS["clearance"][0](model)
     assert clearance["status"] == status and clearance["text"]
+
+
+def test_closed_and_moved_panels_follow_the_layout(panels):
+    model, host, _ = panels
+    model.dispatch({**GAME, "active": True})
+    model.dispatch({"type": "layout/move_panel", "id": "widget1:lamp", "x": 5, "y": -3})
+    model.notify()
+    assert host.windows["widget1:lamp"].rect == (105, 200 - 24 - 60 - 3, 1280, 60)
+    model.dispatch({"type": "layout/close_panel", "id": "widget1:lamp"})
+    model.notify()
+    assert host.windows["widget1:lamp"].rect is None
+    model.dispatch({"type": "layout/open_panel", "id": "widget1:lamp"})
+    model.notify()
+    assert host.windows["widget1:lamp"].rect is not None

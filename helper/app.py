@@ -10,8 +10,10 @@ import tkinter as tk
 import traceback
 
 from . import config
+from . import layout as layout_file
 from .gamewindow import GameWindow
 from .keys import load_keymap
+from .layout import panels_from_specs
 from .markets import MarketStore
 from .model import Model
 from .plugins import PluginPanels, discover
@@ -47,6 +49,7 @@ class HelperWindow:
         widgets=(),
         monitors=(),
         plugins=({}, {}),
+        layout_path=layout_file.PATH,
     ):
         self.root = root
         self.source = source
@@ -60,7 +63,14 @@ class HelperWindow:
             keymap, keymap_error = load_keymap(), None
         except Exception as e:  # show the problem instead of dying
             keymap, keymap_error = None, f"Couldn't read the game's key settings: {e}"
-        self.model = Model(markets=markets, keymap=keymap, missing_equipment=missing_equipment)
+        # The layout (#50): config.toml's widgets, with the changes saved in layout.toml.
+        defaults = panels_from_specs(widgets)
+        self.model = Model(
+            markets=markets,
+            keymap=keymap,
+            missing_equipment=missing_equipment,
+            layout=layout_file.load(defaults, layout_path),
+        )
         self.model.on_error = lambda exc, where: self.report(exc)
         # The notice is shown until the game sends something.
         self.model.set_status(keymap_error=keymap_error, notice=markets.load_error)
@@ -126,12 +136,15 @@ class HelperWindow:
         # Widgets (#50): views in their own windows. Docked ones need the game
         # window's position, polled a few times a second only when there are any.
         # A widget showing a plugin (#59) is a web page in the web host instead.
-        built_in = [spec for spec in widgets if spec.views[0] in VIEWS]
-        self.widgets = [Widget(root, model, spec, monitors) for spec in built_in]
+        self.widgets = [
+            Widget(root, model, panel.id, monitors)
+            for panel in model.layout
+            if panel.spec.views[0] in VIEWS
+        ]
         manifests, broken = plugins
-        self.plugins = PluginPanels(
-            model, [spec for spec in widgets if spec not in built_in], manifests, broken, monitors
-        )
+        self.plugins = PluginPanels(model, manifests, broken, monitors)
+        saver = layout_file.LayoutFile(defaults, layout_path)
+        model.subscribe("layout", saver.save, initial=False)
         self.game_window = GameWindow() if self.widgets or self.plugins.panels else None
         self.ticks = 0
         self.tick()
