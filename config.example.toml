@@ -51,6 +51,9 @@ missing_equipment = "grey"
 # screen/x/y: for a free widget instead of dock (x/y are an offset when docked)
 # width/height, layout ("compact" default, or "large"), font_scale,
 # show ("with_game" default when docked, or "always")
+# id:         optional stable name for the widget (default "widget<n>:<view>").
+#             Moves, resizes and closes made in the helper are saved by id in
+#             layout.toml beside this file; delete it to go back to these.
 #
 # [[widgets]]
 # views = ["clearance", "drive"]

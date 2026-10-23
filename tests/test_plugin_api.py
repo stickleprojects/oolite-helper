@@ -5,6 +5,7 @@ import pytest
 
 from helper import plist
 from helper.keys import Keymap
+from helper.layout import panels_from_specs
 from helper.markets import MarketStore
 from helper.model import Model
 from helper.plugin_api import TOPICS, check_action, theme_css, topic_value
@@ -154,10 +155,8 @@ def clicky(tmp_path):
     )
     manifests, broken = discover(tmp_path)
     assert not broken
-    model = Model()
-    panels = PluginPanels(
-        model, [WidgetSpec(views=("clicky",), layout="large")], manifests, host=Stub()
-    )
+    model = Model(layout=panels_from_specs([WidgetSpec(views=("clicky",), layout="large")]))
+    panels = PluginPanels(model, manifests, host=Stub())
     return model, panels
 
 

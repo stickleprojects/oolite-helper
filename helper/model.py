@@ -27,6 +27,7 @@ from dataclasses import dataclass, replace
 from .browser import buy_limit, commodity_offers, commodity_rows, held, market_advice, trade_steps
 from .contexts import ACTION_NOTES, clearance_badge, indicators, missing, sections, tip
 from .keys import commodity_fallback
+from .layout import reduce_layout
 from .state import GameState
 
 # Contexts that switch the view back to Keys whatever tab is chosen; the chosen
@@ -77,7 +78,13 @@ _UNSET = object()
 
 class Model:
     def __init__(
-        self, state=None, markets=None, keymap=None, clock=time.monotonic, missing_equipment="grey"
+        self,
+        state=None,
+        markets=None,
+        keymap=None,
+        clock=time.monotonic,
+        missing_equipment="grey",
+        layout=(),
     ):
         self.state = state if state is not None else GameState()
         # Keys for equipment the ship hasn't got: "grey" shows them dimmed, "hide" leaves them out.
@@ -86,6 +93,7 @@ class Model:
         self.keymap = keymap
         self.clock = clock
         self.ui = UI()
+        self.layout = tuple(layout)  # layout.Panel for each widget (#50)
         # The game window, from gamewindow.GameWindow: ((x, y, w, h) or None,
         # frame borders (left, right, top, bottom), whether it's the active window).
         self.game_window = (None, (0, 0, 0, 0), False)
@@ -98,13 +106,15 @@ class Model:
     # -- changing state --------------------------------------------------
 
     def dispatch(self, action):
-        """Apply a game message, a "ui/..." action or a "window/game" update.
+        """Apply a game message, a "ui/..." or "layout/..." action, or a "window/game" update.
 
         Call notify() after a batch.
         """
         kind = str(action.get("type", ""))
         if kind.startswith("ui/"):
             self.ui = reduce_ui(self.ui, action)
+        elif kind.startswith("layout/"):
+            self.layout = reduce_layout(self.layout, action)
         elif kind == "window/game":
             geometry = action.get("geometry")
             self.game_window = (
@@ -287,4 +297,5 @@ TOPICS = {
     "ui": (lambda m: m.ui, None),
     "status": (lambda m: dict(m.status), None),
     "game_window": (lambda m: m.game_window, None),
+    "layout": (lambda m: m.layout, None),
 }
