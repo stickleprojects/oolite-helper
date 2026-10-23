@@ -89,8 +89,24 @@ class FakeText {
 const WEB = path.join(__dirname, "..");
 const LIB = ["lib/dom.js", "lib/format.js", "lib/widget.js"];
 
-// A fresh page with the shared files and these components' .js files loaded.
-// Returns {Oolite, root, sent}: sent collects what oolite.dispatch() was given.
+// What a component needs, from its component.toml (needs = ["keys"]), and
+// what those need: the same files the helper's page for it would load.
+function withNeeds(names) {
+  const order = [];
+  const add = (name) => {
+    if (order.includes(name)) return;
+    const toml = fs.readFileSync(path.join(WEB, "components", name, "component.toml"), "utf8");
+    const needs = toml.match(/^needs\s*=\s*\[([^\]]*)\]/m);
+    for (const need of needs ? needs[1].match(/"([^"]+)"/g) || [] : []) add(need.slice(1, -1));
+    order.push(name);
+  };
+  names.forEach(add);
+  return order;
+}
+
+// A fresh page with the shared files and these components' .js files (and
+// what they need) loaded. Returns {Oolite, root, sent}: sent collects what
+// oolite.dispatch() was given.
 function loadComponents(...names) {
   const root = new FakeNode("div");
   const sent = [];
@@ -114,7 +130,7 @@ function loadComponents(...names) {
   context.globalThis = context;
   vm.createContext(context);
   const files = [...LIB];
-  for (const name of names) {
+  for (const name of withNeeds(names)) {
     const folder = path.join(WEB, "components", name);
     for (const file of fs.readdirSync(folder).sort()) {
       if (file.endsWith(".js") && !file.endsWith(".test.js")) {
@@ -130,8 +146,8 @@ function loadComponents(...names) {
 
 // Render one component: {node, sent, refreshed()} where refreshed() counts
 // the component's refresh() calls.
-function render(name, state, { needs = [] } = {}) {
-  const page = loadComponents(...needs, name);
+function render(name, state) {
+  const page = loadComponents(name);
   let refreshes = 0;
   const component = page.Oolite.get(name);
   const node = component.render(state, () => {

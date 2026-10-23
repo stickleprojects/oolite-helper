@@ -70,6 +70,8 @@ Rules:
 - **Keys and descriptions come from the game's files**, through topics such as `key_sections`, never typed into a component.
 - **Size with the theme**: `calc(20pt * var(--oo-scale))` and the `--oo-...` colours, so it follows the large and compact layouts.
 
+Develop it in the **component harness** (`python -m helper.harness`, see CONTRIBUTING.md), which shows it with fake game data at each scenario snapshot, and give it **tests beside it** (`<name>.test.js`, run with `node --test` under the fake DOM in `lib/testing.js`): what it renders for a state, and what clicks send.
+
 The Tk fallback (`helper/tk/components/`, a `Component` with `select(model)` and `draw(value)`) has versions of `drive`, `clearance` and `trade_here` only; new components are web components.
 
 ## Plugins: web views in a separate process (#59)

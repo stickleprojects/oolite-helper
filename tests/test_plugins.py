@@ -417,7 +417,7 @@ def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(built
     manifest = made.widgets["widget1:clearance"]
     assert (manifest.topics, manifest.actions) == (("clearance", "drive"), ())
     page = dict(host.windows["widget1:clearance"].extras)["widget.html"]
-    assert '<script src="/components/drive/drive.js">' in page
+    assert '<script src="../components/drive/drive.js">' in page
     assert "trade_here" not in page and "keys" not in page
 
 

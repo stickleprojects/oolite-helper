@@ -1,26 +1,57 @@
 "use strict";
 
 // Behaviour of the heading component, under a fake DOM (lib/testing.js).
+// One state or one action per test.
 const assert = require("node:assert/strict");
-const { test } = require("node:test");
+const { describe, test } = require("node:test");
 const { render } = require("../../lib/testing.js");
 
-test("heading: red for emergencies, and where you are against your jump target", () => {
-  const state = {
-    context: "red alert",
-    location: { system: "Lave", reached_target: false, aimed_at: "Leesti" },
-    details: [{ text: "Mass locked by: planet" }],
-    screen: { gui: "GUI_SCREEN_MAIN", view: "VIEW_FORWARD" },
-    market_age: null,
-  };
-  const { node } = render("heading", state);
-  const [context, location, details] = node.children;
-  assert.equal(context.textContent, "RED ALERT");
-  assert.ok(context.hasClass("urgent"));
-  assert.equal(location.textContent, "Lave  (aimed for Leesti)");
-  assert.ok(location.hasClass("aimed"));
-  assert.equal(details.textContent, "Mass locked by: planet\nScreen: Main    View: Forward");
-  const reached = render("heading", { ...state, context: "flying", location: { system: "Leesti", reached_target: true } });
-  assert.ok(!reached.node.children[0].hasClass("urgent"));
-  assert.equal(reached.node.children[1].textContent, "Leesti  ✓ your jump target");
+
+const FLYING = {
+  context: "flying",
+  location: { system: "Lave", reached_target: false, aimed_at: null },
+  details: [],
+  screen: { gui: "GUI_SCREEN_MAIN", view: "VIEW_FORWARD" },
+  market_age: null,
+};
+const parts = (state) => {
+  const [context, location, details] = render("heading", { ...FLYING, ...state }).node.children;
+  return { context, location, details };
+};
+
+describe("heading", () => {
+  test("shows the context in capitals", () => {
+    assert.equal(parts({}).context.textContent, "FLYING");
+  });
+
+  test("shows the context in red during an emergency", () => {
+    assert.ok(parts({ context: "red alert" }).context.hasClass("urgent"));
+  });
+
+  test("doesn't show an ordinary context in red", () => {
+    assert.ok(!parts({}).context.hasClass("urgent"));
+  });
+
+  test("says when you're aimed for a jump target", () => {
+    const { location } = parts({ location: { system: "Lave", aimed_at: "Leesti" } });
+    assert.equal(location.textContent, "Lave  (aimed for Leesti)");
+  });
+
+  test("shows an aimed-for target in red", () => {
+    assert.ok(parts({ location: { system: "Lave", aimed_at: "Leesti" } }).location.hasClass("aimed"));
+  });
+
+  test("says when you've reached your jump target", () => {
+    const { location } = parts({ location: { system: "Leesti", reached_target: true } });
+    assert.equal(location.textContent, "Leesti  ✓ your jump target");
+  });
+
+  test("shows a reached target in green", () => {
+    assert.ok(parts({ location: { system: "Leesti", reached_target: true } }).location.hasClass("reached"));
+  });
+
+  test("shows the details, then the screen and view", () => {
+    const { details } = parts({ details: [{ text: "Mass locked by: planet" }] });
+    assert.equal(details.textContent, "Mass locked by: planet\nScreen: Main    View: Forward");
+  });
 });

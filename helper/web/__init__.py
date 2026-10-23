@@ -116,14 +116,16 @@ def page(components, names):
     """The Page for a widget showing these built-in components."""
     parts = loaded(components, names)
     files = [file for part in parts for file in part.files]
-    css = ["_oolite/theme.css", *LIB_CSS, *(f for f in files if f.endswith(".css"))]
-    js = ["_oolite/dev.js", "_oolite/widget.js", *LIB_JS, *(f for f in files if f.endswith(".js"))]
+    # Relative to the page, _oolite/widget.html, so it works wherever it's
+    # served: plugin://builtin/ in the web host, or under the harness's paths.
+    css = ["theme.css", *(f"../{f}" for f in (*LIB_CSS, *files) if f.endswith(".css"))]
+    js = ["dev.js", "widget.js", *(f"../{f}" for f in (*LIB_JS, *files) if f.endswith(".js"))]
     lines = [
         "<!doctype html>",
         '<html><head><meta charset="utf-8">',
-        *(f'<link rel="stylesheet" href="/{html.escape(href)}">' for href in css),
+        *(f'<link rel="stylesheet" href="{html.escape(href)}">' for href in css),
         '</head><body><div id="root"></div>',
-        *(f'<script src="/{html.escape(src)}"></script>' for src in js),
+        *(f'<script src="{html.escape(src)}"></script>' for src in js),
         "</body></html>",
     ]
     return Page(

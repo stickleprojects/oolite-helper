@@ -43,6 +43,11 @@ OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.
   .venv/bin/python -m tests.fakegame scenarios/docking.yaml --log /tmp/fake.log --speed 2 &
   .venv/bin/oolite-helper --log /tmp/fake.log --stay
   ```
+- **Component harness** (`helper/harness.py`): every built-in web component, and every widget in a config file, in your browser with fake game data. Each scenario is replayed and a snapshot kept wherever the context changes; pick one at the top. Pages come straight from `helper/web/`, so edit and refresh; clicks work. `--shots DIR` saves an image of each at every snapshot (needs Chrome or Chromium):
+  ```bash
+  .venv/bin/python -m helper.harness                      # http://127.0.0.1:8566/
+  .venv/bin/python -m helper.harness --shots /tmp/gallery  # then open /tmp/gallery/index.html
+  ```
 - **Plugin browser preview**: serve a plugin with live scenario data, without the helper or WebKit:
   ```bash
   .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml

@@ -25,11 +25,11 @@ def test_a_page_links_its_components_after_the_shared_files():
     lines = page.html.splitlines()
     scripts = [line for line in lines if line.startswith("<script")]
     assert scripts[:3] == [
-        '<script src="/_oolite/dev.js"></script>',
-        '<script src="/_oolite/widget.js"></script>',
-        '<script src="/lib/dom.js"></script>',
+        '<script src="dev.js"></script>',
+        '<script src="widget.js"></script>',
+        '<script src="../lib/dom.js"></script>',
     ]
-    assert '<script src="/components/trade_table/trade_detail.js"></script>' in scripts
+    assert '<script src="../components/trade_table/trade_detail.js"></script>' in scripts
     assert page.topics == ("trade_rows", "trade_detail", "selection")
     assert "ui/open_commodity" in page.actions
 
