@@ -2,7 +2,7 @@
 
 ## Terms
 - A **component** renders part of the model: `drive`, `clearance`, `trade_here`, the laptop window's heading, tabs and body, or a **plugin** (a component from outside the helper, run as a sandboxed web page).
-- A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`).
+- A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`). A **preset** is a ready-made widget in `helper/web/widgets/<name>/` (`widget.toml` and a generated README), used with `widget = "<name>"` and any setting changed.
 - A **dock** is a place beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) that holds widgets. Docks that lay out several widgets automatically are planned in #80.
 - The **layout** places every widget, either in a dock or free on a monitor (`helper/layout.py`, saved in `layout.toml`).
 - A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.

@@ -9,7 +9,11 @@ const { describe, test } = require("node:test");
 const { loadComponents, states, widget, WEB } = require("./testing.js");
 
 test("every component folder registers a component of its name", () => {
-  const names = fs.readdirSync(path.join(WEB, "components")).sort();
+  const folder = path.join(WEB, "components");
+  const names = fs
+    .readdirSync(folder)
+    .filter((name) => fs.existsSync(path.join(folder, name, "component.toml")))
+    .sort();
   const page = loadComponents(...names);
   for (const name of names) assert.ok(page.Oolite.get(name), name);
 });

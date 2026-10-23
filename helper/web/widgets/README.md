@@ -1,0 +1,55 @@
+# Widget presets
+
+A **widget** is a small window that hosts one or more **components**, docked beside the game window or placed on a monitor. A component draws one part of the game's state, such as the docking clearance badge, and has no window of its own (see [../components/](../components/README.md)). A **preset** is a ready-made widget: a set of components with a dock and size chosen for you. Each folder here is one preset; open its `README.md` to see where it goes and a picture of it in each of its named states.
+
+## Using a preset
+
+In `~/.config/oolite-helper/config.toml`:
+
+```toml
+[[widgets]]
+widget = "top-strip"     # the preset
+dock = "game:bottom"     # optional: change any of its settings
+```
+
+Any setting a `[[widgets]]` table takes can be changed this way (see [config.example.toml](../../../config.example.toml)). The widget's id is the preset's name unless you give it an `id`. The id is what saves your moves and resizes in `layout.toml`.
+
+## What's in a preset folder
+
+| File | What | Written by |
+|---|---|---|
+| `widget.toml` | A `description`, the same settings as a `[[widgets]]` table (`components`, `dock`, `width`, ...), and `[states]` | you |
+| `README.md`, `images/` | Its settings, links to its components, and a picture of the whole widget in each named state | **generated** |
+
+Each entry in `[states]` names a state for **every** component in the preset, so the picture shows the widget as it looks in the game:
+
+```toml
+[states]
+"waiting for clearance" = {clearance = "requested", drive = "mass locked"}
+```
+
+The state names on the right come from each component's `<name>.states.json`. The helper checks `widget.toml` when it starts, the same way it checks a `[[widgets]]` table: unknown settings, a state that leaves out a component, or a state a component doesn't have all stop it with a message.
+
+## Generated READMEs and pictures
+
+As with components, don't edit a preset's `README.md` or `images/` by hand, and let CI make the pictures that are kept. The Component READMEs workflow remakes a preset's README when:
+
+- its own `widget.toml` changes;
+- one of its components changes, or a component one of them `needs`;
+- `helper/widgets.py` changes (it reads `widget.toml`);
+- a shared file changes (`helper/web/lib/`, the harness, the plugin API, the theme's styles).
+
+Otherwise the preset's README is left alone. A test fails if a README is missing one of the preset's states.
+
+To look at the result locally:
+
+```bash
+.venv/bin/python -m helper.harness top-strip             # open it with fake game data
+.venv/bin/python -m helper.harness --readmes top-strip   # write its README and pictures
+```
+
+## Adding a preset
+
+1. Make a folder named after it (letters, digits, `-`, `_`; not the same name as a component).
+2. Write `widget.toml` with a `description`, its settings and its `[states]`. Don't set `id`: the folder name is its id.
+3. Run `--readmes <name>` to check it, and open a pull request. CI commits the README and pictures.

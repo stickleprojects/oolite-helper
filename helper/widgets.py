@@ -22,6 +22,21 @@ Configured in config.toml as an array of [[widgets]] tables:
     x = 0
     y = 0
 
+    [[widgets]]                      # or a preset (#84), with any setting changed
+    widget = "top-strip"             # helper/web/widgets/top-strip/widget.toml
+    dock = "game:bottom"
+
+A preset is a folder in helper/web/widgets/<name>/: a widget.toml with the
+settings a [[widgets]] table takes, plus a description and named states, each
+naming a state for each of its components:
+
+    [states]
+    "leaving the station" = {clearance = "away from stations", drive = "mass locked"}
+
+and a generated README.md with a picture of it in each state (python -m
+helper.harness --readmes). Its name is the widget's id unless the config gives
+another.
+
 Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
@@ -56,6 +71,7 @@ TK_COMPONENTS = {
 DOCKS = ("game:top", "game:bottom", "game:left", "game:right")
 SHOW = ("with_game", "always")
 WIDGET_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
+WIDGETS_DIR = os.path.join(web.DIR, "widgets")  # the presets
 
 
 @dataclass(frozen=True)
@@ -103,6 +119,12 @@ def _spec(path, n, entry, plugins=()):
     where = f"{path}: widget {n}"
     if not isinstance(entry, dict):
         raise SystemExit(f"{where} must be a table")
+    if "widget" in entry:
+        preset = PRESETS.get(entry["widget"])
+        if preset is None:
+            raise SystemExit(f"{where}: widget must be one of {', '.join(PRESETS)}")
+        mine = {key: value for key, value in entry.items() if key != "widget"}
+        entry = {"id": preset.name, **preset.settings, **mine}
     known = set(WidgetSpec.__dataclass_fields__)
     unknown = set(entry) - known
     if unknown:
@@ -166,6 +188,55 @@ def _arrangement(where, components, plugins):
     if len(set(names)) < len(names):
         raise SystemExit(f"{where}: each component can be in a widget only once")
     return tuple(arrangement)
+
+
+@dataclass(frozen=True)
+class Preset:
+    """A built-in widget (#84): helper/web/widgets/<name>/widget.toml."""
+
+    name: str
+    description: str
+    settings: dict  # what a [[widgets]] table takes
+    spec: WidgetSpec  # those settings, checked, with the name as its id
+    states: tuple = ()  # ((name, {component: its state's name}), ...)
+
+
+def read_preset(folder):
+    """The Preset in folder/widget.toml; raises ValueError saying what's wrong."""
+    name = os.path.basename(os.path.normpath(folder))
+    path = os.path.join(folder, "widget.toml")
+    with open(path, "rb") as f:
+        settings = tomllib.load(f)
+    description = settings.pop("description", "")
+    states = settings.pop("states", {})
+    if "id" in settings or "widget" in settings:
+        raise ValueError(f"{path}: a preset's id is its folder name, and it can't use a preset")
+    try:
+        spec = _spec(path, name, {**settings, "id": name})
+    except SystemExit as error:
+        raise ValueError(str(error)) from None
+    for state, chosen in states.items():
+        if not isinstance(chosen, dict) or set(chosen) != set(spec.names):
+            wanted = ", ".join(spec.names)
+            raise ValueError(f"{path}: state {state!r} must name a state for each of {wanted}")
+        for component, choice in chosen.items():
+            if choice not in dict(COMPONENTS[component].states):
+                raise ValueError(f"{path}: state {state!r}: {component} has no state {choice!r}")
+    return Preset(name, description, settings, spec, tuple(states.items()))
+
+
+def discover_presets(folder=WIDGETS_DIR):
+    """{name: Preset} for every built-in widget. A broken one is a bug: it raises."""
+    if not os.path.isdir(folder):
+        return {}
+    return {
+        name: read_preset(os.path.join(folder, name))
+        for name in sorted(os.listdir(folder))
+        if os.path.isfile(os.path.join(folder, name, "widget.toml"))
+    }
+
+
+PRESETS = discover_presets()
 
 
 def place(spec, game_window, size, monitors=()):

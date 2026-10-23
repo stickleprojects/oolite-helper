@@ -66,15 +66,21 @@ ui = "web"
 # id:         optional stable name for the widget (default "widget<n>:<component>").
 #             Moves, resizes and closes made in the helper are saved by id in
 #             layout.toml beside this file; delete it to go back to these.
+# widget:     a ready-made widget (a preset) instead of listing everything:
+#             "top-strip" (clearance and drive above the game) or "trade-beside"
+#             (trade_here to its right); see helper/web/widgets/. Any setting
+#             above changes the preset's. Its id is the preset's name.
 #
 # [[widgets]]
-# components = ["clearance", "drive"]
-# dock = "game:top"
+# widget = "top-strip"
 #
 # [[widgets]]
-# components = ["trade_here"]
-# dock = "game:right"
-# width = 560
+# widget = "trade-beside"
+# width = 520
+#
+# [[widgets]]
+# components = ["clearance"]
+# dock = "game:bottom"
 #
 # [[widgets]]
 # components = ["heading", "tip", {tabs = ["keys", "all_keys", "trade_table"]}, "status"]

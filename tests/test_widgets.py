@@ -2,7 +2,7 @@ import pytest
 
 from helper.model import Model
 from helper.screen import Monitor
-from helper.widgets import WidgetSpec, load_widgets, place
+from helper.widgets import PRESETS, WidgetSpec, load_widgets, place, read_preset
 
 GAME = ((1282, 204, 1280, 720), (2, 2, 24, 2), True)  # geometry, frame, active
 
@@ -53,6 +53,67 @@ def test_load_widgets_reads_the_config_and_explains_mistakes(tmp_path):
         path.write_text(f"[[widgets]]\n{bad}\n")
         with pytest.raises(SystemExit, match=message):
             load_widgets(path)
+
+
+def widget_from(tmp_path, text):
+    path = tmp_path / "config.toml"
+    path.write_text(f"[[widgets]]\n{text}\n")
+    return load_widgets(path)[0]
+
+
+def test_a_config_widget_can_be_a_preset(tmp_path):
+    assert widget_from(tmp_path, 'widget = "top-strip"') == PRESETS["top-strip"].spec
+
+
+def test_a_presets_id_is_its_name(tmp_path):
+    assert widget_from(tmp_path, 'widget = "top-strip"').id == "top-strip"
+
+
+def test_a_config_widget_can_change_a_presets_settings(tmp_path):
+    spec = widget_from(tmp_path, 'widget = "top-strip"\ndock = "game:bottom"')
+    assert (spec.components, spec.dock) == (("clearance", "drive"), "game:bottom")
+
+
+def test_a_config_widget_can_give_a_preset_another_id(tmp_path):
+    assert widget_from(tmp_path, 'widget = "top-strip"\nid = "strip2"').id == "strip2"
+
+
+def test_a_preset_changed_badly_is_explained(tmp_path):
+    with pytest.raises(SystemExit, match="dock must be one of"):
+        widget_from(tmp_path, 'widget = "top-strip"\ndock = "game:middle"')
+
+
+def test_an_unknown_preset_says_which_there_are(tmp_path):
+    with pytest.raises(SystemExit, match="widget must be one of top-strip"):
+        widget_from(tmp_path, 'widget = "radar"')
+
+
+def test_a_presets_settings_are_checked_like_a_config_widgets(tmp_path):
+    (tmp_path / "widget.toml").write_text('components = ["drive"]\ncolour = "red"\n')
+    with pytest.raises(ValueError, match="unknown settings: colour"):
+        read_preset(tmp_path)
+
+
+def test_a_presets_state_must_name_a_state_for_each_component(tmp_path):
+    (tmp_path / "widget.toml").write_text(
+        'components = ["clearance", "drive"]\n[states]\nx = {drive = "docked"}\n'
+    )
+    with pytest.raises(ValueError, match="must name a state for each of clearance, drive"):
+        read_preset(tmp_path)
+
+
+def test_a_presets_state_must_name_states_its_components_have(tmp_path):
+    (tmp_path / "widget.toml").write_text(
+        'components = ["drive"]\n[states]\nx = {drive = "warp"}\n'
+    )
+    with pytest.raises(ValueError, match="drive has no state 'warp'"):
+        read_preset(tmp_path)
+
+
+def test_a_preset_cant_set_its_own_id(tmp_path):
+    (tmp_path / "widget.toml").write_text('components = ["drive"]\nid = "x"\n')
+    with pytest.raises(ValueError, match="id is its folder name"):
+        read_preset(tmp_path)
 
 
 def test_the_model_keeps_the_game_window_for_widgets():

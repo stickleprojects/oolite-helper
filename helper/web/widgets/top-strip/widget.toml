@@ -1,0 +1,13 @@
+description = "Docking clearance and the TORUS/JUMP lamps in a strip above the game window"
+components = ["clearance", "drive"]
+dock = "game:top"
+
+[states]
+"docked" = {clearance = "away from stations", drive = "docked"}
+"just launched" = {clearance = "none", drive = "mass locked"}
+"waiting for clearance" = {clearance = "requested", drive = "mass locked"}
+"cleared to dock" = {clearance = "granted", drive = "mass locked"}
+"clearance running out" = {clearance = "expiring", drive = "mass locked"}
+"refused clearance" = {clearance = "refused", drive = "mass locked"}
+"in open space" = {clearance = "away from stations", drive = "both ready"}
+"too near a planet to jump" = {clearance = "away from stations", drive = "jump blocked"}
