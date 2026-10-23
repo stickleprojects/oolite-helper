@@ -146,21 +146,22 @@ class PluginPanels:
     and reports problems in the status line (status["plugins"]).
     """
 
-    def __init__(self, model, specs, manifests, broken=(), monitors=(), host=None):
+    def __init__(self, model, manifests, broken=(), monitors=(), host=None):
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
         # panel id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
-        self.panels = {}  # panel id -> (spec, manifest)
+        self.panels = {}  # panel id -> manifest; placement comes from the layout topic
         self.sizes = {}  # panel id -> (w, h): the manifest's, or what the page asked for
-        for n, spec in enumerate(specs, start=1):
-            name = spec.views[0]
-            wid = f"widget{n}:{name}"  # stable while the config doesn't change
+        for panel in model.topic("layout"):
+            wid, name = panel.id, panel.spec.views[0]
+            if name in VIEWS:
+                continue  # a built-in view: a Tk widget
             if name in manifests:
                 manifest = manifests[name]
-                self.panels[wid] = (spec, manifest)
+                self.panels[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
             elif name not in broken:  # broken ones are reported already
                 self.problems[wid] = f"plugin {name}: not installed"
@@ -175,7 +176,7 @@ class PluginPanels:
         self.report()
 
     def topics(self, wid):
-        _, manifest = self.panels[wid]
+        manifest = self.panels[wid]
         values = [(name, topic_value(self.model, name)) for name in manifest.topics]
         if manifest.keys:
             keys = {action: key_info(self.model, action) for action in manifest.keys}
@@ -188,9 +189,12 @@ class PluginPanels:
 
     def windows(self, model):
         game_window = model.topic("game_window")
+        panels = {panel.id: panel for panel in model.topic("layout")}
         windows = {}
-        for wid, (spec, manifest) in self.panels.items():
-            rect = place(spec, game_window, self.sizes[wid], self.monitors)
+        for wid, manifest in self.panels.items():
+            panel = panels[wid]
+            spec = panel.spec
+            rect = place(spec, game_window, self.sizes[wid], self.monitors) if panel.open else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows
@@ -211,7 +215,7 @@ class PluginPanels:
     def handle(self, event):
         """Act on one web host event; True if the problems changed."""
         kind, wid = event.get("ev"), event.get("id")
-        name = self.panels[wid][1].name if wid in self.panels else None
+        name = self.panels[wid].name if wid in self.panels else None
         if kind == "page" and name:
             msg = event["msg"]
             if msg["type"] == "resize":

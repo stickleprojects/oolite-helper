@@ -80,8 +80,9 @@ A player-facing admin panel should eventually let the player swap layouts, add p
 
 - **Windows are declarative.** `WebHost.sync({id: WebWindow})` (and later the Tk widgets too) takes the full set of windows that should exist, and opens, moves and closes to match. A layout change is just a new set; nothing calls "open" or "close" imperatively.
 - **Panel ids are stable** (`"radar"`, `"trade_here"`, or ids from the layout), so a closed panel can be reopened where it was, and failures are kept per id (`WebHost.retry(id)` is the "reopen" button).
-- **Next, the layout moves into the model:** a `layout` slice (the panels, each with a stable id, its views or plugin, where it docks and whether it's open) changed only by `layout/...` actions such as `layout/switch`, `layout/open_panel`, `layout/close_panel`, `layout/move_panel`. A watcher turns `model.topic("layout")` plus `game_window` into the `sync()` call. `config.toml` stays the player's hand-written defaults; layout changes made in the panel are saved to a helper-owned file beside it, never by rewriting `config.toml`.
+- **The layout is in the model** (`helper/layout.py`): a `layout` slice (the panels, each with a stable id, its views or plugin, where it docks and whether it's open) changed only by `layout/...` actions such as `layout/switch`, `layout/open_panel`, `layout/close_panel`, `layout/move_panel`. A watcher turns `model.topic("layout")` plus `game_window` into the `sync()` call. `config.toml` stays the player's hand-written defaults; layout changes made in the panel are saved to a helper-owned file beside it, never by rewriting `config.toml`.
 - **The admin panel is a built-in Tk view, never a plugin.** Plugins can only ask about themselves (`resize`; perhaps "close me" later). Discovered plugins and their status (loaded, failed, crashed) become a `plugins` topic the panel can list.
+- **Web views are the main UI** (decided 2026-10-23, #50): new UI such as edit mode and the admin panel is built in the web host or as plugins. The Tk window and Tk widgets stay only as the fallback for when WebKit isn't available.
 - **It's opened by a click, not a key** (the game keeps keyboard focus), and #50's edit mode (move, resize, close) belongs in it.
 
 ## Where things live
@@ -92,6 +93,7 @@ A player-facing admin panel should eventually let the player swap layouts, add p
 - `helper/views/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
 - `helper/widgets.py`, `gamewindow.py`: views in their own windows, docked to the game (#50).
+- `helper/layout.py`: the panels' layout (ids, `layout/...` actions) and the saved `layout.toml`.
 - `helper/plugins.py`: plugin discovery, `plugin.toml` and plugin windows (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).

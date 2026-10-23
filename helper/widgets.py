@@ -12,6 +12,7 @@ Configured in config.toml as an array of [[widgets]] tables:
     width = 520
 
     [[widgets]]                      # or free, on a monitor
+    id = "drive-strip"               # optional stable id (layout.toml); see layout.py
     views = ["drive"]
     screen = "eDP-1"
     x = 0
@@ -24,11 +25,13 @@ The helper only reads the game window's position; it never moves the game.
 """
 
 import os
+import re
 import tkinter as tk
 import tomllib
 from dataclasses import dataclass
 
 from . import config
+from .layout import find
 from .views.chips import ClearanceBadge, DriveChips
 from .views.style import BG, LAYOUTS, Style
 from .views.trade_here import TradeHere
@@ -41,6 +44,7 @@ VIEWS = {
 }
 DOCKS = ("game:top", "game:bottom", "game:left", "game:right")
 SHOW = ("with_game", "always")
+PANEL_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,7 @@ class WidgetSpec:
     layout: str = "compact"
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
+    id: str | None = None  # stable panel id (layout.toml); default "widget<n>:<first view>"
 
     @property
     def shown(self):
@@ -102,6 +107,9 @@ def _spec(path, n, entry, plugins=()):
     for name, ok, wanted in checks:
         if not ok:
             raise SystemExit(f"{where}: {name} must be {wanted}")
+    pid = entry.get("id")
+    if pid is not None and not (isinstance(pid, str) and PANEL_ID.fullmatch(pid)):
+        raise SystemExit(f"{where}: id must be letters, digits, '_', '.', ':' or '-'")
     for name in ("x", "y", "width", "height"):
         value = entry.get(name)
         if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
@@ -140,10 +148,12 @@ def place(spec, game_window, size, monitors=()):
 
 
 class Widget:
-    """One widget window: its views, kept in place by watching the game window."""
+    """One widget window: its views, kept in place by watching the game window
+    and its panel in the model's layout (moved, resized, closed)."""
 
-    def __init__(self, root, model, spec, monitors=()):
-        self.spec = spec
+    def __init__(self, root, model, panel_id, monitors=()):
+        self.panel_id = panel_id
+        spec = find(model.topic("layout"), panel_id).spec
         self.monitors = monitors
         self.window = tk.Toplevel(root, bg=BG)
         # Like the main window: not managed by the window manager, never takes
@@ -163,7 +173,13 @@ class Widget:
         # Views are drawn before this watcher runs (they subscribed first), so
         # their "empty" flags are current.
         self.subscription = model.watch(
-            lambda m: (m.topic("game_window"), self.requested_size(), self.empty()), self.follow
+            lambda m: (
+                m.topic("game_window"),
+                self.requested_size(),
+                self.empty(),
+                find(m.topic("layout"), panel_id),
+            ),
+            self.follow,
         )
 
     def empty(self):
@@ -173,8 +189,9 @@ class Widget:
         return (self.window.winfo_reqwidth(), self.window.winfo_reqheight())
 
     def follow(self, value):
-        game_window, size, empty = value
-        placed = None if empty else place(self.spec, game_window, size, self.monitors)
+        game_window, size, empty, panel = value
+        hidden = empty or panel is None or not panel.open
+        placed = None if hidden else place(panel.spec, game_window, size, self.monitors)
         if placed == self.placed:
             return
         self.placed = placed

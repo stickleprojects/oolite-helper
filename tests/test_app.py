@@ -63,7 +63,7 @@ def window(source, tmp_path):
     w.ticks, w.game_window = 0, None  # no widgets
     w.model = Model(markets=MarketStore(tmp_path / "markets.json"))
     w.model.on_error = lambda exc, where: w.report(exc)
-    w.plugins = PluginPanels(w.model, [], {})  # no plugins
+    w.plugins = PluginPanels(w.model, {})  # no plugins
     w.status_label = FakeLabel()
     Status(w.model, None, w.status_label)
     return w
