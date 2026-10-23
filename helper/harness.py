@@ -219,6 +219,7 @@ DEV_JS = """(() => {
   if (window.oolite) return;
   const base = new URL(".", document.currentScript.src);
   const handlers = new Map(), last = new Map();
+  let latest = null, ready = false, seq = 0;
   const post = (name, body) => fetch(new URL(name, base), {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body),
   });
@@ -240,11 +241,19 @@ DEV_JS = """(() => {
     },
     dispatch(action) { post("dispatch", action).then(poll); },
     resize(width, height) {},
-    show(shown) { post("show", {shown: Boolean(shown)}); },
+    show(shown) {
+      // Reported once the topics have arrived (the first draw, before them, is
+      // empty), and numbered: the harness answers requests on several threads.
+      latest = Boolean(shown);
+      if (ready) post("show", {shown: latest, seq: ++seq});
+    },
     log(text) { post("log", {text: String(text)}); },
   });
   Object.defineProperty(window, "oolite", {value: oolite});
-  poll();
+  poll().then(() => {
+    ready = true;
+    if (latest !== null) post("show", {shown: latest, seq: ++seq});
+  });
   if (!location.search.includes("shot")) setInterval(poll, 500);
 })();
 """.replace("API", str(plugin_api.API))
@@ -261,7 +270,8 @@ class HarnessServer(ThreadingHTTPServer):
         # (snapshot id, target id) -> {topic: value} set over the snapshot's own
         # values by a named state or an edit.
         self.overrides = {}
-        self.shown = {}  # (snapshot id, target id) -> what the page last said with oolite.show()
+        # (snapshot id, target id) -> (seq, shown): what the page last said with oolite.show()
+        self.shown = {}
         self.lock = threading.Lock()  # the models aren't thread-safe
         super().__init__(address, HarnessHandler)
 
@@ -350,8 +360,11 @@ class HarnessHandler(BaseHTTPRequestHandler):
         elif path == "_oolite/log":
             print(f"harness: {target.id}: {body.get('text')}", file=sys.stderr)
         elif path == "_oolite/show":
+            seq = body.get("seq") if isinstance(body.get("seq"), int) else 0
             with self.server.lock:
-                self.server.shown[(snap.id, target.id)] = body.get("shown") is not False
+                key = (snap.id, target.id)
+                if seq >= self.server.shown.get(key, (-1, True))[0]:  # the latest report wins
+                    self.server.shown[key] = (seq, body.get("shown") is not False)
         elif path == "_oolite/override":
             if not self.server.override(snap.id, target.id, body):
                 return self.send(400, "text/plain", b"not a topic or state of this target")
@@ -699,6 +712,52 @@ def readme(component, pictures, size):
     return "\n".join(lines)
 
 
+# Files every component's README depends on, the root styles among them: a
+# change here remakes them all.
+SHARED = (
+    "helper/web/lib/",
+    "helper/web/__init__.py",
+    "helper/harness.py",
+    "helper/plugin_api.py",  # makes the theme stylesheet, _oolite/theme.css
+    "helper/plugins.py",
+    "helper/tk/components/style.py",  # the theme's colours, fonts and layout scales
+)
+GENERATED = re.compile(r"helper/web/components/[^/]+/(README\.md|images/)")
+
+
+def affected(paths, components=None):
+    """The components whose README should be made again after these files
+    changed: those whose own files changed, and those that need them. All of
+    them if a shared file changed. The READMEs and pictures themselves don't
+    count, so a refresh never causes another."""
+    components = COMPONENTS if components is None else components
+    paths = [path for path in paths if not GENERATED.match(path)]
+    if any(path.startswith(SHARED) for path in paths):
+        return list(components)
+    changed = {
+        path.split("/")[3]
+        for path in paths
+        if path.startswith("helper/web/components/") and path.count("/") >= 4
+    }
+    while True:
+        needing = {name for name, c in components.items() if set(c.needs) & changed} - changed
+        if not needing:
+            break
+        changed |= needing
+    return [name for name in components if name in changed]
+
+
+def changed_since(ref):
+    """The files changed on this branch since it left ref (git diff ref...HEAD)."""
+    out = subprocess.run(
+        ["git", "diff", "--name-only", f"{ref}...HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return out.stdout.split()
+
+
 def readmes(server, chrome, folder=web.COMPONENTS_DIR):
     """Pictures of each component's named states into <component>/images/, and its README.md."""
     written = []
@@ -713,7 +772,7 @@ def readmes(server, chrome, folder=web.COMPONENTS_DIR):
                 file = f"{slug(state)}.png"
                 if not picture(server, chrome, profile, tid, BLANK, values, images / file):
                     continue
-                if server.shown.get((BLANK, tid)) is False:  # the page hid itself
+                if server.shown.get((BLANK, tid), (0, True))[1] is False:  # the page hid itself
                     pictures.append((state, None))
                 else:
                     wanted.add(file)
@@ -752,7 +811,13 @@ def main():
     parser.add_argument(
         "--readmes",
         action="store_true",
-        help="write each component's README.md and pictures of its named states, then exit",
+        help="write each component's README.md and pictures of its named states, then exit "
+        "(only the NAMEs given, if any)",
+    )
+    parser.add_argument(
+        "--since",
+        metavar="REF",
+        help="--readmes: only components changed since git REF (and those needing them)",
     )
     args = parser.parse_args()
     try:
@@ -762,6 +827,15 @@ def main():
     paths = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
     if args.readmes:
         paths = []  # READMEs show the named states, over the blank snapshot
+    if args.since:
+        try:
+            args.targets = affected(changed_since(args.since))
+        except (OSError, subprocess.CalledProcessError) as error:
+            parser.error(f"--since {args.since}: {error}")
+        if not args.targets:
+            print(f"No component changed since {args.since}: no READMEs to make.")
+            return
+        print(f"Changed since {args.since}: {', '.join(args.targets)}")
     try:
         keymap = load_keymap()
     except Exception:
