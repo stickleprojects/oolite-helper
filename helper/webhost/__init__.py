@@ -32,6 +32,7 @@ PROTOCOL (version 1): JSON objects, one per line.
     {"ev": "ready", "protocol": 1, "api": 1, "webkit": "2.52.6"}
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
+    {"ev": "page", "id": ID, "msg": {"type": "show", "shown": bool}}
     {"ev": "page", "id": ID, "msg": {"type": "log", "text": "..."}}
     {"ev": "page", "id": ID, "msg": {"type": "dispatch", "action": {...}}}  unchecked!
     {"ev": "error", "id": ID or null, "message": "..."}

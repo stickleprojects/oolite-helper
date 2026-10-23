@@ -29,6 +29,10 @@ font_scale = 1.0
 # fuel injectors: "grey" shows them dimmed, "hide" leaves them out.
 missing_equipment = "grey"
 
+# Widgets (below) are web views. "tk" uses the older Tk widgets instead, which
+# the helper also falls back to if the web views can't start.
+ui = "web"
+
 # Exact X geometry (WxH+X+Y). If set, it overrides all of the above.
 # geometry = "1200x1000+2640+40"
 

@@ -105,6 +105,7 @@ def page_message(raw):
     """A whitelisted message from a page as a dict, or None to drop it.
 
     Version 1: {"type": "resize", "width": w, "height": h},
+    {"type": "show", "shown": bool} (hide the window while it has nothing to show),
     {"type": "log", "text": "..."} (for developers; shown in the helper's log) and
     {"type": "dispatch", "action": {...}}: a UI action, which the helper checks
     against the plugin's manifest before doing anything with it.
@@ -124,6 +125,8 @@ def page_message(raw):
                 return None
             size.append(max(SIZE_LIMITS[0], min(SIZE_LIMITS[1], value)))
         return {"type": "resize", "width": size[0], "height": size[1]}
+    if kind == "show" and isinstance(msg.get("shown"), bool):
+        return {"type": "show", "shown": msg["shown"]}
     if kind == "log" and isinstance(msg.get("text"), str):
         return {"type": "log", "text": msg["text"][:LOG_TEXT_LIMIT]}
     action = msg.get("action")
@@ -157,6 +160,7 @@ BRIDGE = """
       return () => handlers.get(topic).delete(fn);
     },
     resize(width, height) { post({type: "resize", width, height}); },
+    show(shown) { post({type: "show", shown: Boolean(shown)}); },
     log(text) { post({type: "log", text: String(text)}); },
     dispatch(action) { post({type: "dispatch", action}); },
   });

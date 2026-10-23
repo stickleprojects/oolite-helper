@@ -22,6 +22,10 @@ Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
 The helper only reads the game window's position; it never moves the game.
+
+Widgets are web views by default: plugins.PluginPanels shows the built-in
+views with the bundled page in helper/builtin/widgets. The Tk Widget below is
+the fallback, for ui = "tk" or when the web host can't start.
 """
 
 import os

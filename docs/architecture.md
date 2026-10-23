@@ -95,6 +95,7 @@ A player-facing admin panel should eventually let the player swap layouts, add p
 - `helper/widgets.py`, `gamewindow.py`: views in their own windows, docked to the game (#50).
 - `helper/layout.py`: the panels' layout (ids, `layout/...` actions) and the saved `layout.toml`.
 - `helper/plugins.py`: plugin discovery, `plugin.toml` and plugin windows (#59).
+- `helper/builtin/widgets/`: the built-in widget views (`drive`, `clearance`, `trade_here`) as one bundled page, shown in the web host like a plugin (#50). The Tk versions in `helper/views/` are the fallback (`ui = "tk"`, or when the web host can't start).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).

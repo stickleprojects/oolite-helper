@@ -26,6 +26,7 @@ plugin API in helper/plugin_api.py. The helper's stylesheet is served to each
 page as _oolite/theme.css.
 """
 
+import json
 import os
 import re
 import sys
@@ -49,6 +50,9 @@ from .webhost import WebHost, WebWindow
 from .widgets import VIEWS, place
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
+# The built-in views (widgets.VIEWS) as one bundled page: web views are the
+# main UI, and the Tk widgets are the fallback when the web host can't start.
+BUILTIN = os.path.join(os.path.dirname(__file__), "builtin", "widgets")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
 
 
@@ -146,7 +150,12 @@ class PluginPanels:
     and reports problems in the status line (status["plugins"]).
     """
 
-    def __init__(self, model, manifests, broken=(), monitors=(), host=None):
+    def __init__(
+        self, model, manifests, broken=(), monitors=(), host=None, builtin=None, fallback=None
+    ):
+        """builtin: the bundled widgets Manifest, for panels showing built-in
+        views; None leaves those to Tk. fallback(panel ids) is called once if
+        the web host fails before it was ever ready, to show them with Tk."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
@@ -155,11 +164,20 @@ class PluginPanels:
         self.manifests = manifests
         self.panels = {}  # panel id -> manifest; placement comes from the layout topic
         self.sizes = {}  # panel id -> (w, h): the manifest's, or what the page asked for
+        self.builtin = {}  # panel id -> its built-in views, for the bundled page
+        self.hidden = set()  # panel ids whose page said it has nothing to show
+        self.fallback = fallback
+        self.ever_ready = False
         for panel in model.topic("layout"):
             wid, name = panel.id, panel.spec.views[0]
             if name in VIEWS:
-                continue  # a built-in view: a Tk widget
-            if name in manifests:
+                if builtin is None:
+                    continue  # a Tk widget
+                self.panels[wid] = builtin
+                self.sizes[wid] = (builtin.width, builtin.height)
+                self.builtin[wid] = panel.spec.views
+                self.hidden.add(wid)  # until the page has drawn
+            elif name in manifests:
                 manifest = manifests[name]
                 self.panels[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
@@ -176,7 +194,9 @@ class PluginPanels:
         self.report()
 
     def topics(self, wid):
-        manifest = self.panels[wid]
+        manifest = self.panels.get(wid)
+        if manifest is None:
+            return ()  # handed to Tk (fall_back)
         values = [(name, topic_value(self.model, name)) for name in manifest.topics]
         if manifest.keys:
             keys = {action: key_info(self.model, action) for action in manifest.keys}
@@ -194,8 +214,12 @@ class PluginPanels:
         for wid, manifest in self.panels.items():
             panel = panels[wid]
             spec = panel.spec
-            rect = place(spec, game_window, self.sizes[wid], self.monitors) if panel.open else None
+            shown = panel.open and wid not in self.hidden
+            rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
+            if wid in self.builtin:
+                widget = {"views": list(self.builtin[wid]), "width": spec.width}
+                extras += (("widget.js", f"globalThis.OOLITE_WIDGET = {json.dumps(widget)};\n"),)
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows
 
@@ -220,6 +244,8 @@ class PluginPanels:
             msg = event["msg"]
             if msg["type"] == "resize":
                 self.sizes[wid] = (msg["width"], msg["height"])  # placed on the next pass
+            elif msg["type"] == "show":
+                (self.hidden.discard if msg["shown"] else self.hidden.add)(wid)
             elif msg["type"] == "log":
                 print(f"oolite-helper: plugin {name}: {msg['text']}", file=sys.stderr)
             elif msg["type"] == "dispatch":
@@ -232,11 +258,23 @@ class PluginPanels:
             del self.problems[wid]
         elif kind in ("unavailable", "host_exited"):
             self.problems["host"] = event.get("message") or "the plugin web host stopped"
+            if not self.ever_ready and self.builtin and self.fallback is not None:
+                self.fall_back()
         elif kind == "ready":
+            self.ever_ready = True
             self.problems.pop("host", None)
         else:
             return False
         return True
+
+    def fall_back(self):
+        """Hand the built-in views to Tk: the web host never started."""
+        ids = list(self.builtin)
+        for wid in ids:
+            del self.panels[wid], self.sizes[wid], self.builtin[wid]
+            self.hidden.discard(wid)
+        fallback, self.fallback = self.fallback, None
+        fallback(ids)
 
     def dispatch(self, name, action):
         """Apply a plugin's UI action if its manifest allows it and it checks out."""

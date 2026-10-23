@@ -61,7 +61,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Syntax check
-        run: node --check oxp/CtxKeys.oxp/Config/script.js
+        run: |
+          node --check oxp/CtxKeys.oxp/Config/script.js
+          node --check helper/builtin/widgets/widgets.js
       - name: Fake-Oolite harness tests
         # Name the file: a bare folder argument fails on Node 22+.
         run: node --test tests/oxp/script.test.js

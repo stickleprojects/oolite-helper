@@ -1,0 +1,31 @@
+/* The built-in widget views; the same look as the laptop window's chips and Trade here. */
+#root {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--oo-scale));
+  padding: calc(4px * var(--oo-scale)) calc(6px * var(--oo-scale));
+  line-height: 1.35;
+}
+.chips { display: flex; gap: calc(12px * var(--oo-scale)); }
+.chip {
+  padding: 0 calc(12px * var(--oo-scale));
+  color: var(--oo-bg);
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  white-space: pre;
+}
+.chip.good, .chip.green { background: var(--oo-green); }
+.chip.bad, .chip.red { background: var(--oo-red); }
+.chip.amber { background: var(--oo-accent); }
+.chip.flashes { animation: flash 0.5s steps(1, end) infinite alternate; }
+@keyframes flash {
+  to { color: var(--oo-accent); background: var(--oo-panel); }
+}
+.advice {
+  width: var(--advice-width, calc(560px * var(--oo-scale)));
+  padding: calc(12px * var(--oo-scale)) calc(18px * var(--oo-scale));
+  background: var(--oo-panel);
+}
+.advice h2 { margin: 0; color: var(--oo-dim); font-size: calc(16pt * var(--oo-scale)); }
+.advice h3 { margin: calc(8px * var(--oo-scale)) 0 0; color: var(--oo-accent); font-size: calc(18pt * var(--oo-scale)); }
+.advice p { margin: 0; font-size: calc(18pt * var(--oo-scale)); }
+.warning { color: var(--oo-red); }
