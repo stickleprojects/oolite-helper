@@ -15,7 +15,7 @@ dependencies = []
 urls = { Repository = "https://github.com/stickleprojects/oolite-helper" }
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1.1", "mypy>=2.4.0"]
+dev = ["pytest>=9.1.1", "mypy>=2.4.0", "shellcheck-py>=0.10.0.1"]
 
 [project.scripts]
 oolite-helper = "helper.app:main"
