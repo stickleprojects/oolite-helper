@@ -19,7 +19,7 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
                                          selectors (named topics) ◀─────────┘
                                                     │ value changed?
                                                     ▼
-                                              Component.draw(value)
+                                              component.render(state)
 ```
 
 | Redux / React | Here |
@@ -28,7 +28,7 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
 | Reducer | `GameState.apply`, `MarketStore.apply`, `reduce_ui` |
 | Store | `Model` ([helper/model.py](../helper/model.py)) |
 | Selector | A pure function `model -> value`; named ones are `TOPICS` |
-| Component | A `Component` ([helper/components/](../helper/components/)): `select(model)` plus `draw(value)` |
+| Component | A web component ([helper/web/components/](../helper/web/components/)): `render(state)` from the topics it lists in `component.toml` |
 
 ## The model
 - `model.dispatch(action)` applies one action. The window dispatches each batch of game messages, then calls `model.notify()` once. It also calls `notify()` on every 200 ms tick, so clock-driven values (countdowns, blinking) move on their own.
@@ -38,32 +38,39 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
 - **Errors are isolated.** A selector or draw that raises is reported in the status line (once per distinct error) and retried on the next pass, and the other components carry on.
 - **UI state:** selections that several components (or #50's widgets) might share live in the model's `UI` slice and change only through `ui/...` actions: the tab, the open commodity, the chosen destination and quantity. A component's purely local choices (the trade table's sort order, the All keys group) stay in the component, which calls `self.refresh()` after changing one.
 
-## Writing a visualisation
-```python
-from helper.components import Component
+## Writing a component
+Components are web components (#82): a folder in [helper/web/components/](../helper/web/components/) with a `component.toml` and its files, much like a Vue or React single-file component without a build step.
 
-
-class JumpAndLocation(Component):
-    def __init__(self, model, style, label):
-        self.label = label  # build widgets first,
-        super().__init__(model, style)  # then subscribe (this draws once)
-
-    def select(self, model):
-        # One subscription for everything this redraws: combine topics here.
-        return (model.topic("jump_blocker"), model.topic("location"))
-
-    def draw(self, value):
-        blocker, (system, reached, aimed_at) = value
-        ...
+```toml
+# helper/web/components/jump_status/component.toml
+description = "Whether you can jump, and where you are"
+topics = ["drive", "location"]       # what it reads: names from plugin_api.TOPICS
+actions = []                         # what it may send: names from plugin_api.ACTIONS
+needs = []                           # other components whose files it uses
 ```
+```js
+// helper/web/components/jump_status/jump_status.js
+"use strict";
+
+Oolite.component("jump_status", {
+  render(state, refresh) {
+    if (!state.drive) return null; // nothing to show: the widget may hide
+    const { el } = OoliteDom;
+    return el("div", "jump-status", state.location.system, OoliteFormat.chipText("JUMP", state.drive.jump));
+  },
+});
+```
+Each widget's page is generated from just the components it lists (and what they `need`), plus the shared files in [helper/web/lib/](../helper/web/lib/): `dom.js` (`el`, `button`), `format.js` (prices, sorting), `widget.js` (the loader) and `base.css`. The widget is sent only those components' topics and may send only their actions.
 
 Rules:
-- **One subscription per thing you redraw.** Combine topics in one selector, so a change to both (an arrival changes the location *and* clears the blocker) redraws once from a consistent snapshot. Use separate components only for parts that redraw independently.
-- **Read through topics** where one exists. If you need a new fact, add a topic to `TOPICS` (with a test), so other components can share it.
-- **Never change state in a component.** Dispatch a `ui/...` action, and add it to `reduce_ui` if it's new.
-- **Never take keyboard focus from the game**: left-click only, no text fields, no `focus_set()` (verified on #20).
-- **Keys and descriptions come from the game's files**, through `model.keys(action)`, `model.keymap` and `model.commodity_name(key)`.
-- **Use `Style`** (`style.font`, `style.px`, the colours in `components/style.py`) so the component follows the large and compact layouts.
+- **Render from `state`, return a node or `null`.** `render` runs whenever a topic the widget reads changes. Keep purely local choices (a sort order) in the component's file, and call `refresh()` after changing one.
+- **Read through topics.** If you need a new fact, add a topic to `plugin_api.TOPICS` (with a test and its docs), so other components and plugins can share it.
+- **Never change state in a component.** Send a `ui/...` action with `oolite.dispatch`, listed in `actions`; add it to `reduce_ui` and `plugin_api.ACTIONS` if it's new.
+- **Never take keyboard focus from the game**: clicks only, no text fields (verified on #20 and #59).
+- **Keys and descriptions come from the game's files**, through topics such as `key_sections`, never typed into a component.
+- **Size with the theme**: `calc(20pt * var(--oo-scale))` and the `--oo-...` colours, so it follows the large and compact layouts.
+
+The Tk fallback (`helper/tk/components/`, a `Component` with `select(model)` and `draw(value)`) has versions of `drive`, `clearance` and `trade_here` only; new components are web components.
 
 ## Plugins: web views in a separate process (#59)
 Plugin visualisations are HTML and JavaScript pages, run in WebKit's sandbox by a separate **web host** process ([helper/webhost/host.py](../helper/webhost/host.py)), because Tk and GTK don't share a main loop. The helper drives it with JSON lines over a pipe; the protocol is in [helper/webhost/\_\_init\_\_.py](../helper/webhost/__init__.py).
@@ -98,12 +105,12 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/markets.py`: remembered markets and cost basis (persisted).
 - `helper/browser.py`, `trade.py`, `contexts.py`: pure functions that the topics call (trade rows, advice, key sections, tips).
 - `helper/model.py`: the store, topics and notification.
-- `helper/components/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
+- `helper/web/`: the built-in web components (`components/<name>/`), the shared page files (`lib/`), and discovery and page building (`__init__.py`) (#82).
+- `helper/tk/components/`: the Tk fallback: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
 - `helper/widgets.py`, `gamewindow.py`: components in their own windows, docked to the game (#50).
 - `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and the saved `layout.toml`.
-- `helper/plugins.py`: plugin discovery, `plugin.toml` and plugin windows (#59).
-- `helper/builtin/components/`: the built-in components (`drive`, `clearance`, `trade_here`) as one bundled page, shown in the web host like a plugin (#50). The Tk versions in `helper/components/` are the fallback (`ui = "tk"`, or when the web host can't start).
+- `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, built-in or plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).

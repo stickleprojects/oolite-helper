@@ -1,0 +1,3 @@
+description = "Every commodity with prices here and in range, sortable; click one for where to sell, how many to buy and the keys"
+topics = ["trade_rows", "trade_detail", "selection"]
+actions = ["ui/open_commodity", "ui/choose_destination", "ui/change_quantity"]

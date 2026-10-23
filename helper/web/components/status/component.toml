@@ -1,0 +1,2 @@
+description = "The helper's status line: errors, notices and the last message from the game"
+topics = ["status"]

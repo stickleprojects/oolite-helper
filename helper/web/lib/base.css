@@ -1,0 +1,40 @@
+/* Shared look for the built-in components (#82): the laptop window's. */
+/* The window can be taller than the components (the host's 16 px minimum, or a
+   width/height set in config.toml): centre them. */
+body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
+#root {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--oo-scale));
+  padding: calc(4px * var(--oo-scale)) calc(6px * var(--oo-scale));
+}
+/* A fixed-size widget: its components fill it, in a column, scrolling if needed. */
+.fixed body { align-items: stretch; }
+.fixed #root { display: flex; flex-direction: column; align-items: stretch; width: 100%; height: 100%; overflow: auto; }
+.panel {
+  min-width: 0;
+  padding: calc(12px * var(--oo-scale)) calc(18px * var(--oo-scale));
+  background: var(--oo-panel);
+}
+.panel h2 {
+  margin: 0 0 calc(6px * var(--oo-scale));
+  color: var(--oo-dim);
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  text-transform: uppercase;
+}
+.tab {
+  border: 0;
+  padding: 0 calc(12px * var(--oo-scale));
+  background: var(--oo-panel);
+  color: var(--oo-dim);
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  cursor: pointer;
+}
+.tab.active { background: var(--oo-accent); color: var(--oo-bg); }
+.warning { color: var(--oo-red); }
+.good { color: var(--oo-green); }
+.accent { color: var(--oo-accent); }
+.dim, .empty, .hint, .limit { color: var(--oo-dim); }
+.clickable { cursor: pointer; }
+.empty { font-size: calc(18pt * var(--oo-scale)); }
+.hint { margin: calc(8px * var(--oo-scale)) 0 0; font-size: calc(14pt * var(--oo-scale)); }

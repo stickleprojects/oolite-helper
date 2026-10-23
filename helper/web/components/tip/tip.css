@@ -1,0 +1,5 @@
+.tip {
+  padding: 0 calc(40px * var(--oo-scale)) calc(8px * var(--oo-scale));
+  font-size: calc(20pt * var(--oo-scale));
+  white-space: pre-line;
+}

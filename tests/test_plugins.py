@@ -7,8 +7,8 @@ from helper import plist
 from helper.keys import Keymap, from_override
 from helper.layout import widgets_from_specs
 from helper.model import Model
-from helper.plugins import BUILTIN, TOPICS, WebWidgets, discover, read_manifest
-from helper.widgets import WidgetSpec, load_widgets
+from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
+from helper.widgets import COMPONENTS, WidgetSpec, load_widgets
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
 LAMP = """\
@@ -356,7 +356,7 @@ def test_closed_and_moved_panels_follow_the_layout(widgets):
     assert host.windows["widget1:lamp"].rect is not None
 
 
-# -- built-in components as the bundled page ----------------------------------------
+# -- built-in components: a page for each widget --------------------------------
 
 
 @pytest.fixture
@@ -364,19 +364,20 @@ def builtin_widgets():
     specs = [WidgetSpec(components=("clearance", "drive"), dock="game:top")]
     model = Model(layout=widgets_from_specs(specs))
     host, handed = StubHost(), []
-    made = WebWidgets(model, {}, host=host, builtin=read_manifest(BUILTIN), fallback=handed.append)
+    made = WebWidgets(model, {}, host=host, builtin=COMPONENTS, fallback=handed.append)
     model.dispatch({**GAME, "active": True})
     model.notify()
     return model, host, made, handed
 
 
-def test_builtin_components_are_the_bundled_page_and_hide_until_it_draws(builtin_widgets):
+def test_builtin_components_get_a_page_of_their_own_and_hide_until_it_draws(builtin_widgets):
     model, host, made, _ = builtin_widgets
     window = host.windows["widget1:clearance"]
-    assert (window.plugin, window.rect) == ("components", None)
+    assert (window.plugin, window.rect) == ("builtin", None)
     extras = dict(window.extras)
     assert extras["widget.js"] == (
-        'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "width": null};\n'
+        'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], '
+        '"topics": ["clearance", "drive"], "width": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
@@ -411,17 +412,20 @@ def test_no_fallback_once_the_host_has_worked(builtin_widgets):
     assert handed == []
 
 
-def test_the_bundled_page_reads_only_what_its_components_need():
-    manifest = read_manifest(BUILTIN)
-    assert set(manifest.topics) == {"drive", "clearance", "market_advice"}
-    assert manifest.actions == ()
+def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(builtin_widgets):
+    _, host, made, _ = builtin_widgets
+    manifest = made.widgets["widget1:clearance"]
+    assert (manifest.topics, manifest.actions) == (("clearance", "drive"), ())
+    page = dict(host.windows["widget1:clearance"].extras)["widget.html"]
+    assert '<script src="/components/drive/drive.js">' in page
+    assert "trade_here" not in page and "keys" not in page
 
 
 def test_hide_empty_false_keeps_an_empty_page_shown():
     specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=False)]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    made = WebWidgets(model, {}, host=host, builtin=read_manifest(BUILTIN))
+    made = WebWidgets(model, {}, host=host, builtin=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
     model.notify()

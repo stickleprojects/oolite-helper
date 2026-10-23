@@ -24,4 +24,4 @@ oolite-helper = "helper.app:main"
 include = ["helper*"]  # helper.components and helper.webhost too
 
 [tool.setuptools.package-data]
-helper = ["builtin/*/*"]  # the bundled components page (#50)
+helper = ["web/lib/*", "web/components/*/*"]  # the web components (#82)

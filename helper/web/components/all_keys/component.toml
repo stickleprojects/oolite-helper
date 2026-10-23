@@ -1,0 +1,3 @@
+description = "Every key the game has, by group: click a group to show it"
+topics = ["all_keys"]
+needs = ["keys"]  # its key panel

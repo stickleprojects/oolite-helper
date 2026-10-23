@@ -7,7 +7,7 @@ layout (layout.py) places every widget, in a dock or free on a monitor.
 Configured in config.toml as an array of [[widgets]] tables:
 
     [[widgets]]
-    components = ["clearance", "drive"]  # one or more of COMPONENTS, side by side
+    components = ["clearance", "drive"]  # built-in components (helper/web) or one plugin
     dock = "game:top"                # game:top / game:bottom / game:left / game:right
 
     [[widgets]]
@@ -28,8 +28,9 @@ window: the #50 spike found topmost widgets would otherwise cover other apps.
 The helper only reads the game window's position; it never moves the game.
 
 Widgets are web views by default: plugins.WebWidgets shows the built-in
-components with the bundled page in helper/builtin/components. TkWidget below
-is the fallback, for ui = "tk" or when the web host can't start.
+components as a page built from helper/web. TkWidget below is the fallback,
+for ui = "tk" or when the web host can't start; it shows the components that
+have a Tk version (TK_COMPONENTS) and leaves the others out.
 """
 
 import os
@@ -38,14 +39,16 @@ import tkinter as tk
 import tomllib
 from dataclasses import dataclass
 
-from . import config
-from .components.chips import ClearanceBadge, DriveChips
-from .components.style import BG, LAYOUTS, Style
-from .components.trade_here import TradeHere
+from . import config, web
 from .layout import find
+from .tk.components.chips import ClearanceBadge, DriveChips
+from .tk.components.style import BG, LAYOUTS, Style
+from .tk.components.trade_here import TradeHere
 
-# Component name -> factory(model, style, parent frame). Each packs itself into the frame.
-COMPONENTS = {
+COMPONENTS = web.discover()  # the built-in components: name -> web.WebComponent
+# The ones with a Tk version, for the fallback: name -> factory(model, style,
+# parent frame). Each packs itself into the frame.
+TK_COMPONENTS = {
     "drive": DriveChips,  # TORUS ✓/✗ and JUMP ✓/✗
     "clearance": ClearanceBadge,  # docking clearance near a station
     "trade_here": TradeHere,  # hold, last market, best buys (while docked)
@@ -178,7 +181,11 @@ class TkWidget:
         style = Style(width, spec.layout, spec.font_scale)
         frame = tk.Frame(self.window, bg=BG, padx=style.px(6), pady=style.px(4))
         frame.pack(fill="both", expand=True)
-        self.components = [COMPONENTS[name](model, style, frame) for name in spec.components]
+        self.components = [
+            TK_COMPONENTS[name](model, style, frame)
+            for name in spec.components
+            if name in TK_COMPONENTS
+        ]
         self.placed = None
         # Re-place when the game window moves or the components need a different size
         # (Trade here grows when you dock). Tk works sizes out when idle, so a

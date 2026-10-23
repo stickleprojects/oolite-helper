@@ -1,7 +1,0 @@
-name = "components"
-version = "1.0.0"
-api = 1
-description = "The helper's built-in components: drive, clearance and trade_here (#50)"
-topics = ["drive", "clearance", "market_advice"]
-width = 600
-height = 60

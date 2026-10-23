@@ -16,11 +16,11 @@ The topics are enough to rebuild the whole laptop window as a plugin.
 
 import re
 
-from .components.chips import TABS
-from .components.header import status_line
-from .components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
+from .tk.components.chips import TABS
+from .tk.components.header import status_line
+from .tk.components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .trade import ECONOMIES, GOVERNMENTS
 
 API = 1

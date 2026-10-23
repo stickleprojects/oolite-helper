@@ -49,7 +49,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 
-from ..components.style import BG
+from ..tk.components.style import BG
 
 PROTOCOL = 1
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "host.py")

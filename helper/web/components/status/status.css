@@ -1,0 +1,9 @@
+/* One line, cut off: the last message can be a whole market. */
+.status {
+  overflow: hidden;
+  padding: 0 calc(40px * var(--oo-scale)) calc(12px * var(--oo-scale));
+  color: var(--oo-dim);
+  font: calc(12pt * var(--oo-scale)) var(--oo-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

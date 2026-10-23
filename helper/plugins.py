@@ -33,7 +33,7 @@ import sys
 import tomllib
 from dataclasses import dataclass
 
-from . import config
+from . import config, web
 from .plugin_api import (
     ACTIONS,
     API,
@@ -50,9 +50,6 @@ from .webhost import WebHost, WebWindow
 from .widgets import COMPONENTS, place
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
-# The built-in components (widgets.COMPONENTS) as one bundled page: web views are the
-# main UI, and the Tk widgets are the fallback when the web host can't start.
-BUILTIN = os.path.join(os.path.dirname(__file__), "builtin", "components")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
 
 
@@ -88,7 +85,7 @@ def read_manifest(root):
         raise ValueError(f"name must match its folder, {folder!r}")
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ValueError("name must be lower case letters, digits and -, up to 40")
-    if name in COMPONENTS:
+    if name in COMPONENTS or name == web.HOST:
         raise ValueError(f"{name!r} is the name of a built-in component")
     if data.get("api") != API:
         raise ValueError(f"needs api {data.get('api')!r}; this helper has api {API}")
@@ -143,6 +140,29 @@ def discover(folder=DIR):
     return found, broken
 
 
+def builtin_manifest(components, names):
+    """A Manifest for a widget of built-in components: its generated page, and
+    only those components' topics and actions."""
+    page = web.page(components, names)
+    return BuiltinManifest(
+        name=web.HOST,
+        root=web.DIR,
+        version="1",
+        api=API,
+        topics=page.topics,
+        width=600,
+        height=60,
+        entry="_oolite/widget.html",
+        actions=page.actions,
+        page=page.html,
+    )
+
+
+@dataclass(frozen=True)
+class BuiltinManifest(Manifest):
+    page: str = ""  # the generated widget.html
+
+
 class WebWidgets:
     """The widgets that show plugins: their windows, placement and topics.
 
@@ -153,9 +173,10 @@ class WebWidgets:
     def __init__(
         self, model, manifests, broken=(), monitors=(), host=None, builtin=None, fallback=None
     ):
-        """builtin: the bundled components Manifest, for widgets showing built-in
-        components; None leaves those to Tk. fallback(widget ids) is called once if
-        the web host fails before it was ever ready, to show them with Tk."""
+        """builtin: the built-in components ({name: web.WebComponent}); each
+        widget of them gets a page built from just its components. None leaves
+        them to Tk. fallback(widget ids) is called once if the web host fails
+        before it was ever ready, to show them with Tk."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
@@ -164,17 +185,18 @@ class WebWidgets:
         self.manifests = manifests
         self.widgets = {}  # widget id -> manifest; placement comes from the layout topic
         self.sizes = {}  # widget id -> (w, h): the manifest's, or what the page asked for
-        self.builtin = {}  # widget id -> its built-in components, for the bundled page
+        self.builtin = {}  # widget id -> its built-in components
         self.hidden = set()  # widget ids whose page said it has nothing to show
         self.fallback = fallback
         self.ever_ready = False
         for widget in model.topic("layout"):
             wid, name = widget.id, widget.spec.components[0]
-            if name in COMPONENTS:
+            if name in COMPONENTS or name == web.HOST:
                 if builtin is None:
                     continue  # a Tk widget
-                self.widgets[wid] = builtin
-                self.sizes[wid] = (builtin.width, builtin.height)
+                manifest = builtin_manifest(builtin, widget.spec.components)
+                self.widgets[wid] = manifest
+                self.sizes[wid] = (manifest.width, manifest.height)
                 self.builtin[wid] = widget.spec.components
                 self.hidden.add(wid)  # until the page has drawn
             elif name in manifests:
@@ -219,8 +241,13 @@ class WebWidgets:
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.builtin:
-                config = {"components": list(self.builtin[wid]), "width": spec.width}
-                extras += (("widget.js", f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"),)
+                config = {
+                    "components": list(self.builtin[wid]),
+                    "topics": list(manifest.topics),
+                    "width": spec.width,
+                }
+                script = f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"
+                extras += (("widget.html", manifest.page), ("widget.js", script))
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows
 
@@ -250,7 +277,7 @@ class WebWidgets:
             elif msg["type"] == "log":
                 print(f"oolite-helper: plugin {name}: {msg['text']}", file=sys.stderr)
             elif msg["type"] == "dispatch":
-                self.dispatch(name, msg["action"])
+                self.dispatch(wid, msg["action"])
             return False
         if kind in ("error", "crashed") and name:
             why = event.get("message") or f"its page {event.get('reason', 'crashed')}"
@@ -277,9 +304,12 @@ class WebWidgets:
         fallback, self.fallback = self.fallback, None
         fallback(ids)
 
-    def dispatch(self, name, action):
-        """Apply a plugin's UI action if its manifest allows it and it checks out."""
-        checked = check_action(action, self.manifests[name].actions)
+    def dispatch(self, wid, action):
+        """Apply a page's UI action if its manifest (a plugin's, or the one made
+        for a page of built-in components) allows it and it checks out."""
+        manifest = self.widgets[wid]
+        name = manifest.name
+        checked = check_action(action, manifest.actions)
         if checked is None:
             print(f"oolite-helper: plugin {name}: refused action {action!r}", file=sys.stderr)
             return

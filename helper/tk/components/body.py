@@ -2,9 +2,9 @@
 
 import tkinter as tk
 
-from ..browser import sort_rows
-from ..contexts import ALL_KEY_GROUPS
-from ..trade import ECONOMIES, GOVERNMENTS
+from ...browser import sort_rows
+from ...contexts import ALL_KEY_GROUPS
+from ...trade import ECONOMIES, GOVERNMENTS
 from .base import Component
 from .style import ACCENT, BG, DIM, FG, GREEN, MONO, PANEL, RED, SANS
 from .trade_here import advice_panel
