@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const format = require("../../helper/web/lib/format.js");
+const format = require("./format.js");
 
 test("prices are credits with optional notes", () => {
   assert.equal(format.formatPrice(42, ""), "4.2");

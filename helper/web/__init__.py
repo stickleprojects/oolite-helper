@@ -9,7 +9,9 @@ component.toml and its files:
     needs = ["keys"]                     # optional: other components whose files it uses
 
 Its .js files register it with Oolite.component() (helper/web/lib/widget.js)
-and its .css files style it. A widget's page is generated: it loads the shared
+and its .css files style it. Its tests ship beside it as <name>.test.js (run
+with node --test; lib/testing.js gives them a fake DOM) and are never loaded
+into a page. A widget's page is generated: it loads the shared
 files in lib/ and the files of the components the widget lists (and what they
 need), nothing else, and the widget gets only those components' topics and
 may send only their actions.
@@ -53,7 +55,9 @@ def read_component(folder):
     if not all(action in ACTIONS for action in actions):
         raise ValueError(f"component {name}: actions must be from plugin_api.ACTIONS")
     files = sorted(
-        f"components/{name}/{file}" for file in os.listdir(folder) if file.endswith((".css", ".js"))
+        f"components/{name}/{file}"
+        for file in os.listdir(folder)
+        if file.endswith((".css", ".js")) and not file.endswith(".test.js")
     )
     return WebComponent(
         name,

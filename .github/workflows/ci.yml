@@ -67,8 +67,8 @@ jobs:
       - name: Fake-Oolite harness tests
         # Name the file: a bare folder argument fails on Node 22+.
         run: node --test tests/oxp/script.test.js
-      - name: Web component formatter tests
-        run: node --test tests/web/format.test.js
+      - name: Web component tests
+        run: node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js
 
   shell:
     name: Shell

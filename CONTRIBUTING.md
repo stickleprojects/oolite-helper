@@ -24,6 +24,7 @@ python3 -m venv .venv
 .venv/bin/ruff format --check .                  # formatting (fix with: ruff format .)
 node --check oxp/CtxKeys.oxp/Config/script.js    # add-on syntax
 node --test tests/oxp/script.test.js             # add-on tests (Node 20+; name the file, not the folder)
+node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js  # web component tests
 .venv/bin/shellcheck scripts/*.sh                # launcher (shellcheck-py, in the dev extra)
 ```
 

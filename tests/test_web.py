@@ -9,6 +9,7 @@ def test_every_built_in_component_is_valid_and_has_files():
     assert {"drive", "clearance", "trade_here", "heading", "keys", "all_keys"} <= set(components)
     for component in components.values():
         assert component.files, component.name
+        assert not any(file.endswith(".test.js") for file in component.files)
         assert all(topic in TOPICS for topic in component.topics)
         assert all(action in ACTIONS for action in component.actions)
 

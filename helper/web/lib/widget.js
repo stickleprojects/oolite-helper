@@ -60,6 +60,9 @@ const Oolite = (() => {
     component(name, definition) {
       registry.set(name, definition);
     },
+    get(name) {
+      return registry.get(name); // for tests and the harness
+    },
   });
 })();
 globalThis.Oolite = Oolite;
