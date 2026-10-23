@@ -4,6 +4,10 @@
 // The helper generates each widget's page: it loads this file, the listed
 // components' files, and _oolite/widget.js, which sets
 // OOLITE_WIDGET = {components: [...], topics: [...], width: px or null}.
+// Each entry in components is a name, or {tabs: [names]}: a tab group, drawn
+// as a tab row (the widget's own frame) over the tab shown. The model keeps
+// the choice (ui/choose_tab, the "tabs" topic), so every widget agrees, and an
+// emergency shows Keys.
 //
 // A component is
 //   Oolite.component("name", {render(state, refresh) { return node or null; }});
@@ -19,13 +23,42 @@ const Oolite = (() => {
   let shown = null;
   let size = null;
 
+  function part(name) {
+    const component = registry.get(name);
+    return component ? component.render(state, draw) : null;
+  }
+
+  // The tab of a group to show: the model's, else the player's choice if it's
+  // in this group, else the group's first.
+  function shownTab(group) {
+    const tabs = state.tabs || {};
+    return [tabs.shown, tabs.chosen].find((name) => group.includes(name)) || group[0];
+  }
+
+  // The group's tab row over the tab shown.
+  function tabGroup(group) {
+    const { el, button } = globalThis.OoliteDom;
+    const shown = shownTab(group);
+    const titles = new Map(((state.tabs || {}).tabs || []).map((tab) => [tab.id, tab.text]));
+    const row = el(
+      "div",
+      "tab-row",
+      ...group.map((name) =>
+        button(
+          titles.get(name) || name,
+          () => oolite.dispatch({ type: "ui/choose_tab", tab: name }),
+          name === shown ? "tab active" : "tab",
+        ),
+      ),
+    );
+    return el("div", "tabs", row, part(shown));
+  }
+
   function draw() {
     const widget = globalThis.OOLITE_WIDGET;
     const root = document.getElementById("root");
     const parts = widget.components
-      .map((name) => registry.get(name))
-      .filter(Boolean)
-      .map((component) => component.render(state, draw))
+      .map((item) => (typeof item === "string" ? part(item) : tabGroup(item.tabs)))
       .filter(Boolean);
     root.replaceChildren(...parts);
     const show = parts.length > 0;

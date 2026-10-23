@@ -5,13 +5,17 @@ import tkinter as tk
 from .base import Component
 from .style import ACCENT, BG, DIM, GREEN, PANEL, RED, SANS
 
-TABS = (("keys", "Keys"), ("all", "All keys"), ("trade", "Trade"))
+TABS = ("keys", "all_keys", "trade_table")  # web component names; titles from them
 
 
 class Tabs(Component):
     def __init__(self, model, style, parent):
+        from ...plugin_api import tabs  # late: plugin_api imports helper.tk.components
+
+        titles = dict(tabs())
         self.labels = {}
-        for name, title in TABS:
+        for name in TABS:
+            title = titles[name]
             label = tk.Label(parent, text=f"  {title}  ", font=style.font(SANS, 16, "bold"), bg=BG)
             label.pack(side="left", padx=style.px(0, 12))
             # Left-click only: clicking never moves keyboard focus off the game (#20).

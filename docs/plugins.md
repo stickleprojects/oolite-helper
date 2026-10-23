@@ -102,7 +102,7 @@ The same actions the built-in components send. They change the helper's **shared
 
 | Action | Fields |
 |---|---|
-| `ui/choose_tab` | `tab`: `"keys"`, `"all"` or `"trade"` |
+| `ui/choose_tab` | `tab`: a component that can be a tab: `"keys"`, `"all_keys"` or `"trade_table"` |
 | `ui/open_commodity` | `commodity`: a commodity key such as `"food"`, or `null` to go back to the list |
 | `ui/choose_destination` | `system`: a system id (0–255) from `trade_detail.offers`, or `null` for the best price |
 | `ui/change_quantity` | `quantity`: units (0 or more), or `null` for the most you can buy |

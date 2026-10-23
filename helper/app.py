@@ -147,7 +147,7 @@ class HelperWindow:
             model, manifests, broken, monitors, builtin=builtin, fallback=self.tk_widgets
         )
         if builtin is None:
-            self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
+            self.tk_widgets([w.id for w in model.layout if w.spec.names[0] in COMPONENTS])
         saver = layout_file.LayoutFile(defaults, layout_path)
         model.subscribe("layout", saver.save, initial=False)
         self.game_window = GameWindow() if self.widgets or self.plugins.widgets else None

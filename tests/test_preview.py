@@ -110,9 +110,9 @@ def test_dispatch_is_checked_against_manifest(preview):
         )
         return urllib.request.urlopen(request, timeout=3)
 
-    with post({"type": "ui/choose_tab", "tab": "trade"}) as response:
+    with post({"type": "ui/choose_tab", "tab": "trade_table"}) as response:
         assert response.status == 204
-    assert server.model.ui.tab == "trade"
+    assert server.model.ui.tab == "trade_table"
 
     with pytest.raises(urllib.error.HTTPError) as error:
         post({"type": "ui/change_quantity", "quantity": 4})

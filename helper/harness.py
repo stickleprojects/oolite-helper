@@ -3,6 +3,7 @@
     .venv/bin/python -m helper.harness                     # everything, at http://127.0.0.1:8566/
     .venv/bin/python -m helper.harness clearance           # one component
     .venv/bin/python -m helper.harness clearance+drive     # components together, as a widget
+    .venv/bin/python -m helper.harness "tip+keys|all_keys" # "|" makes a tab group
     .venv/bin/python -m helper.harness top-strip           # a widget from config.toml
     .venv/bin/python -m helper.harness clearance --shots out   # images instead
 
@@ -147,14 +148,22 @@ class Target:
 
     @property
     def states(self):
-        """[(component, state name, {topic: value}), ...]: its components' named states."""
+        """[(component, state name, {topic: value}), ...]: its components' named
+        states. A tab's states show that tab."""
         if not self.builtin:
             return []
+        tabbed = {name for item in self.spec.components if isinstance(item, tuple) for name in item}
         return [
-            (name, state, values)
-            for name in self.spec.components
+            (name, state, {**values, **(self.showing(name) if name in tabbed else {})})
+            for name in self.spec.names
             for state, values in COMPONENTS[name].states
         ]
+
+    @staticmethod
+    def showing(tab):
+        """The tabs topic with this tab chosen and shown."""
+        tabs = [{"id": name, "text": title} for name, title in plugin_api.tabs()]
+        return {"tabs": {"shown": tab, "chosen": tab, "urgent": False, "tabs": tabs}}
 
 
 def component_target(name):
@@ -167,12 +176,12 @@ def config_targets(config_path, manifests):
     found = []
     if config_path and Path(config_path).exists():
         for n, spec in enumerate(load_widgets(config_path, plugins=set(manifests)), start=1):
-            wid = spec.id or f"widget{n}:{spec.components[0]}"
-            if spec.components[0] in manifests:
-                manifest = manifests[spec.components[0]]
+            wid = spec.id or f"widget{n}:{spec.names[0]}"
+            if spec.names[0] in manifests:
+                manifest = manifests[spec.names[0]]
             else:
                 manifest = builtin_manifest(COMPONENTS, spec.components)
-            title = f"{wid}: {', '.join(spec.components)}"
+            title = f"{wid}: {', '.join(spec.names)}"
             found.append(Target(f"widget.{wid}", title, spec, manifest))
     return found
 
@@ -180,19 +189,23 @@ def config_targets(config_path, manifests):
 def targets(config_path=None, plugins=None, names=()):
     """What to show. With no names: every built-in component on its own, then
     every widget in config_path. Otherwise each name is a component, components
-    joined with "+" (shown together, as a widget), or a widget id in config_path."""
+    joined with "+" (shown together, as a widget; "keys|all_keys" is a tab
+    group), or a widget id in config_path."""
     manifests = plugins if plugins is not None else discover()[0]
     widgets = config_targets(config_path, manifests)
     if not names:
         return [component_target(name) for name in COMPONENTS] + widgets
     found = []
     for name in names:
-        parts = tuple(name.split("+"))
+        parts = tuple(
+            tuple(group) if len(group) > 1 else group[0]
+            for group in (part.split("|") for part in name.split("+"))
+        )
         if len(parts) == 1 and name in COMPONENTS:
             found.append(component_target(name))
-        elif len(parts) > 1 and all(part in COMPONENTS for part in parts):
+        elif name not in COMPONENTS and all(part in COMPONENTS for part in web.names(parts)):
             spec = WidgetSpec(components=parts, width=DEFAULT_VIEW[0], layout="large")
-            title = " + ".join(parts)
+            title = " + ".join(" | ".join(p) if isinstance(p, tuple) else p for p in parts)
             found.append(Target(f"widget.{name}", title, spec, builtin_manifest(COMPONENTS, parts)))
         elif any(target.id == f"widget.{name}" for target in widgets):
             found.append(next(target for target in widgets if target.id == f"widget.{name}"))
@@ -375,8 +388,8 @@ class HarnessHandler(BaseHTTPRequestHandler):
         parts = path.split("/", 4)
         if len(parts) < 5 or parts[1] != "s":
             return None
-        snap = self.server.snapshots.get(parts[2])
-        target = self.server.targets.get(parts[3])
+        snap = self.server.snapshots.get(urllib.parse.unquote(parts[2]))
+        target = self.server.targets.get(urllib.parse.unquote(parts[3]))  # e.g. "keys|all_keys"
         if snap is None or target is None:
             return None
         return snap, target, urllib.parse.unquote(parts[4])
@@ -392,7 +405,7 @@ class HarnessHandler(BaseHTTPRequestHandler):
             return self.send(200, "text/javascript", DEV_JS.encode(), target)
         if name == "widget.js" and target.builtin:
             widget = {
-                "components": list(spec.components),
+                "components": web.as_config(spec.components),
                 "topics": list(target.manifest.topics),
                 "width": target.size[0],
             }

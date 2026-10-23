@@ -116,7 +116,7 @@ function panel(title, keys) {
 }
 
 function drawKeys(body, shown) {
-  if (shown === "all") {
+  if (shown === "all_keys") {
     const chips = el("nav", { id: "groups" });
     state.all_keys.forEach((entry, index) => {
       const chip = setClass(
@@ -320,7 +320,7 @@ function draw() {
   const body = document.getElementById("body");
   body.replaceChildren();
   const shown = state.tabs ? state.tabs.shown : "keys";
-  if (shown === "trade") {
+  if (shown === "trade_table") {
     if (state.selection && state.selection.commodity && state.trade_detail) {
       drawDetail(body, state.trade_detail);
     } else {

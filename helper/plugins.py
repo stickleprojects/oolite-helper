@@ -190,7 +190,7 @@ class WebWidgets:
         self.fallback = fallback
         self.ever_ready = False
         for widget in model.topic("layout"):
-            wid, name = widget.id, widget.spec.components[0]
+            wid, name = widget.id, widget.spec.names[0]
             if name in COMPONENTS or name == web.HOST:
                 if builtin is None:
                     continue  # a Tk widget
@@ -242,7 +242,7 @@ class WebWidgets:
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.builtin:
                 config = {
-                    "components": list(self.builtin[wid]),
+                    "components": web.as_config(self.builtin[wid]),
                     "topics": list(manifest.topics),
                     "width": spec.width,
                 }

@@ -66,3 +66,22 @@ def test_a_state_may_only_set_its_components_topics(tmp_path):
     (tmp_path / "lamp" / "lamp.states.json").write_text('{"odd": {"clearance": null}}')
     with pytest.raises(ValueError, match="may only set its topics"):
         web.discover(tmp_path)
+
+
+def test_a_page_with_tabs_reads_the_tabs_and_may_choose_one():
+    page = web.page(web.discover(), ["tip", ("keys", "all_keys")])
+    assert "tabs" in page.topics and "ui/choose_tab" in page.actions
+
+
+def test_a_page_without_tabs_neither_reads_nor_chooses_them():
+    page = web.page(web.discover(), ["tip", "keys"])
+    assert "tabs" not in page.topics and "ui/choose_tab" not in page.actions
+
+
+def test_the_page_config_writes_tab_groups_as_in_config_toml():
+    assert web.as_config(("tip", ("keys", "all_keys"))) == ["tip", {"tabs": ["keys", "all_keys"]}]
+
+
+def test_only_titled_components_can_be_tabs_keys_first():
+    names = [name for name, _ in web.tab_titles(web.discover())]
+    assert names == ["keys", "all_keys", "trade_table"]

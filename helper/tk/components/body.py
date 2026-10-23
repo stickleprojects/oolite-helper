@@ -32,10 +32,10 @@ class Body(Component):
 
     def select(self, model):
         tab = model.topic("tab")
-        if tab == "trade" and model.ui.commodity:
+        if tab == "trade_table" and model.ui.commodity:
             detail = model.topic("trade_detail")
             return ("detail", *detail) if detail else None
-        if tab == "trade":
+        if tab == "trade_table":
             return (
                 "trade",
                 self.sort,
@@ -44,7 +44,7 @@ class Body(Component):
             )
         if not model.keymap:
             return None
-        if tab == "all":
+        if tab == "all_keys":
             return ("all", self.group)
         return ("keys", model.topic("sections"), model.topic("missing"))
 

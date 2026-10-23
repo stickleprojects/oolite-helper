@@ -36,7 +36,7 @@ def values(model):
 def test_every_topic_is_plain_json_through_a_trading_session(tmp_path):
     model = trading(tmp_path)
     states = [values(Model()), values(model)]
-    model.dispatch({"type": "ui/choose_tab", "tab": "trade"})
+    model.dispatch({"type": "ui/choose_tab", "tab": "trade_table"})
     model.dispatch({"type": "ui/open_commodity", "commodity": "food"})
     states.append(values(model))
     model.dispatch({"type": "ui/choose_destination", "system": 8})
@@ -74,13 +74,13 @@ def test_trade_topics_give_constants_beside_their_text(tmp_path):
 def test_tabs_show_keys_in_an_emergency_but_remember_the_choice():
     model = Model()
     model.dispatch({"type": "ready", "docked": False, "alert": 1})
-    model.dispatch({"type": "ui/choose_tab", "tab": "trade"})
+    model.dispatch({"type": "ui/choose_tab", "tab": "trade_table"})
     tabs = topic_value(model, "tabs")
-    assert (tabs["shown"], tabs["chosen"], tabs["urgent"]) == ("trade", "trade", False)
-    assert [t["id"] for t in tabs["tabs"]] == ["keys", "all", "trade"]
+    assert (tabs["shown"], tabs["chosen"], tabs["urgent"]) == ("trade_table", "trade_table", False)
+    assert [t["id"] for t in tabs["tabs"]] == ["keys", "all_keys", "trade_table"]
     model.dispatch({"type": "alert", "level": 3})
     tabs = topic_value(model, "tabs")
-    assert (tabs["shown"], tabs["chosen"], tabs["urgent"]) == ("keys", "trade", True)
+    assert (tabs["shown"], tabs["chosen"], tabs["urgent"]) == ("keys", "trade_table", True)
 
 
 def test_the_status_line_has_a_kind():
@@ -119,9 +119,9 @@ def test_plugin_topics_are_computed_once_per_change(monkeypatch):
     ("action", "allowed", "expected"),
     [
         (
-            {"type": "ui/choose_tab", "tab": "trade"},
+            {"type": "ui/choose_tab", "tab": "trade_table"},
             ALL_UI,
-            {"type": "ui/choose_tab", "tab": "trade"},
+            {"type": "ui/choose_tab", "tab": "trade_table"},
         ),
         ({"type": "ui/open_commodity"}, ALL_UI, {"type": "ui/open_commodity", "commodity": None}),
         (
@@ -129,7 +129,7 @@ def test_plugin_topics_are_computed_once_per_change(monkeypatch):
             ALL_UI,
             {"type": "ui/change_quantity", "quantity": 5},
         ),
-        ({"type": "ui/choose_tab", "tab": "trade"}, [], None),  # not in its manifest
+        ({"type": "ui/choose_tab", "tab": "trade_table"}, [], None),  # not in its manifest
         ({"type": "ui/choose_tab", "tab": "secrets"}, ALL_UI, None),
         ({"type": "ui/choose_tab"}, ALL_UI, None),
         ({"type": "ui/open_commodity", "commodity": "../x"}, ALL_UI, None),
@@ -181,11 +181,11 @@ def test_a_plugins_allowed_click_changes_the_shared_ui(clicky):
         {
             "ev": "page",
             "id": "widget1:clicky",
-            "msg": {"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "all"}},
+            "msg": {"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "all_keys"}},
         }
     ]
     widgets.tick()
-    assert model.ui.tab == "all"
+    assert model.ui.tab == "all_keys"
 
 
 def test_a_plugins_other_actions_are_refused(clicky, capsys):

@@ -14,18 +14,27 @@ language (Oolite has language add-ons; the helper's own words are English).
 The topics are enough to rebuild the whole laptop window as a plugin.
 """
 
+import functools
 import re
 
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
-from .tk.components.chips import TABS
 from .tk.components.header import status_line
 from .tk.components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .trade import ECONOMIES, GOVERNMENTS
 
 API = 1
 ALERTS = {0: "docked", 1: "green", 2: "yellow", 3: "red"}
-TAB_IDS = tuple(name for name, _ in TABS)
+
+
+@functools.cache
+def tabs():
+    """((id, title), ...): the components that can be tabs (they have a title).
+    Read late: helper.web imports this module."""
+    from . import web
+
+    return tuple(web.tab_titles(web.discover()))
+
 
 # -- topics ------------------------------------------------------------------
 
@@ -121,7 +130,7 @@ def _tabs(model):
         "shown": shown,
         "chosen": model.ui.tab,
         "urgent": model.state.context in URGENT,  # shown is "keys" whatever was chosen
-        "tabs": [{"id": name, "text": title} for name, title in TABS],
+        "tabs": [{"id": name, "text": title} for name, title in tabs()],
     }
 
 
@@ -322,8 +331,9 @@ TOPICS = {
     "tabs": (
         _tabs,
         None,
-        '{"shown": "keys", "all" or "trade", "chosen": the player\'s choice, "urgent": true '
-        'while an emergency shows Keys whatever was chosen, "tabs": [{"id", "text"}, ...]}',
+        '{"shown": the tab shown, a component name ("keys", "all_keys" or "trade_table"), '
+        '"chosen": the player\'s choice, "urgent": true while an emergency shows Keys '
+        'whatever was chosen, "tabs": [{"id", "text"}, ...] for the components that can be tabs}',
     ),
     "selection": (
         _selection,
@@ -403,7 +413,7 @@ def _whole(low, high):
 
 
 ACTIONS = {
-    "ui/choose_tab": {"tab": lambda v: v in TAB_IDS},
+    "ui/choose_tab": {"tab": lambda v: v in dict(tabs())},
     "ui/open_commodity": {
         "commodity": lambda v: v is None or (isinstance(v, str) and bool(COMMODITY.fullmatch(v)))
     },
