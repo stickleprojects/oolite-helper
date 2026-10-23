@@ -67,7 +67,7 @@ class WidgetSpec:
     y: int = 0
     width: int | None = None  # None: the game's width (top/bottom) or what the components need
     height: int | None = None  # None: the game's height (left/right) or what the components need
-    layout: str = "compact"
+    layout: str = "compact"  # from config.toml: compact when docked to the game, else large
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
     hide_empty: bool = True  # hide while its components have nothing to show
@@ -114,7 +114,7 @@ def _spec(path, n, entry, plugins=()):
         raise SystemExit(f"{where}: components must be one or more of {names}")
     checks = (
         ("dock", entry.get("dock") in (None, *DOCKS), f"one of {', '.join(DOCKS)}"),
-        ("layout", entry.get("layout", "compact") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
+        ("layout", entry.get("layout", "large") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
         ("show", entry.get("show") in (None, *SHOW), f"one of {', '.join(SHOW)}"),
     )
     for name, ok, wanted in checks:
@@ -132,7 +132,11 @@ def _spec(path, n, entry, plugins=()):
     scale = entry.get("font_scale", 1.0)
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or scale <= 0:
         raise SystemExit(f"{where}: font_scale must be a positive number")
-    return WidgetSpec(**{**entry, "components": tuple(components), "font_scale": float(scale)})
+    # Strips docked to the game are compact unless asked; other widgets are large.
+    layout = entry.get("layout", "compact" if entry.get("dock") else "large")
+    return WidgetSpec(
+        **{**entry, "components": tuple(components), "font_scale": float(scale), "layout": layout}
+    )
 
 
 def place(spec, game_window, size, monitors=()):

@@ -1,2 +1,2 @@
-description = "The helper's status line: errors, notices and the last message from the game"
+description = "The helper's status line: errors, warnings and notices (nothing when all is well)"
 topics = ["status"]

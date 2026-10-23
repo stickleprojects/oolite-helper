@@ -1,0 +1,7 @@
+{
+  "waiting for game": {"context": "waiting for game", "location": null, "details": [], "screen": {"gui": null, "view": null}, "market_age": null},
+  "docked": {"context": "docked", "location": {"system": "Lave", "reached_target": false, "aimed_at": null}, "details": [], "screen": {"gui": "GUI_SCREEN_STATUS", "view": null}, "market_age": {"seen_at": "2026-10-23T10:00:00", "text": "just now"}},
+  "flying, aimed for a target": {"context": "flying", "location": {"system": "Lave", "reached_target": false, "aimed_at": "Leesti"}, "details": [{"kind": "mass_lock", "text": "Mass locked by: planet"}], "screen": {"gui": "GUI_SCREEN_MAIN", "view": "VIEW_FORWARD"}, "market_age": null},
+  "arrived at the target": {"context": "flying", "location": {"system": "Leesti", "reached_target": true, "aimed_at": null}, "details": [], "screen": {"gui": "GUI_SCREEN_MAIN", "view": "VIEW_FORWARD"}, "market_age": null},
+  "red alert": {"context": "red alert", "location": {"system": "Riedquat", "reached_target": false, "aimed_at": null}, "details": [{"kind": "countdown", "text": "Jump in 9s"}], "screen": {"gui": "GUI_SCREEN_MAIN", "view": "VIEW_AFT"}, "market_age": null}
+}

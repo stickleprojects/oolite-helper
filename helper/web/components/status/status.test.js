@@ -1,19 +1,33 @@
 "use strict";
 
-// Behaviour of the status component, under a fake DOM (lib/testing.js).
-// One state or one action per test.
+// Behaviour of the status component, under a fake DOM (lib/testing.js), in its
+// named states (status.states.json). One state or one action per test.
 const assert = require("node:assert/strict");
 const { describe, test } = require("node:test");
-const { render } = require("../../lib/testing.js");
+const { render, states } = require("../../lib/testing.js");
 
+const STATES = states("status");
+
+const line = (name) => render("status", STATES[name]).node;
 
 describe("status", () => {
-  test("shows nothing when there's nothing to say", () => {
-    assert.equal(render("status", { status: { text: "" } }).node, null);
+  test("shows nothing when all is well", () => {
+    assert.equal(line("all well"), null);
   });
 
-  test("shows the status text", () => {
-    const { node } = render("status", { status: { text: "can't read the log" } });
-    assert.equal(node.textContent, "can't read the log");
+  test("doesn't show the game's raw messages (last_message does)", () => {
+    assert.equal(line("a message only"), null);
+  });
+
+  test("shows a notice", () => {
+    assert.equal(line("notice").textContent, "Market prices loaded from your last visit");
+  });
+
+  test("shows an error in red", () => {
+    assert.ok(line("error").hasClass("error"));
+  });
+
+  test("shows a warning in red", () => {
+    assert.ok(line("warning").hasClass("warning"));
   });
 });

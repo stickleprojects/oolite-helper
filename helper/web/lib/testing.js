@@ -5,8 +5,8 @@
 // under Node, beside each component (components/<name>/<name>.test.js):
 // what they render for a state, and what clicking does.
 //
-//   const { render } = require("../../lib/testing.js");
-//   const { node, sent } = render("drive", { drive: {...} });
+//   const { render, states } = require("../../lib/testing.js");
+//   const { node, sent } = render("drive", states("drive")["mass locked"]);
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -161,4 +161,11 @@ function render(name, state) {
   };
 }
 
-module.exports = { FakeNode, loadComponents, render, WEB };
+// A component's named example states, from <name>.states.json: the same ones
+// the harness offers and takes pictures of. {} if it has none.
+function states(name) {
+  const file = path.join(WEB, "components", name, `${name}.states.json`);
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+}
+
+module.exports = { FakeNode, loadComponents, render, states, WEB };

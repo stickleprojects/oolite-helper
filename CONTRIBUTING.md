@@ -43,10 +43,18 @@ OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.
   .venv/bin/python -m tests.fakegame scenarios/docking.yaml --log /tmp/fake.log --speed 2 &
   .venv/bin/oolite-helper --log /tmp/fake.log --stay
   ```
-- **Component harness** (`helper/harness.py`): every built-in web component, and every widget in a config file, in your browser with fake game data. Each scenario is replayed and a snapshot kept wherever the context changes; pick one at the top. Pages come straight from `helper/web/`, so edit and refresh; clicks work. `--shots DIR` saves an image of each at every snapshot (needs Chrome or Chromium):
+- **Component harness** (`helper/harness.py`): develop a web component or widget in your browser with fake game data.
   ```bash
-  .venv/bin/python -m helper.harness                      # http://127.0.0.1:8566/
-  .venv/bin/python -m helper.harness --shots /tmp/gallery  # then open /tmp/gallery/index.html
+  .venv/bin/python -m helper.harness                   # everything: http://127.0.0.1:8566/
+  .venv/bin/python -m helper.harness clearance         # one component
+  .venv/bin/python -m helper.harness clearance+drive   # components together, as a widget
+  .venv/bin/python -m helper.harness top-strip         # a widget from your config.toml
+  ```
+  With one target open you pick where its data starts (a **snapshot**: each scenario is replayed and one kept wherever the context changes, plus a blank one), then a **named state** for each of its components (from `<name>.states.json`, e.g. clearance's "expiring"), and you can edit any topic it reads as JSON. The page reacts within half a second. Files come straight from `helper/web/`, so edit and refresh; clicks work.
+- **Pictures**: `--shots DIR` saves an image of each target at every snapshot and in every named state (`--states-only` for just the states), with an `index.html`. Or as tests, one per component state (skipped unless asked; needs Chrome or Chromium):
+  ```bash
+  .venv/bin/python -m helper.harness clearance --shots /tmp/clearance
+  OOLITE_HELPER_SHOTS=/tmp/shots .venv/bin/python -m pytest tests/test_component_images.py
   ```
 - **Plugin browser preview**: serve a plugin with live scenario data, without the helper or WebKit:
   ```bash

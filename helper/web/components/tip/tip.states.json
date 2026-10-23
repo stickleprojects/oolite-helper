@@ -1,0 +1,5 @@
+{
+  "no tip": {"tip": []},
+  "one line": {"tip": ["Target the station, then press Shift+L to ask for docking clearance."]},
+  "two lines": {"tip": ["Waiting for clearance.", "Pressing Shift+L again cancels the request."]}
+}

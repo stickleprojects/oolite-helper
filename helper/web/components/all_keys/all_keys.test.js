@@ -1,22 +1,19 @@
 "use strict";
 
-// Behaviour of the all_keys component, under a fake DOM (lib/testing.js).
-// One state or one action per test.
+// Behaviour of the all_keys component, under a fake DOM (lib/testing.js), in its
+// named states (all_keys.states.json). One state or one action per test.
 const assert = require("node:assert/strict");
 const { describe, test } = require("node:test");
-const { render } = require("../../lib/testing.js");
+const { render, states } = require("../../lib/testing.js");
 
+const STATES = states("all_keys");
 
 const texts = (nodes) => nodes.map((node) => node.textContent);
-const GROUPS = [
-  { group: "screens", title: "Screen access", keys: [{ keys: "F1", description: "Launch ship" }] },
-  { group: "travel", title: "Navigation", keys: [{ keys: "J", description: "Jump" }] },
-];
-const allKeys = (groups = GROUPS) => render("all_keys", { all_keys: groups });
+const allKeys = (name = "two groups") => render("all_keys", STATES[name]);
 
 describe("all_keys", () => {
   test("shows nothing before the keys are known", () => {
-    assert.equal(allKeys([]).node, null);
+    assert.equal(allKeys("before the keys are known").node, null);
   });
 
   test("shows a button for each group", () => {

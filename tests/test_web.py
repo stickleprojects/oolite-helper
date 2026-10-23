@@ -54,3 +54,15 @@ def test_a_missing_need_is_reported(tmp_path):
     (tmp_path / "lamp" / "component.toml").write_text('topics = []\nneeds = ["gone"]\n')
     with pytest.raises(ValueError, match="needs gone"):
         web.discover(tmp_path)
+
+
+def test_every_component_has_named_states():
+    assert all(component.states for component in web.discover().values())
+
+
+def test_a_state_may_only_set_its_components_topics(tmp_path):
+    (tmp_path / "lamp").mkdir()
+    (tmp_path / "lamp" / "component.toml").write_text('topics = ["drive"]\n')
+    (tmp_path / "lamp" / "lamp.states.json").write_text('{"odd": {"clearance": null}}')
+    with pytest.raises(ValueError, match="may only set its topics"):
+        web.discover(tmp_path)

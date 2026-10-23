@@ -1,0 +1,13 @@
+{
+  "not docked yet": {"market_advice": []},
+  "docked with cargo": {"market_advice": [
+    {"heading": "Your hold", "lines": [
+      {"text": "2 t Food: sell here for +1.0 cr"},
+      {"text": "1 t Narcotics: illegal here, don't sell", "warning": true}
+    ]},
+    {"heading": "Best buys here", "lines": [
+      {"text": "Furs: buy at 50.0, sell at Zaonce for 65.0 (+15.0 per t)"},
+      {"text": "Textiles: buy at 6.4, sell at Leesti for 8.0 (+1.6 per t)"}
+    ]}
+  ]}
+}

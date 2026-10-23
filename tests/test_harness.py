@@ -17,8 +17,12 @@ def snaps(tmp_path_factory):
     return harness.snapshots([SCENARIOS / "docking.yaml"], None, tmp_path_factory.mktemp("h"))
 
 
-def test_snapshots_start_where_the_scenario_starts(snaps):
-    assert snaps[0].context == "docked"
+def test_the_first_snapshot_is_blank(snaps):
+    assert (snaps[0].id, snaps[0].context) == (harness.BLANK, "waiting for game")
+
+
+def test_a_scenarios_snapshots_start_where_it_starts(snaps):
+    assert snaps[1].context == "docked"
 
 
 def test_a_snapshot_is_kept_for_each_context_the_scenario_passes_through(snaps):
@@ -31,7 +35,7 @@ def test_one_snapshot_per_stretch_of_one_context(snaps):
 
 
 def test_a_snapshot_is_named_by_its_scenario_and_step(snaps):
-    assert [snap.id for snap in snaps] == [f"docking.{snap.step}" for snap in snaps]
+    assert [snap.id for snap in snaps[1:]] == [f"docking.{snap.step}" for snap in snaps[1:]]
 
 
 def config_with_a_strip(tmp_path):
@@ -133,3 +137,89 @@ def test_a_click_the_component_may_send_is_applied_to_that_snapshot(server, snap
 
 def test_a_click_the_component_may_not_send_is_refused(server, snaps):
     assert post(server, trade_dispatch(snaps), {"type": "ui/choose_tab", "tab": "all"}) == 403
+
+
+# -- choosing targets by name ------------------------------------------------------
+
+
+def test_a_component_name_is_that_component_alone():
+    assert [t.id for t in harness.targets(None, plugins={}, names=["clearance"])] == [
+        "component.clearance"
+    ]
+
+
+def test_components_joined_with_plus_are_one_widget():
+    (target,) = harness.targets(None, plugins={}, names=["clearance+drive"])
+    assert target.spec.components == ("clearance", "drive")
+
+
+def test_a_widget_id_is_that_widget_from_the_config(tmp_path):
+    (target,) = harness.targets(config_with_a_strip(tmp_path), plugins={}, names=["strip"])
+    assert target.id == "widget.strip"
+
+
+def test_an_unknown_name_says_whats_available():
+    with pytest.raises(ValueError, match="isn't a component or a widget"):
+        harness.targets(None, plugins={}, names=["radar"])
+
+
+def test_a_widgets_states_are_its_components_states():
+    (target,) = harness.targets(None, plugins={}, names=["clearance+drive"])
+    assert {component for component, _, _ in target.states} == {"clearance", "drive"}
+
+
+# -- states and edits ----------------------------------------------------------------
+
+
+@pytest.fixture
+def clearance_server(snaps):
+    made = harness.HarnessServer(("127.0.0.1", 0), snaps, harness.targets(None, {}, ["clearance"]))
+    threading.Thread(target=made.serve_forever, daemon=True).start()
+    yield made
+    made.shutdown()
+    made.server_close()
+
+
+def overrides_url():
+    return f"s/{harness.BLANK}/component.clearance/_oolite/override"
+
+
+def clearance_now(server):
+    return server.values(harness.BLANK, "component.clearance")["clearance"]
+
+
+def test_a_named_state_sets_its_components_topics(clearance_server):
+    post(clearance_server, overrides_url(), {"component": "clearance", "state": "expiring"})
+    assert clearance_now(clearance_server)["flashes"] is True
+
+
+def test_an_edited_topic_replaces_the_snapshots_value(clearance_server):
+    badge = {"status": "granted", "text": "Edited", "colour": "green", "flashes": False}
+    post(clearance_server, overrides_url(), {"topic": "clearance", "value": badge})
+    assert clearance_now(clearance_server) == badge
+
+
+def test_reset_goes_back_to_the_snapshot(clearance_server):
+    post(clearance_server, overrides_url(), {"component": "clearance", "state": "expiring"})
+    post(clearance_server, overrides_url(), {"reset": True})
+    assert clearance_now(clearance_server) is None
+
+
+def test_a_topic_the_target_doesnt_read_is_refused(clearance_server):
+    assert post(clearance_server, overrides_url(), {"topic": "drive", "value": None}) == 400
+
+
+def test_an_unknown_state_is_refused(clearance_server):
+    body = {"component": "clearance", "state": "on fire"}
+    assert post(clearance_server, overrides_url(), body) == 400
+
+
+def test_one_target_opens_with_its_states_and_topics(clearance_server):
+    page = get(clearance_server, "")[2].decode()
+    assert "<option>expiring</option>" in page and 'data-topic="clearance"' in page
+
+
+def test_pictures_are_taken_at_each_snapshot_then_in_each_named_state(clearance_server, snaps):
+    stems = [stem for _, stem, _, _ in harness.cases(clearance_server, "component.clearance")]
+    assert stems[: len(snaps)] == [snap.id for snap in snaps]
+    assert "state.clearance-expiring" in stems

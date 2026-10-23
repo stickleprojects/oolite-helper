@@ -1,32 +1,34 @@
 "use strict";
 
-// Behaviour of the drive component, under a fake DOM (lib/testing.js).
-// One state or one action per test.
+// Behaviour of the drive component, under a fake DOM (lib/testing.js), in its
+// named states (drive.states.json). One state or one action per test.
 const assert = require("node:assert/strict");
 const { describe, test } = require("node:test");
-const { render } = require("../../lib/testing.js");
+const { render, states } = require("../../lib/testing.js");
 
+const STATES = states("drive");
 
 const texts = (nodes) => nodes.map((node) => node.textContent);
-const FLYING = { drive: { torus: { ok: true, by: null }, jump: { ok: false, by: "planet" } } };
+const lamps = (name) => render("drive", STATES[name]).node.all(".chip");
 
 describe("drive", () => {
   test("shows nothing while docked", () => {
-    assert.equal(render("drive", { drive: null }).node, null);
+    assert.equal(render("drive", STATES.docked).node, null);
   });
 
   test("shows a lamp each for TORUS and JUMP, saying what blocks them", () => {
-    const { node } = render("drive", FLYING);
-    assert.deepEqual(texts(node.all(".chip")), ["  TORUS ✓  ", "  JUMP ✗ planet  "]);
+    assert.deepEqual(texts(lamps("jump blocked")), ["  TORUS ✓  ", "  JUMP ✗ planet  "]);
   });
 
-  test("lamps are green when ready and red when blocked", () => {
-    const [torus, jump] = render("drive", FLYING).node.all(".chip");
-    assert.deepEqual([torus.hasClass("good"), jump.hasClass("bad")], [true, true]);
+  test("a ready drive's lamp is green", () => {
+    assert.ok(lamps("both ready")[0].hasClass("good"));
+  });
+
+  test("a blocked drive's lamp is red", () => {
+    assert.ok(lamps("mass locked")[0].hasClass("bad"));
   });
 
   test("leaves out a lamp the game hasn't reported", () => {
-    const { node } = render("drive", { drive: { torus: { ok: true, by: null } } });
-    assert.deepEqual(texts(node.all(".chip")), ["  TORUS ✓  "]);
+    assert.deepEqual(texts(lamps("torus only")), ["  TORUS ✓  "]);
   });
 });

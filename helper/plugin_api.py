@@ -371,6 +371,11 @@ TOPICS = {
         None,
         'the status line: {"kind": "error", "warning", "notice", "message" or null, "text"}',
     ),
+    "last_message": (
+        lambda m: m.status.get("last_message"),
+        None,
+        "the last message from the game, as raw JSON text, for debugging; null before one",
+    ),
 }
 # Not in TOPICS: "keys", the actions a plugin lists in its manifest, as
 # {action: key_info}. Key names and wording come from the game's files and the

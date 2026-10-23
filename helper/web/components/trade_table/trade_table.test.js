@@ -1,50 +1,24 @@
 "use strict";
 
-// Behaviour of the trade_table component, under a fake DOM (lib/testing.js).
-// One state or one action per test.
+// Behaviour of the trade_table component, under a fake DOM (lib/testing.js), in
+// its named states (trade_table.states.json). One state or one action per test.
 const assert = require("node:assert/strict");
 const { describe, test } = require("node:test");
-const { render } = require("../../lib/testing.js");
+const { render, states } = require("../../lib/testing.js");
+
+const STATES = states("trade_table");
 
 const texts = (nodes) => nodes.map((node) => node.textContent);
-
-const row = (commodity, here, best, margin, extra = {}) => ({
-  commodity,
-  name: commodity[0].toUpperCase() + commodity.slice(1),
-  unit: "t",
-  illegal: false,
-  stock: 5,
-  here: { price: here, note: "", live: true },
-  best: { price: best, note: "" },
-  where: { name: "Zaonce", distance: 6.5 },
-  margin,
-  ...extra,
-});
-const ROWS = [row("food", 42, 50, 8), row("furs", 500, 650, 150), row("gold", null, 400, null, { stock: 0 })];
-const TABLE = { trade_rows: ROWS, selection: null, trade_detail: null };
+const TABLE = STATES["three commodities"];
+const OPEN = STATES["food open"];
 const names = (node) => node.all("tr").slice(1).map((tr) => tr.children[0].textContent);
 const heading = (node, title) => node.all("button").find((b) => b.textContent.startsWith(title));
-
-const DETAIL = {
-  commodity: "food",
-  name: "Food",
-  row: ROWS[0],
-  chosen: 8,
-  quantity: 3,
-  limit: { most: 4, text: "hold space" },
-  offers: [
-    { system_id: 8, name: "Zaonce", price: 50, note: "", distance: 6.5, economy_name: "Poor Agricultural", government_name: "Democracy", dangerous: false, illegal: false },
-    { system_id: 9, name: "Leesti", price: 47, note: "", distance: 3.1, economy_name: "Rich Industrial", government_name: "Anarchy", dangerous: true, illegal: false },
-  ],
-  steps: ["Press F8 for the market", "Press → three times"],
-};
-const OPEN = { trade_rows: ROWS, selection: { commodity: "food", destination: 8, quantity: 3 }, trade_detail: DETAIL };
 const offers = (node) => node.all("tr").slice(1);
 const button = (node, label) => node.all("button").find((b) => b.textContent.trim() === label);
 
 describe("trade_table: the table", () => {
   test("says why when there's no market data", () => {
-    const { node } = render("trade_table", { ...TABLE, trade_rows: [] });
+    const { node } = render("trade_table", STATES["no market data"]);
     assert.match(node.textContent, /No market data yet/);
   });
 

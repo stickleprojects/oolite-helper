@@ -1,36 +1,33 @@
 "use strict";
 
-// Behaviour of the clearance component, under a fake DOM (lib/testing.js).
-// One state or one action per test.
+// Behaviour of the clearance component, under a fake DOM (lib/testing.js), in its
+// named states (clearance.states.json). One state or one action per test.
 const assert = require("node:assert/strict");
 const { describe, test } = require("node:test");
-const { render } = require("../../lib/testing.js");
+const { render, states } = require("../../lib/testing.js");
 
+const STATES = states("clearance");
 
-const TIMING_OUT = { status: "timing_out", text: "Clearance expiring", colour: "amber", flashes: true };
+const badge = (name) => render("clearance", STATES[name]).node;
 
 describe("clearance", () => {
   test("shows nothing away from stations", () => {
-    assert.equal(render("clearance", { clearance: null }).node, null);
+    assert.equal(badge("away from stations"), null);
   });
 
   test("shows the badge's text", () => {
-    const { node } = render("clearance", { clearance: TIMING_OUT });
-    assert.equal(node.textContent.trim(), "Clearance expiring");
+    assert.equal(badge("granted").textContent.trim(), "Cleared to dock");
   });
 
   test("is coloured by the badge's colour", () => {
-    const { node } = render("clearance", { clearance: TIMING_OUT });
-    assert.ok(node.hasClass("amber"));
+    assert.ok(badge("granted").hasClass("green"));
   });
 
-  test("flashes while clearance is timing out", () => {
-    const { node } = render("clearance", { clearance: TIMING_OUT });
-    assert.ok(node.hasClass("flashes"));
+  test("flashes while clearance is expiring", () => {
+    assert.ok(badge("expiring").hasClass("flashes"));
   });
 
   test("doesn't flash otherwise", () => {
-    const granted = { status: "granted", text: "Cleared to dock", colour: "green", flashes: false };
-    assert.ok(!render("clearance", { clearance: granted }).node.hasClass("flashes"));
+    assert.ok(!badge("granted").hasClass("flashes"));
   });
 });

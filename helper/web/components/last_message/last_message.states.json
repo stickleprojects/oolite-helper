@@ -1,0 +1,5 @@
+{
+  "before any": {"last_message": null},
+  "short": {"last_message": "{\"type\": \"alert\", \"level\": 3}"},
+  "a whole market": {"last_message": "{\"type\": \"market\", \"galaxy\": 0, \"systemID\": 7, \"systemName\": \"Lave\", \"station\": \"Lave Station\", \"market\": {\"food\": {\"price\": 42, \"quantity\": 8}, \"textiles\": {\"price\": 64, \"quantity\": 20}, \"radioactives\": {\"price\": 212, \"quantity\": 9}}, \"credits\": 1200.5}"}
+}

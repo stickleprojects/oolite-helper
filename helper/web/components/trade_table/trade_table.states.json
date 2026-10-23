@@ -1,0 +1,207 @@
+{
+ "no market data": {
+  "trade_rows": [],
+  "selection": null,
+  "trade_detail": null
+ },
+ "three commodities": {
+  "trade_rows": [
+   {
+    "commodity": "food",
+    "name": "Food",
+    "unit": "t",
+    "illegal": false,
+    "stock": 5,
+    "here": {
+     "price": 42,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 50,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": 8
+   },
+   {
+    "commodity": "furs",
+    "name": "Furs",
+    "unit": "t",
+    "illegal": false,
+    "stock": 5,
+    "here": {
+     "price": 500,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 650,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": 150
+   },
+   {
+    "commodity": "gold",
+    "name": "Gold",
+    "unit": "t",
+    "illegal": false,
+    "stock": 0,
+    "here": {
+     "price": null,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 400,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": null
+   }
+  ],
+  "selection": null,
+  "trade_detail": null
+ },
+ "food open": {
+  "trade_rows": [
+   {
+    "commodity": "food",
+    "name": "Food",
+    "unit": "t",
+    "illegal": false,
+    "stock": 5,
+    "here": {
+     "price": 42,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 50,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": 8
+   },
+   {
+    "commodity": "furs",
+    "name": "Furs",
+    "unit": "t",
+    "illegal": false,
+    "stock": 5,
+    "here": {
+     "price": 500,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 650,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": 150
+   },
+   {
+    "commodity": "gold",
+    "name": "Gold",
+    "unit": "t",
+    "illegal": false,
+    "stock": 0,
+    "here": {
+     "price": null,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 400,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": null
+   }
+  ],
+  "selection": {
+   "commodity": "food",
+   "destination": 8,
+   "quantity": 3
+  },
+  "trade_detail": {
+   "commodity": "food",
+   "name": "Food",
+   "row": {
+    "commodity": "food",
+    "name": "Food",
+    "unit": "t",
+    "illegal": false,
+    "stock": 5,
+    "here": {
+     "price": 42,
+     "note": "",
+     "live": true
+    },
+    "best": {
+     "price": 50,
+     "note": ""
+    },
+    "where": {
+     "name": "Zaonce",
+     "distance": 6.5
+    },
+    "margin": 8
+   },
+   "chosen": 8,
+   "quantity": 3,
+   "limit": {
+    "most": 4,
+    "text": "hold space"
+   },
+   "offers": [
+    {
+     "system_id": 8,
+     "name": "Zaonce",
+     "price": 50,
+     "note": "",
+     "distance": 6.5,
+     "economy_name": "Poor Agricultural",
+     "government_name": "Democracy",
+     "dangerous": false,
+     "illegal": false
+    },
+    {
+     "system_id": 9,
+     "name": "Leesti",
+     "price": 47,
+     "note": "",
+     "distance": 3.1,
+     "economy_name": "Rich Industrial",
+     "government_name": "Anarchy",
+     "dangerous": true,
+     "illegal": false
+    }
+   ],
+   "steps": [
+    "Press F8 for the market",
+    "Press → three times"
+   ]
+  }
+ }
+}

@@ -1,0 +1,2 @@
+description = "The last message from the game, as raw JSON, for debugging"
+topics = ["last_message"]

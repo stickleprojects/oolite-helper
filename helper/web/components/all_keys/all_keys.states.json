@@ -1,0 +1,13 @@
+{
+  "before the keys are known": {"all_keys": []},
+  "two groups": {"all_keys": [
+    {"group": "screens", "title": "Screen access", "keys": [
+      {"action": "key_launch_ship", "keys": "1 / F1", "description": "Launch ship"},
+      {"action": "key_gui_screen_options", "keys": "2 / F2", "description": "Options screen"}
+    ]},
+    {"group": "travel", "title": "Navigation", "keys": [
+      {"action": "key_hyperspace", "keys": "H", "description": "Hyperspace"},
+      {"action": "key_jumpdrive", "keys": "J", "description": "Torus jump drive"}
+    ]}
+  ]}
+}

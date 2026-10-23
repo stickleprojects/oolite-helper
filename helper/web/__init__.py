@@ -8,6 +8,9 @@ component.toml and its files:
     actions = ["ui/choose_tab"]          # optional: what it may send (plugin_api.ACTIONS)
     needs = ["keys"]                     # optional: other components whose files it uses
 
+and <name>.states.json: named example states, {name: {topic: value}}, which
+the harness offers and takes pictures of, and the tests render.
+
 Its .js files register it with Oolite.component() (helper/web/lib/widget.js)
 and its .css files style it. Its tests ship beside it as <name>.test.js (run
 with node --test; lib/testing.js gives them a fake DOM) and are never loaded
@@ -18,6 +21,7 @@ may send only their actions.
 """
 
 import html
+import json
 import os
 import tomllib
 from dataclasses import dataclass
@@ -39,6 +43,7 @@ class WebComponent:
     actions: tuple = ()
     needs: tuple = ()
     files: tuple = ()  # its .css and .js files, relative to DIR
+    states: tuple = ()  # ((name, {topic: value}), ...) from <name>.states.json
 
 
 def read_component(folder):
@@ -59,6 +64,15 @@ def read_component(folder):
         for file in os.listdir(folder)
         if file.endswith((".css", ".js")) and not file.endswith(".test.js")
     )
+    states = ()
+    states_file = os.path.join(folder, f"{name}.states.json")
+    if os.path.exists(states_file):
+        with open(states_file, encoding="utf-8") as f:
+            named = json.load(f)
+        for state, values in named.items():
+            if not isinstance(values, dict) or not set(values) <= set(topics):
+                raise ValueError(f"component {name}: state {state!r} may only set its topics")
+        states = tuple(named.items())
     return WebComponent(
         name,
         data.get("description", ""),
@@ -66,6 +80,7 @@ def read_component(folder):
         tuple(actions),
         tuple(data.get("needs", [])),
         tuple(files),
+        states,
     )
 
 

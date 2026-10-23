@@ -1,0 +1,7 @@
+{
+  "docked": {"drive": null},
+  "both ready": {"drive": {"torus": {"ok": true, "by": null}, "jump": {"ok": true, "by": null}}},
+  "mass locked": {"drive": {"torus": {"ok": false, "by": "planet"}, "jump": {"ok": false, "by": "Coriolis Station"}}},
+  "jump blocked": {"drive": {"torus": {"ok": true, "by": null}, "jump": {"ok": false, "by": "planet"}}},
+  "torus only": {"drive": {"torus": {"ok": true, "by": null}}}
+}

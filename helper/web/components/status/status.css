@@ -7,3 +7,4 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.status.error, .status.warning { color: var(--oo-red); }
