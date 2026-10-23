@@ -681,23 +681,21 @@ def readme(component, pictures, size):
         "state; a widget hides while all its components do.",
         "",
     ]
-    # Strips (a line or so high) one per row; bigger components two to a row.
+    # One row per state: its name, then its picture (strips at their own
+    # width, bigger components scaled down).
     width, height = size
-    columns, shown = (1, min(width, 900)) if height <= 100 else (2, 440)
-    cells = [
-        f'<td valign="top"><b>{html.escape(state)}</b><br>'
+    shown = min(width, 700) if height <= 100 else 560
+    rows = [
+        f"| **{state}** | "
         + (
             f'<img src="images/{file}" width="{shown}" alt="{html.escape(state)}">'
             if file
-            else "<i>shows nothing</i>"
+            else "*shows nothing*"
         )
-        + "</td>"
+        + " |"
         for state, file in pictures
     ]
-    rows = [
-        "<tr>" + "".join(cells[i : i + columns]) + "</tr>" for i in range(0, len(cells), columns)
-    ]
-    lines += ["<table>", *rows, "</table>", ""]
+    lines += ["| State | Picture |", "|---|---|", *rows, ""]
     return "\n".join(lines)
 
 
