@@ -2,7 +2,7 @@
 
 import tkinter as tk
 
-from .base import View
+from .base import Component
 from .style import ACCENT, DIM, FG, PANEL, RED, SANS
 
 
@@ -29,7 +29,7 @@ def advice_panel(parent, style, groups, wrap):
     return panel
 
 
-class TradeHere(View):
+class TradeHere(Component):
     """Trade here on its own, e.g. in a widget docked beside the game (#50)."""
 
     def __init__(self, model, style, parent):

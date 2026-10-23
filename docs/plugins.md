@@ -12,7 +12,7 @@ Put the plugin's folder in `~/.config/oolite-helper/plugins/` (or symlink it the
 
 ```toml
 [[widgets]]
-views = ["keys"]       # the plugin's name; a plugin is alone in its widget
+components = ["keys"]  # the plugin's name; a plugin is alone in its widget
 screen = "eDP-1"       # free on a monitor, or dock = "game:right" etc.
 x = 0
 y = 0
@@ -97,7 +97,7 @@ A key entry is `{"action": "key_roll_left", "bindings": [{"key": "arrowLeft", "s
 
 ## Actions
 
-The same actions the built-in views send. They change the helper's **shared** selections, so its own window follows your plugin's clicks, and the other way round.
+The same actions the built-in components send. They change the helper's **shared** selections, so its own window follows your plugin's clicks, and the other way round.
 
 | Action | Fields |
 |---|---|
@@ -120,7 +120,7 @@ Other fields, other values or actions not in your manifest are refused.
 | `--oo-sans`, `--oo-mono` | fonts |
 | `--oo-scale` | the widget's layout scale (`large` 1, `compact` 0.6, times its `font_scale`) |
 
-The built-in views size text in points times the scale, so `font-size: calc(20pt * var(--oo-scale))` matches their key lists.
+The built-in components size text in points times the scale, so `font-size: calc(20pt * var(--oo-scale))` matches their key lists.
 
 ## Developing
 

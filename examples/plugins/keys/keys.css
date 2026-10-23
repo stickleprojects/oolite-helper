@@ -1,4 +1,4 @@
-/* Sizes follow the Tk views: points times the layout's scale (--oo-scale). */
+/* Sizes follow the Tk components: points times the layout's scale (--oo-scale). */
 body { padding: calc(12pt * var(--oo-scale)); }
 #tabs { display: flex; gap: calc(12pt * var(--oo-scale)); margin-bottom: calc(8pt * var(--oo-scale)); }
 .tab {

@@ -1,19 +1,23 @@
-"""Widgets: views in their own small windows, placed anywhere or docked to the game (#50).
+"""Widgets: windows hosting one or more components, docked to the game or free (#50).
+
+Terms: a component renders part of the model; a widget hosts one or more
+components; a dock is a place beside the game window that holds widgets; the
+layout (layout.py) places every widget, in a dock or free on a monitor.
 
 Configured in config.toml as an array of [[widgets]] tables:
 
     [[widgets]]
-    views = ["clearance", "drive"]   # one or more of VIEWS, side by side
+    components = ["clearance", "drive"]  # one or more of COMPONENTS, side by side
     dock = "game:top"                # game:top / game:bottom / game:left / game:right
 
     [[widgets]]
-    views = ["trade_here"]
+    components = ["trade_here"]
     dock = "game:right"
     width = 520
 
     [[widgets]]                      # or free, on a monitor
     id = "drive-strip"               # optional stable id (layout.toml); see layout.py
-    views = ["drive"]
+    components = ["drive"]
     screen = "eDP-1"
     x = 0
     y = 0
@@ -23,9 +27,9 @@ beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
 The helper only reads the game window's position; it never moves the game.
 
-Widgets are web views by default: plugins.PluginPanels shows the built-in
-views with the bundled page in helper/builtin/widgets. The Tk Widget below is
-the fallback, for ui = "tk" or when the web host can't start.
+Widgets are web views by default: plugins.WebWidgets shows the built-in
+components with the bundled page in helper/builtin/components. TkWidget below
+is the fallback, for ui = "tk" or when the web host can't start.
 """
 
 import os
@@ -35,36 +39,36 @@ import tomllib
 from dataclasses import dataclass
 
 from . import config
+from .components.chips import ClearanceBadge, DriveChips
+from .components.style import BG, LAYOUTS, Style
+from .components.trade_here import TradeHere
 from .layout import find
-from .views.chips import ClearanceBadge, DriveChips
-from .views.style import BG, LAYOUTS, Style
-from .views.trade_here import TradeHere
 
-# View name -> factory(model, style, parent frame). Each packs itself into the frame.
-VIEWS = {
+# Component name -> factory(model, style, parent frame). Each packs itself into the frame.
+COMPONENTS = {
     "drive": DriveChips,  # TORUS ✓/✗ and JUMP ✓/✗
     "clearance": ClearanceBadge,  # docking clearance near a station
     "trade_here": TradeHere,  # hold, last market, best buys (while docked)
 }
 DOCKS = ("game:top", "game:bottom", "game:left", "game:right")
 SHOW = ("with_game", "always")
-PANEL_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
+WIDGET_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
 
 
 @dataclass(frozen=True)
 class WidgetSpec:
-    views: tuple
+    components: tuple
     dock: str | None = None  # one of DOCKS, or None for a free widget
     screen: str | None = None  # free widgets: monitor name; None = the whole desktop
     x: int = 0  # free: position on that monitor; docked: offset from the docked spot
     y: int = 0
-    width: int | None = None  # None: the game's width (top/bottom) or what the views need
-    height: int | None = None  # None: the game's height (left/right) or what the views need
+    width: int | None = None  # None: the game's width (top/bottom) or what the components need
+    height: int | None = None  # None: the game's height (left/right) or what the components need
     layout: str = "compact"
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
-    hide_empty: bool = True  # hide while its views have nothing to show
-    id: str | None = None  # stable panel id (layout.toml); default "widget<n>:<first view>"
+    hide_empty: bool = True  # hide while its components have nothing to show
+    id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
 
     @property
     def shown(self):
@@ -74,8 +78,9 @@ class WidgetSpec:
 def load_widgets(path=config.PATH, plugins=()):
     """The [[widgets]] from the config file; [] if none. Bad entries stop with a message.
 
-    plugins: the names of the plugin folders found (#59). A plugin is a view
-    too, but a web page in its own window, so it must be its widget's only view.
+    plugins: the names of the plugin folders found (#59). A plugin is a component
+    from outside the helper, a web page in its own window, so it must be its
+    widget's only component.
     """
     if not os.path.exists(path):
         return []
@@ -94,16 +99,16 @@ def _spec(path, n, entry, plugins=()):
     unknown = set(entry) - known
     if unknown:
         raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
-    views = entry.get("views")
-    if isinstance(views, str):
-        views = [views]
-    if isinstance(views, list) and len(views) == 1 and views[0] in plugins:
+    components = entry.get("components")
+    if isinstance(components, str):
+        components = [components]
+    if isinstance(components, list) and len(components) == 1 and components[0] in plugins:
         pass  # a plugin, alone
-    elif isinstance(views, list) and any(view in plugins for view in views):
-        raise SystemExit(f"{where}: a plugin must be the only view in its widget")
-    elif not views or not all(view in VIEWS for view in views):
-        names = ", ".join((*VIEWS, *sorted(plugins)))
-        raise SystemExit(f"{where}: views must be one or more of {names}")
+    elif isinstance(components, list) and any(name in plugins for name in components):
+        raise SystemExit(f"{where}: a plugin must be the only component in its widget")
+    elif not components or not all(name in COMPONENTS for name in components):
+        names = ", ".join((*COMPONENTS, *sorted(plugins)))
+        raise SystemExit(f"{where}: components must be one or more of {names}")
     checks = (
         ("dock", entry.get("dock") in (None, *DOCKS), f"one of {', '.join(DOCKS)}"),
         ("layout", entry.get("layout", "compact") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
@@ -112,8 +117,8 @@ def _spec(path, n, entry, plugins=()):
     for name, ok, wanted in checks:
         if not ok:
             raise SystemExit(f"{where}: {name} must be {wanted}")
-    pid = entry.get("id")
-    if pid is not None and not (isinstance(pid, str) and PANEL_ID.fullmatch(pid)):
+    wid = entry.get("id")
+    if wid is not None and not (isinstance(wid, str) and WIDGET_ID.fullmatch(wid)):
         raise SystemExit(f"{where}: id must be letters, digits, '_', '.', ':' or '-'")
     for name in ("x", "y", "width", "height"):
         value = entry.get(name)
@@ -124,14 +129,14 @@ def _spec(path, n, entry, plugins=()):
     scale = entry.get("font_scale", 1.0)
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or scale <= 0:
         raise SystemExit(f"{where}: font_scale must be a positive number")
-    return WidgetSpec(**{**entry, "views": tuple(views), "font_scale": float(scale)})
+    return WidgetSpec(**{**entry, "components": tuple(components), "font_scale": float(scale)})
 
 
 def place(spec, game_window, size, monitors=()):
     """(x, y, width, height) for a widget, or None when it should be hidden.
 
     game_window is the model's (geometry, frame, active); size is what the
-    views ask for, (width, height).
+    components ask for, (width, height).
     """
     geometry, frame, active = game_window
     if spec.shown == "with_game" and not (geometry and active):
@@ -154,13 +159,14 @@ def place(spec, game_window, size, monitors=()):
     return (x + spec.x, gy + spec.y, w, h)
 
 
-class Widget:
-    """One widget window: its views, kept in place by watching the game window
-    and its panel in the model's layout (moved, resized, closed)."""
+class TkWidget:
+    """One widget as a Tk window (the fallback): its components, kept in place by
+    watching the game window and the widget in the model's layout (moved,
+    resized, closed)."""
 
-    def __init__(self, root, model, panel_id, monitors=()):
-        self.panel_id = panel_id
-        spec = find(model.topic("layout"), panel_id).spec
+    def __init__(self, root, model, wid, monitors=()):
+        self.wid = wid
+        spec = find(model.topic("layout"), wid).spec
         self.monitors = monitors
         self.window = tk.Toplevel(root, bg=BG)
         # Like the main window: not managed by the window manager, never takes
@@ -172,33 +178,33 @@ class Widget:
         style = Style(width, spec.layout, spec.font_scale)
         frame = tk.Frame(self.window, bg=BG, padx=style.px(6), pady=style.px(4))
         frame.pack(fill="both", expand=True)
-        self.views = [VIEWS[name](model, style, frame) for name in spec.views]
+        self.components = [COMPONENTS[name](model, style, frame) for name in spec.components]
         self.placed = None
-        # Re-place when the game window moves or the views need a different size
+        # Re-place when the game window moves or the components need a different size
         # (Trade here grows when you dock). Tk works sizes out when idle, so a
         # change made in one pass is seen on the next.
-        # Views are drawn before this watcher runs (they subscribed first), so
+        # Components are drawn before this watcher runs (they subscribed first), so
         # their "empty" flags are current.
         self.subscription = model.watch(
             lambda m: (
                 m.topic("game_window"),
                 self.requested_size(),
                 self.empty(),
-                find(m.topic("layout"), panel_id),
+                find(m.topic("layout"), wid),
             ),
             self.follow,
         )
 
     def empty(self):
-        return all(view.empty for view in self.views)
+        return all(component.empty for component in self.components)
 
     def requested_size(self):
         return (self.window.winfo_reqwidth(), self.window.winfo_reqheight())
 
     def follow(self, value):
-        game_window, size, empty, panel = value
-        hidden = panel is None or not panel.open or (empty and panel.spec.hide_empty)
-        placed = None if hidden else place(panel.spec, game_window, size, self.monitors)
+        game_window, size, empty, widget = value
+        hidden = widget is None or not widget.open or (empty and widget.spec.hide_empty)
+        placed = None if hidden else place(widget.spec, game_window, size, self.monitors)
         if placed == self.placed:
             return
         self.placed = placed
@@ -212,6 +218,6 @@ class Widget:
 
     def close(self):
         self.subscription.cancel()
-        for view in self.views:
-            view.close()
+        for component in self.components:
+            component.close()
         self.window.destroy()

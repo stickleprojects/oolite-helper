@@ -1,4 +1,4 @@
-"""Colours, fonts and sizes shared by every view."""
+"""Colours, fonts and sizes shared by every component."""
 
 COLUMN_WIDTH = 600  # px a key panel needs at text scale 1.0
 # Layouts: text and spacing scale (multiplied by font_scale) and most key columns.

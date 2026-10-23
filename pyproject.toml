@@ -21,7 +21,7 @@ dev = ["pytest>=9.1.1", "mypy>=2.4.0", "shellcheck-py>=0.10.0.1"]
 oolite-helper = "helper.app:main"
 
 [tool.setuptools.packages.find]
-include = ["helper*"]  # helper.views and helper.webhost too
+include = ["helper*"]  # helper.components and helper.webhost too
 
 [tool.setuptools.package-data]
-helper = ["builtin/*/*"]  # the bundled widgets page (#50)
+helper = ["builtin/*/*"]  # the bundled components page (#50)

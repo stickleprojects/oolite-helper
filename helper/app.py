@@ -1,4 +1,4 @@
-"""The helper window: reads the game's messages into the model and lays out the views."""
+"""The helper window: reads the game's messages into the model and lays out the components."""
 
 import argparse
 import fcntl
@@ -11,20 +11,20 @@ import traceback
 
 from . import config
 from . import layout as layout_file
+from .components import Style
+from .components.body import Body
+from .components.chips import ClearanceBadge, DriveChips, Tabs
+from .components.header import Details, Heading, Location, Status, Tip
+from .components.style import ACCENT, BG, DIM, FG, MONO, SANS
 from .gamewindow import GameWindow
 from .keys import load_keymap
-from .layout import panels_from_specs
+from .layout import widgets_from_specs
 from .markets import MarketStore
 from .model import Model
-from .plugins import BUILTIN, PluginPanels, discover, read_manifest
+from .plugins import BUILTIN, WebWidgets, discover, read_manifest
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
-from .views import Style
-from .views.body import Body
-from .views.chips import ClearanceBadge, DriveChips, Tabs
-from .views.header import Details, Heading, Location, Status, Tip
-from .views.style import ACCENT, BG, DIM, FG, MONO, SANS
-from .widgets import VIEWS, Widget, load_widgets
+from .widgets import COMPONENTS, TkWidget, load_widgets
 
 POLL_MS = 200
 GAME_WINDOW_EVERY = 2  # ticks between game window checks (the #50 spike used 0.5 s)
@@ -65,7 +65,7 @@ class HelperWindow:
         except Exception as e:  # show the problem instead of dying
             keymap, keymap_error = None, f"Couldn't read the game's key settings: {e}"
         # The layout (#50): config.toml's widgets, with the changes saved in layout.toml.
-        defaults = panels_from_specs(widgets)
+        defaults = widgets_from_specs(widgets)
         self.model = Model(
             markets=markets,
             keymap=keymap,
@@ -122,7 +122,7 @@ class HelperWindow:
         status_label.pack(fill="x", padx=style.px(40), pady=style.px(0, 12))
 
         model = self.model
-        self.views = [
+        self.components = [
             Heading(model, style, context_label),
             Location(model, style, where_label),
             Details(model, style, detail_label),
@@ -132,31 +132,31 @@ class HelperWindow:
             Tip(model, style, tip_label),
             Status(model, style, status_label),
         ]
-        self.body_view = Body(model, style, body)
-        self.views.append(self.body_view)
-        # Widgets (#50): views in their own windows. Docked ones need the game
+        self.body = Body(model, style, body)
+        self.components.append(self.body)
+        # Widgets (#50): components in their own windows. Docked ones need the game
         # window's position, polled a few times a second only when there are any.
         # Widgets are web pages in the web host (#59): plugins, and the built-in
-        # views as the bundled page. Tk shows the built-in views instead with
+        # components as the bundled page. Tk shows the built-in components instead with
         # ui = "tk", or if the web host can't start.
         self.monitors = monitors
         self.widgets = []
         manifests, broken = plugins
         builtin = read_manifest(BUILTIN) if ui == "web" else None
-        self.plugins = PluginPanels(
+        self.plugins = WebWidgets(
             model, manifests, broken, monitors, builtin=builtin, fallback=self.tk_widgets
         )
         if builtin is None:
-            self.tk_widgets([p.id for p in model.layout if p.spec.views[0] in VIEWS])
+            self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
         saver = layout_file.LayoutFile(defaults, layout_path)
         model.subscribe("layout", saver.save, initial=False)
-        self.game_window = GameWindow() if self.widgets or self.plugins.panels else None
+        self.game_window = GameWindow() if self.widgets or self.plugins.widgets else None
         self.ticks = 0
         self.tick()
 
-    def tk_widgets(self, panel_ids):
-        """Show these panels' built-in views in Tk windows (the fallback)."""
-        self.widgets += [Widget(self.root, self.model, pid, self.monitors) for pid in panel_ids]
+    def tk_widgets(self, ids):
+        """Show these widgets' built-in components in Tk windows (the fallback)."""
+        self.widgets += [TkWidget(self.root, self.model, wid, self.monitors) for wid in ids]
 
     def tick(self):
         # Any unexpected error is reported and polling carries on: stopping here
@@ -170,7 +170,7 @@ class HelperWindow:
         self.root.after(POLL_MS, self.tick)
 
     def poll_once(self):
-        """Read and apply new messages and notify the views; False once the window is gone."""
+        """Read and apply new messages and notify the components; False once the window is gone."""
         messages = self.source.poll()
         quit_for_game = should_quit_for_messages(messages, self.first_poll, self.quit_with_game)
         applied = None

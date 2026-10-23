@@ -2,13 +2,13 @@
 
 import tkinter as tk
 
-from .base import View
+from .base import Component
 from .style import ACCENT, BG, DIM, GREEN, PANEL, RED, SANS
 
 TABS = (("keys", "Keys"), ("all", "All keys"), ("trade", "Trade"))
 
 
-class Tabs(View):
+class Tabs(Component):
     def __init__(self, model, style, parent):
         self.labels = {}
         for name, title in TABS:
@@ -31,7 +31,7 @@ class Tabs(View):
             label.config(fg=BG if active else DIM, bg=ACCENT if active else PANEL)
 
 
-class DriveChips(View):
+class DriveChips(Component):
     """TORUS ✓/✗ and JUMP ✓/✗ while flying."""
 
     def __init__(self, model, style, parent):
@@ -57,7 +57,7 @@ class DriveChips(View):
             label.config(text=text, fg=BG, bg=GREEN if ok else RED)
 
 
-class ClearanceBadge(View):
+class ClearanceBadge(Component):
     """Docking clearance near a station (#1); "timing out" blinks."""
 
     def __init__(self, model, style, parent):

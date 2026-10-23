@@ -1,22 +1,22 @@
-"""The store: all helper state, and change notification for the views (#53).
+"""The store: all helper state, and change notification for the components (#53).
 
 Redux-style. Messages from the add-on and UI actions ("ui/...") are both
 dispatched here; GameState, MarketStore and the UI reducer below apply them.
-Views never change the state: they watch selectors (pure functions of the
+Components never change the state: they watch selectors (pure functions of the
 model) and are told when a selector's value changes.
 
     model.subscribe("jump_blocker", draw)                  # a named topic
     model.watch(lambda m: (m.topic("jump_blocker"),        # or any selector,
                            m.topic("location")), draw)     # e.g. two topics combined
 
-One subscription per thing a view redraws: combine topics inside one selector
-rather than subscribing twice, so the view redraws once from a consistent
+One subscription per thing a component redraws: combine topics inside one selector
+rather than subscribing twice, so the component redraws once from a consistent
 snapshot.
 
 notify() runs after each batch of messages and on every clock tick. Each
 watcher's selector is evaluated and its callback runs only when the value
 changed (compared with ==), so reducers must replace values, not edit them in
-place. Named topics are memoised: computed once per pass however many views
+place. Named topics are memoised: computed once per pass however many components
 use them, and kept between passes until the state changes (or their time
 bucket ends, for topics that depend on the clock).
 """
@@ -30,14 +30,14 @@ from .keys import commodity_fallback
 from .layout import reduce_layout
 from .state import GameState
 
-# Contexts that switch the view back to Keys whatever tab is chosen; the chosen
+# Contexts that switch the tab back to Keys whatever tab is chosen; the chosen
 # tab comes back when they end.
 URGENT = ("red alert", "jump countdown", "ship destroyed")
 
 
 @dataclass(frozen=True)
 class UI:
-    """Selections that more than one view (or widget, #50) may care about."""
+    """Selections that more than one component (or widget, #50) may care about."""
 
     tab: str = "keys"  # the tab the player chose
     commodity: str | None = None  # commodity open in the trade detail
@@ -99,7 +99,7 @@ class Model:
         self.game_window = (None, (0, 0, 0, 0), False)
         self.status = {}  # app status for the status line: error, notice, last message
         self.version = 0  # bumped on every change; memoised topics key on it
-        self.on_error = None  # called as on_error(exc, where) when a view fails
+        self.on_error = None  # called as on_error(exc, where) when a component fails
         self._watchers = []
         self._cache = {}  # topic -> (key, value)
 
@@ -189,7 +189,7 @@ class Model:
         return self.watch(lambda model: model.topic(name), callback, initial)
 
     def notify(self):
-        """Tell each watcher whose value changed. A failing view doesn't stop the others."""
+        """Tell each watcher whose value changed. A failing component doesn't stop the others."""
         for subscription in list(self._watchers):
             self._check(subscription)
 

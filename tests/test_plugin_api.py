@@ -5,11 +5,11 @@ import pytest
 
 from helper import plist
 from helper.keys import Keymap
-from helper.layout import panels_from_specs
+from helper.layout import widgets_from_specs
 from helper.markets import MarketStore
 from helper.model import Model
 from helper.plugin_api import TOPICS, check_action, theme_css, topic_value
-from helper.plugins import PluginPanels, discover
+from helper.plugins import WebWidgets, discover
 from helper.widgets import WidgetSpec
 from tests.fakegame import load_scenario
 
@@ -155,9 +155,9 @@ def clicky(tmp_path):
     )
     manifests, broken = discover(tmp_path)
     assert not broken
-    model = Model(layout=panels_from_specs([WidgetSpec(views=("clicky",), layout="large")]))
-    panels = PluginPanels(model, manifests, host=Stub())
-    return model, panels
+    model = Model(layout=widgets_from_specs([WidgetSpec(components=("clicky",), layout="large")]))
+    widgets = WebWidgets(model, manifests, host=Stub())
+    return model, widgets
 
 
 class Stub:
@@ -176,25 +176,25 @@ class Stub:
 
 
 def test_a_plugins_allowed_click_changes_the_shared_ui(clicky):
-    model, panels = clicky
-    panels.host.events = [
+    model, widgets = clicky
+    widgets.host.events = [
         {
             "ev": "page",
             "id": "widget1:clicky",
             "msg": {"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "all"}},
         }
     ]
-    panels.tick()
+    widgets.tick()
     assert model.ui.tab == "all"
 
 
 def test_a_plugins_other_actions_are_refused(clicky, capsys):
-    model, panels = clicky
+    model, widgets = clicky
     action = {"type": "ui/open_commodity", "commodity": "food"}  # not in its manifest
-    panels.host.events = [
+    widgets.host.events = [
         {"ev": "page", "id": "widget1:clicky", "msg": {"type": "dispatch", "action": action}}
     ]
-    panels.tick()
+    widgets.tick()
     assert model.ui.commodity is None
     assert "refused action" in capsys.readouterr().err
 
@@ -213,8 +213,8 @@ def test_bad_actions_in_a_manifest_are_refused(tmp_path):
 
 
 def test_each_plugin_gets_the_theme_for_its_widgets_layout(clicky):
-    _, panels = clicky
-    window = panels.host.windows["widget1:clicky"]
+    _, widgets = clicky
+    window = widgets.host.windows["widget1:clicky"]
     extras = dict(window.extras)
     assert "--oo-accent: #ffb000;" in extras["theme.css"]
     assert "--oo-scale: 1;" in extras["theme.css"]  # layout = "large"

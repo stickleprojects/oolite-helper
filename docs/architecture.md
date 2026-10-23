@@ -1,5 +1,13 @@
 # How the helper is built
 
+## Terms
+- A **component** renders part of the model: `drive`, `clearance`, `trade_here`, the laptop window's heading, tabs and body, or a **plugin** (a component from outside the helper, run as a sandboxed web page).
+- A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`).
+- A **dock** is a place beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) that holds widgets. Docks that lay out several widgets automatically are planned in #80.
+- The **layout** places every widget, either in a dock or free on a monitor (`helper/layout.py`, saved in `layout.toml`).
+- A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.
+- A **web view** is WebKit's browser view, which shows web widgets in the web host.
+
 Data flows one way, Redux-style (#53):
 
 ```
@@ -11,7 +19,7 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
                                          selectors (named topics) ◀─────────┘
                                                     │ value changed?
                                                     ▼
-                                              View.draw(value)
+                                              Component.draw(value)
 ```
 
 | Redux / React | Here |
@@ -20,22 +28,22 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
 | Reducer | `GameState.apply`, `MarketStore.apply`, `reduce_ui` |
 | Store | `Model` ([helper/model.py](../helper/model.py)) |
 | Selector | A pure function `model -> value`; named ones are `TOPICS` |
-| Component | A `View` ([helper/views/](../helper/views/)): `select(model)` plus `draw(value)` |
+| Component | A `Component` ([helper/components/](../helper/components/)): `select(model)` plus `draw(value)` |
 
 ## The model
 - `model.dispatch(action)` applies one action. The window dispatches each batch of game messages, then calls `model.notify()` once. It also calls `notify()` on every 200 ms tick, so clock-driven values (countdowns, blinking) move on their own.
 - `model.watch(selector, callback)` calls `callback(value)` now and then whenever `selector(model)` returns something different (compared with `==`). `model.subscribe("topic", callback)` does the same for a named topic. Both return a handle with `cancel()`.
-- **Named topics** (`TOPICS` in `model.py`) are shared and memoised. Each one is computed once per notify pass however many views use it, and kept between passes until the state changes. Topics that depend on the clock give a period (`every`), e.g. 60 s for price ages shown in minutes.
+- **Named topics** (`TOPICS` in `model.py`) are shared and memoised. Each one is computed once per notify pass however many components use it, and kept between passes until the state changes. Topics that depend on the clock give a period (`every`), e.g. 60 s for price ages shown in minutes.
 - **Reducers replace values; they never edit them in place.** Otherwise `==` can't see the change.
-- **Errors are isolated.** A selector or draw that raises is reported in the status line (once per distinct error) and retried on the next pass, and the other views carry on.
-- **UI state:** selections that several views (or #50's widgets) might share live in the model's `UI` slice and change only through `ui/...` actions: the tab, the open commodity, the chosen destination and quantity. A view's purely local choices (the trade table's sort order, the All keys group) stay in the view, which calls `self.refresh()` after changing one.
+- **Errors are isolated.** A selector or draw that raises is reported in the status line (once per distinct error) and retried on the next pass, and the other components carry on.
+- **UI state:** selections that several components (or #50's widgets) might share live in the model's `UI` slice and change only through `ui/...` actions: the tab, the open commodity, the chosen destination and quantity. A component's purely local choices (the trade table's sort order, the All keys group) stay in the component, which calls `self.refresh()` after changing one.
 
 ## Writing a visualisation
 ```python
-from helper.views import View
+from helper.components import Component
 
 
-class JumpAndLocation(View):
+class JumpAndLocation(Component):
     def __init__(self, model, style, label):
         self.label = label  # build widgets first,
         super().__init__(model, style)  # then subscribe (this draws once)
@@ -50,12 +58,12 @@ class JumpAndLocation(View):
 ```
 
 Rules:
-- **One subscription per thing you redraw.** Combine topics in one selector, so a change to both (an arrival changes the location *and* clears the blocker) redraws once from a consistent snapshot. Use separate views only for parts that redraw independently.
-- **Read through topics** where one exists. If you need a new fact, add a topic to `TOPICS` (with a test), so other views can share it.
-- **Never change state in a view.** Dispatch a `ui/...` action, and add it to `reduce_ui` if it's new.
+- **One subscription per thing you redraw.** Combine topics in one selector, so a change to both (an arrival changes the location *and* clears the blocker) redraws once from a consistent snapshot. Use separate components only for parts that redraw independently.
+- **Read through topics** where one exists. If you need a new fact, add a topic to `TOPICS` (with a test), so other components can share it.
+- **Never change state in a component.** Dispatch a `ui/...` action, and add it to `reduce_ui` if it's new.
 - **Never take keyboard focus from the game**: left-click only, no text fields, no `focus_set()` (verified on #20).
 - **Keys and descriptions come from the game's files**, through `model.keys(action)`, `model.keymap` and `model.commodity_name(key)`.
-- **Use `Style`** (`style.font`, `style.px`, the colours in `views/style.py`) so the view follows the large and compact layouts.
+- **Use `Style`** (`style.font`, `style.px`, the colours in `components/style.py`) so the component follows the large and compact layouts.
 
 ## Plugins: web views in a separate process (#59)
 Plugin visualisations are HTML and JavaScript pages, run in WebKit's sandbox by a separate **web host** process ([helper/webhost/host.py](../helper/webhost/host.py)), because Tk and GTK don't share a main loop. The helper drives it with JSON lines over a pipe; the protocol is in [helper/webhost/\_\_init\_\_.py](../helper/webhost/__init__.py).
@@ -71,31 +79,31 @@ helper (Tk)                                  web host (GTK, system Python)
 - **Lockdown:** the `plugin://<name>/` scheme serves only that plugin's folder, with a strict CSP (no network, no `eval`, no inline scripts); other navigation, pop-ups, downloads and developer tools are refused. Each window has its own ephemeral web context.
 - **The host's environment closes the holes the #59 spike found** (`sandbox_env`): its own cache folder, an *untrusted* X cookie (no XTEST, RECORD, XInput or GLX), and no sound server. If the untrusted cookie can't be made, plugins don't start: it never falls back to the trusted one. `tests/test_webhost_live.py` checks the web process's mounts; run it after WebKit upgrades.
 - **Failures stay contained:** a page that fails or crashes is closed and reported (`failed`), the others carry on, and a host that dies is restarted with backoff and its windows replayed.
-- **Discovery and topics** ([helper/plugins.py](../helper/plugins.py)): at startup the helper reads each `~/.config/oolite-helper/plugins/<name>/plugin.toml` (name, version, `api`, topics, default size). A plugin is used like a view, alone in a widget: `views = ["jump-lamp"]`, placed by the same `place()` as built-in widgets. It gets only the topics it lists, from `plugin_api.TOPICS` ([helper/plugin_api.py](../helper/plugin_api.py)): **a public API of plain JSON shapes**, mapped from the model's topics, so the model's internals can change without breaking plugins. Add topics freely; changing a shape needs a new `api` version. The topics are enough to rebuild the whole laptop window as a plugin. They're memoised like the model's own (`model.memo`), and the helper's stylesheet is served to each page as `_oolite/theme.css`. Key bindings come two ways, both resolved from the game's files and the player's remaps through `model.keys()`/`model.describe()` (the same text as the Keys tab): the `key_sections` topic (what the Keys tab shows now) and `keys = [...]` in `plugin.toml` for specific actions (the `keys` topic).
+- **Discovery and topics** ([helper/plugins.py](../helper/plugins.py)): at startup the helper reads each `~/.config/oolite-helper/plugins/<name>/plugin.toml` (name, version, `api`, topics, default size). A plugin is used like a component, alone in a widget: `components = ["jump-lamp"]`, placed by the same `place()` as built-in widgets. It gets only the topics it lists, from `plugin_api.TOPICS` ([helper/plugin_api.py](../helper/plugin_api.py)): **a public API of plain JSON shapes**, mapped from the model's topics, so the model's internals can change without breaking plugins. Add topics freely; changing a shape needs a new `api` version. The topics are enough to rebuild the whole laptop window as a plugin. They're memoised like the model's own (`model.memo`), and the helper's stylesheet is served to each page as `_oolite/theme.css`. Key bindings come two ways, both resolved from the game's files and the player's remaps through `model.keys()`/`model.describe()` (the same text as the Keys tab): the `key_sections` topic (what the Keys tab shows now) and `keys = [...]` in `plugin.toml` for specific actions (the `keys` topic).
 - **Constants for logic, text for showing.** Everything meant for the player to read (`text`, `keys`, `description`) comes with constants beside it (`kind`, `status`, `action`, `bindings` in the game's own key names), so plugins never parse display text and keep working if it's in another language. Oolite has language add-ons that replace `descriptions.plist`; the helper reads only the AppImage's copy for now, and its own words are English. A broken plugin or a page that fails shows in the status line; the rest carry on.
 - **Developing a plugin:** `.venv/bin/python -m helper.webhost <plugin folder> --at X,Y` opens it on its own, with a ticking `clock` topic.
 
 ## Layouts and the admin panel (planned)
-A player-facing admin panel should eventually let the player swap layouts, add panels and reopen closed ones, by clicking. It isn't built yet, but the pieces are shaped for it:
+A player-facing admin panel should eventually let the player swap layouts, add widgets and reopen closed ones, by clicking. It isn't built yet, but the pieces are shaped for it:
 
-- **Windows are declarative.** `WebHost.sync({id: WebWindow})` (and later the Tk widgets too) takes the full set of windows that should exist, and opens, moves and closes to match. A layout change is just a new set; nothing calls "open" or "close" imperatively.
-- **Panel ids are stable** (`"radar"`, `"trade_here"`, or ids from the layout), so a closed panel can be reopened where it was, and failures are kept per id (`WebHost.retry(id)` is the "reopen" button).
-- **The layout is in the model** (`helper/layout.py`): a `layout` slice (the panels, each with a stable id, its views or plugin, where it docks and whether it's open) changed only by `layout/...` actions such as `layout/switch`, `layout/open_panel`, `layout/close_panel`, `layout/move_panel`. A watcher turns `model.topic("layout")` plus `game_window` into the `sync()` call. `config.toml` stays the player's hand-written defaults; layout changes made in the panel are saved to a helper-owned file beside it, never by rewriting `config.toml`.
-- **The admin panel is a built-in Tk view, never a plugin.** Plugins can only ask about themselves (`resize`; perhaps "close me" later). Discovered plugins and their status (loaded, failed, crashed) become a `plugins` topic the panel can list.
-- **Web views are the main UI** (decided 2026-10-23, #50): new UI such as edit mode and the admin panel is built in the web host or as plugins. The Tk window and Tk widgets stay only as the fallback for when WebKit isn't available.
-- **It's opened by a click, not a key** (the game keeps keyboard focus), and #50's edit mode (move, resize, close) belongs in it.
+- **Windows are declarative.** `WebHost.sync({id: WebWindow})` takes the full set of windows that should exist, and opens, moves and closes to match. A layout change is just a new set; nothing calls "open" or "close" imperatively.
+- **Widget ids are stable** (an `id` from `config.toml`, or `widget<n>:<first component>`), so a closed widget can be reopened where it was, and failures are kept per id (`WebHost.retry(id)` is the "reopen" button).
+- **The layout is in the model** (`helper/layout.py`): a `layout` slice (the widgets, each with a stable id, its components, where it docks and whether it's open) changed only by `layout/...` actions: `layout/move_widget`, `layout/resize_widget`, `layout/close_widget` and `layout/open_widget` (later perhaps `layout/switch`). `WebWidgets` turns `model.topic("layout")` plus `game_window` into the `sync()` call. `config.toml` stays the player's hand-written defaults; changes made in the helper are saved to `layout.toml` beside it, never by rewriting `config.toml`.
+- **The admin panel is built in, never a plugin.** Plugins can only ask about themselves (`resize`, `show`). Discovered plugins and their status (loaded, failed, crashed) become a `plugins` topic the panel can list.
+- **Web views are the main UI** (decided 2026-10-23, #50): new UI such as edit mode and the admin panel is built in the web host. The Tk window and Tk widgets stay only as the fallback for when WebKit isn't available.
+- **It's opened by a click, not a key** (the game keeps keyboard focus): a small ⚙ tab docked beside the game window's top-left corner toggles #50's edit mode (move, resize, close) and will open the admin panel.
 
 ## Where things live
 - `helper/state.py`: `GameState`, the reducer for game messages, plus derived properties (`context`, `details`, `where`).
 - `helper/markets.py`: remembered markets and cost basis (persisted).
 - `helper/browser.py`, `trade.py`, `contexts.py`: pure functions that the topics call (trade rows, advice, key sections, tips).
 - `helper/model.py`: the store, topics and notification.
-- `helper/views/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
+- `helper/components/`: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
-- `helper/widgets.py`, `gamewindow.py`: views in their own windows, docked to the game (#50).
-- `helper/layout.py`: the panels' layout (ids, `layout/...` actions) and the saved `layout.toml`.
+- `helper/widgets.py`, `gamewindow.py`: components in their own windows, docked to the game (#50).
+- `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and the saved `layout.toml`.
 - `helper/plugins.py`: plugin discovery, `plugin.toml` and plugin windows (#59).
-- `helper/builtin/widgets/`: the built-in widget views (`drive`, `clearance`, `trade_here`) as one bundled page, shown in the web host like a plugin (#50). The Tk versions in `helper/views/` are the fallback (`ui = "tk"`, or when the web host can't start).
+- `helper/builtin/components/`: the built-in components (`drive`, `clearance`, `trade_here`) as one bundled page, shown in the web host like a plugin (#50). The Tk versions in `helper/components/` are the fallback (`ui = "tk"`, or when the web host can't start).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
