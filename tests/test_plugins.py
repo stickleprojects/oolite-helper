@@ -7,7 +7,7 @@ from helper import plist
 from helper.keys import Keymap, from_override
 from helper.layout import panels_from_specs
 from helper.model import Model
-from helper.plugins import TOPICS, PluginPanels, discover, read_manifest
+from helper.plugins import BUILTIN, TOPICS, PluginPanels, discover, read_manifest
 from helper.widgets import WidgetSpec, load_widgets
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
@@ -354,3 +354,77 @@ def test_closed_and_moved_panels_follow_the_layout(panels):
     model.dispatch({"type": "layout/open_panel", "id": "widget1:lamp"})
     model.notify()
     assert host.windows["widget1:lamp"].rect is not None
+
+
+# -- built-in views as the bundled page ----------------------------------------
+
+
+@pytest.fixture
+def builtin_panels():
+    specs = [WidgetSpec(views=("clearance", "drive"), dock="game:top")]
+    model = Model(layout=panels_from_specs(specs))
+    host, handed = StubHost(), []
+    made = PluginPanels(
+        model, {}, host=host, builtin=read_manifest(BUILTIN), fallback=handed.append
+    )
+    model.dispatch({**GAME, "active": True})
+    model.notify()
+    return model, host, made, handed
+
+
+def test_builtin_views_are_the_bundled_page_and_hide_until_it_draws(builtin_panels):
+    model, host, made, _ = builtin_panels
+    window = host.windows["widget1:clearance"]
+    assert (window.plugin, window.rect) == ("widgets", None)
+    extras = dict(window.extras)
+    assert extras["widget.js"] == (
+        'globalThis.OOLITE_WIDGET = {"views": ["clearance", "drive"], "width": null};\n'
+    )
+    host.events = [
+        {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
+    ]
+    made.tick()
+    model.notify()
+    assert host.windows["widget1:clearance"].rect is not None
+    host.events = [
+        {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": False}}
+    ]
+    made.tick()
+    model.notify()
+    assert host.windows["widget1:clearance"].rect is None
+
+
+def test_builtin_views_fall_back_to_tk_if_the_host_never_starts(builtin_panels):
+    model, host, made, handed = builtin_panels
+    host.events = [{"ev": "unavailable", "message": "plugins can't start: no gi"}]
+    made.tick()
+    model.notify()
+    assert handed == [["widget1:clearance"]]
+    assert "widget1:clearance" not in host.windows
+    host.events = [{"ev": "unavailable", "message": "again"}]
+    made.tick()
+    assert len(handed) == 1  # only once
+
+
+def test_no_fallback_once_the_host_has_worked(builtin_panels):
+    _, host, made, handed = builtin_panels
+    host.events = [{"ev": "ready"}, {"ev": "host_exited", "code": 1}]
+    made.tick()
+    assert handed == []
+
+
+def test_the_bundled_page_reads_only_what_its_views_need():
+    manifest = read_manifest(BUILTIN)
+    assert set(manifest.topics) == {"drive", "clearance", "market_advice"}
+    assert manifest.actions == ()
+
+
+def test_hide_empty_false_keeps_an_empty_page_shown():
+    specs = [WidgetSpec(views=("drive",), dock="game:top", hide_empty=False)]
+    model = Model(layout=panels_from_specs(specs))
+    host = StubHost()
+    made = PluginPanels(model, {}, host=host, builtin=read_manifest(BUILTIN))
+    model.dispatch({**GAME, "active": True})
+    made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
+    model.notify()
+    assert host.windows["widget1:drive"].rect is not None

@@ -10,6 +10,7 @@ margin = 0            # pixels from the screen edges
 layout = "large"      # or "compact": smaller text and spacing, up to 6 key columns
 font_scale = 1.0      # multiplies the layout's text size
 missing_equipment = "grey"  # or "hide": keys for equipment you haven't got
+ui = "web"            # widgets as web views; "tk" for the old Tk widgets (the fallback)
 # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
 """
 
@@ -35,9 +36,11 @@ WINDOW_DEFAULTS = {
     "font_scale": 1.0,
     "geometry": None,
     "missing_equipment": "grey",
+    "ui": "web",
 }
 LAYOUTS = ("large", "compact")
 MISSING_EQUIPMENT = ("grey", "hide")
+UIS = ("web", "tk")
 _GEOMETRY = re.compile(r"[1-9]\d*x[1-9]\d*[+-]\d+[+-]\d+")
 
 
@@ -63,6 +66,8 @@ def load_window_settings(
             f"missing_equipment must be one of {', '.join(MISSING_EQUIPMENT)}, "
             f"not {settings['missing_equipment']!r}"
         )
+    if settings["ui"] not in UIS:
+        raise SystemExit(f"ui must be one of {', '.join(UIS)}, not {settings['ui']!r}")
     geometry = settings["geometry"]
     if geometry is not None and (
         not isinstance(geometry, str) or not _GEOMETRY.fullmatch(geometry)

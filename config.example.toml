@@ -29,6 +29,10 @@ font_scale = 1.0
 # fuel injectors: "grey" shows them dimmed, "hide" leaves them out.
 missing_equipment = "grey"
 
+# Widgets (below) are web views. "tk" uses the older Tk widgets instead, which
+# the helper also falls back to if the web views can't start.
+ui = "web"
+
 # Exact X geometry (WxH+X+Y). If set, it overrides all of the above.
 # geometry = "1200x1000+2640+40"
 
@@ -50,7 +54,9 @@ missing_equipment = "grey"
 # dock:       "game:top", "game:bottom", "game:left" or "game:right"
 # screen/x/y: for a free widget instead of dock (x/y are an offset when docked)
 # width/height, layout ("compact" default, or "large"), font_scale,
-# show ("with_game" default when docked, or "always")
+# show ("with_game" default when docked: only while the game is the active
+# window; or "always"), hide_empty (true default: hide while the views have
+# nothing to show, e.g. drive lamps while docked; false keeps it up)
 # id:         optional stable name for the widget (default "widget<n>:<view>").
 #             Moves, resizes and closes made in the helper are saved by id in
 #             layout.toml beside this file; delete it to go back to these.

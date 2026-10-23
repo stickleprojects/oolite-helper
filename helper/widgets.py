@@ -22,6 +22,10 @@ Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
 The helper only reads the game window's position; it never moves the game.
+
+Widgets are web views by default: plugins.PluginPanels shows the built-in
+views with the bundled page in helper/builtin/widgets. The Tk Widget below is
+the fallback, for ui = "tk" or when the web host can't start.
 """
 
 import os
@@ -59,6 +63,7 @@ class WidgetSpec:
     layout: str = "compact"
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
+    hide_empty: bool = True  # hide while its views have nothing to show
     id: str | None = None  # stable panel id (layout.toml); default "widget<n>:<first view>"
 
     @property
@@ -114,6 +119,8 @@ def _spec(path, n, entry, plugins=()):
         value = entry.get(name)
         if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
             raise SystemExit(f"{where}: {name} must be a whole number of pixels")
+    if not isinstance(entry.get("hide_empty", True), bool):
+        raise SystemExit(f"{where}: hide_empty must be true or false")
     scale = entry.get("font_scale", 1.0)
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or scale <= 0:
         raise SystemExit(f"{where}: font_scale must be a positive number")
@@ -190,7 +197,7 @@ class Widget:
 
     def follow(self, value):
         game_window, size, empty, panel = value
-        hidden = empty or panel is None or not panel.open
+        hidden = panel is None or not panel.open or (empty and panel.spec.hide_empty)
         placed = None if hidden else place(panel.spec, game_window, size, self.monitors)
         if placed == self.placed:
             return

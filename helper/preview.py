@@ -47,6 +47,7 @@ def _dev_script():
     }},
     dispatch(action) {{ post({{type: "dispatch", action}}); }},
     resize(width, height) {{ post({{type: "resize", width, height}}); }},
+    show(shown) {{ post({{type: "show", shown: Boolean(shown)}}); }},
     log(text) {{ post({{type: "log", text: String(text)}}); }}
   }});
   const receive = (topic, value) => {{

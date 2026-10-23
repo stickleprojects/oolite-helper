@@ -59,7 +59,9 @@ def test_page_messages_are_whitelisted_and_clamped():
         "height": host.SIZE_LIMITS[1],
     }
     assert host.page_message('{"type": "log", "text": "%s"}' % ("x" * 1000))["text"] == "x" * 500
+    assert host.page_message('{"type": "show", "shown": false}') == {"type": "show", "shown": False}
     for bad in (
+        '{"type": "show", "shown": 0}',
         "not json",
         "[1]",
         '{"type": "dispatch", "action": "ui/choose_tab"}',

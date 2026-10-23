@@ -16,7 +16,7 @@ from .keys import load_keymap
 from .layout import panels_from_specs
 from .markets import MarketStore
 from .model import Model
-from .plugins import PluginPanels, discover
+from .plugins import BUILTIN, PluginPanels, discover, read_manifest
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
 from .views import Style
@@ -50,6 +50,7 @@ class HelperWindow:
         monitors=(),
         plugins=({}, {}),
         layout_path=layout_file.PATH,
+        ui="web",
     ):
         self.root = root
         self.source = source
@@ -135,19 +136,27 @@ class HelperWindow:
         self.views.append(self.body_view)
         # Widgets (#50): views in their own windows. Docked ones need the game
         # window's position, polled a few times a second only when there are any.
-        # A widget showing a plugin (#59) is a web page in the web host instead.
-        self.widgets = [
-            Widget(root, model, panel.id, monitors)
-            for panel in model.layout
-            if panel.spec.views[0] in VIEWS
-        ]
+        # Widgets are web pages in the web host (#59): plugins, and the built-in
+        # views as the bundled page. Tk shows the built-in views instead with
+        # ui = "tk", or if the web host can't start.
+        self.monitors = monitors
+        self.widgets = []
         manifests, broken = plugins
-        self.plugins = PluginPanels(model, manifests, broken, monitors)
+        builtin = read_manifest(BUILTIN) if ui == "web" else None
+        self.plugins = PluginPanels(
+            model, manifests, broken, monitors, builtin=builtin, fallback=self.tk_widgets
+        )
+        if builtin is None:
+            self.tk_widgets([p.id for p in model.layout if p.spec.views[0] in VIEWS])
         saver = layout_file.LayoutFile(defaults, layout_path)
         model.subscribe("layout", saver.save, initial=False)
         self.game_window = GameWindow() if self.widgets or self.plugins.panels else None
         self.ticks = 0
         self.tick()
+
+    def tk_widgets(self, panel_ids):
+        """Show these panels' built-in views in Tk windows (the fallback)."""
+        self.widgets += [Widget(self.root, self.model, pid, self.monitors) for pid in panel_ids]
 
     def tick(self):
         # Any unexpected error is reported and polling carries on: stopping here
@@ -284,6 +293,7 @@ def main():
         widgets=load_widgets(plugins=set(plugins[0]) | set(plugins[1])),
         monitors=monitors,
         plugins=plugins,
+        ui=settings["ui"],
     )
     try:
         root.mainloop()
