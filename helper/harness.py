@@ -762,6 +762,8 @@ def main():
     except ImportError:
         parser.error("run this from the oolite-helper repository (it needs tests/fakegame.py)")
     paths = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
+    if args.readmes:
+        paths = []  # READMEs show the named states, over the blank snapshot
     try:
         keymap = load_keymap()
     except Exception:
