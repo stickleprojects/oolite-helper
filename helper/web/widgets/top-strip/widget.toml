@@ -1,0 +1,3 @@
+description = "Docking clearance and the TORUS/JUMP lamps in a strip above the game window"
+components = ["clearance", "drive"]
+dock = "game:top"

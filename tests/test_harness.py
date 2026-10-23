@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from helper import harness
-from helper.widgets import COMPONENTS
+from helper.widgets import COMPONENTS, PRESETS
 
 SCENARIOS = Path(__file__).parent.parent / "scenarios"
 
@@ -44,9 +44,9 @@ def config_with_a_strip(tmp_path):
     return config
 
 
-def test_every_component_is_a_target_on_its_own():
+def test_every_component_is_a_target_on_its_own_then_every_preset():
     ids = [target.id for target in harness.targets(None, plugins={})]
-    assert ids == [f"component.{name}" for name in COMPONENTS]
+    assert ids == [f"component.{name}" for name in COMPONENTS] + [f"preset.{n}" for n in PRESETS]
 
 
 def test_the_configs_widgets_come_after_the_components(tmp_path):
@@ -96,7 +96,7 @@ def test_the_index_links_each_target_at_the_chosen_snapshot(server, snaps):
 
 def test_the_index_has_a_frame_per_target(server, snaps):
     page = get(server, "")[2].decode()
-    assert page.count("<iframe") == len(COMPONENTS)
+    assert page.count("<iframe") == len(COMPONENTS) + len(PRESETS)
 
 
 def test_a_targets_page_loads_its_components(server, snaps):
@@ -158,8 +158,17 @@ def test_a_widget_id_is_that_widget_from_the_config(tmp_path):
     assert target.id == "widget.strip"
 
 
+def test_a_preset_name_is_that_preset():
+    (target,) = harness.targets(None, plugins={}, names=["top-strip"])
+    assert (target.id, target.spec.dock) == ("preset.top-strip", "game:top")
+
+
+def test_presets_and_components_have_different_names():
+    assert not set(PRESETS) & set(COMPONENTS)
+
+
 def test_an_unknown_name_says_whats_available():
-    with pytest.raises(ValueError, match="isn't a component or a widget"):
+    with pytest.raises(ValueError, match="isn't a component, a preset or a widget"):
         harness.targets(None, plugins={}, names=["radar"])
 
 
@@ -276,6 +285,51 @@ def test_each_components_readme_is_up_to_date_with_its_states(name):
         assert f"| **{state}** |" in text, f"{name}: {state!r} isn't in its README"
 
 
+TOP_STRIP = PRESETS["top-strip"]
+
+
+def top_strip_readme():
+    pictures = [("drive: mass locked", "drive-mass-locked.png")]
+    return harness.preset_readme(TOP_STRIP, pictures, (1280, 40))
+
+
+def test_a_preset_readme_starts_with_its_description():
+    assert f"# top-strip\n\n{TOP_STRIP.description}\n" in top_strip_readme()
+
+
+def test_a_preset_readme_links_its_components_readmes():
+    assert "[`drive`](../../components/drive/README.md)" in top_strip_readme()
+
+
+def test_a_preset_readme_says_where_it_docks():
+    assert "| **Dock** | `game:top` |" in top_strip_readme()
+
+
+def test_a_preset_readme_says_its_width():
+    assert "| **Width** | the game's width |" in top_strip_readme()
+
+
+def test_a_preset_readme_says_when_its_components_choose_its_size():
+    assert "| **Height** | what its components need |" in top_strip_readme()
+
+
+def test_a_preset_readme_shows_how_to_use_it():
+    assert 'widget = "top-strip"' in top_strip_readme()
+
+
+def test_a_preset_readme_shows_its_components_states():
+    row = '| **drive: mass locked** | <img src="images/drive-mass-locked.png"'
+    assert row in top_strip_readme()
+
+
+@pytest.mark.parametrize("name", list(PRESETS))
+def test_each_presets_readme_is_up_to_date_with_its_components_states(name):
+    """Run `python -m helper.harness --readmes` after changing a preset or a states file."""
+    text = (Path(harness.web.DIR) / "widgets" / name / "README.md").read_text()
+    for component, state, _ in harness.preset_target(name).states:
+        assert f"| **{component}: {state}** |" in text, f"{name}: {state!r} isn't in its README"
+
+
 def show_url():
     return f"s/{harness.BLANK}/component.clearance/_oolite/show"
 
@@ -290,7 +344,7 @@ def test_the_latest_show_report_wins_whatever_order_they_arrive_in(clearance_ser
 
 
 def test_a_components_own_change_remakes_its_readme():
-    assert harness.affected(["helper/web/components/drive/drive.css"]) == ["drive"]
+    assert harness.affected(["helper/web/components/tip/tip.css"]) == ["tip"]
 
 
 def test_a_change_remakes_the_components_that_need_it_too():
@@ -298,15 +352,32 @@ def test_a_change_remakes_the_components_that_need_it_too():
 
 
 def test_a_change_to_the_shared_stylesheet_remakes_every_readme():
-    assert harness.affected(["helper/web/lib/base.css"]) == list(COMPONENTS)
+    assert harness.affected(["helper/web/lib/base.css"]) == [*COMPONENTS, *PRESETS]
 
 
 def test_a_change_to_the_themes_colours_remakes_every_readme():
-    assert harness.affected(["helper/tk/components/style.py"]) == list(COMPONENTS)
+    assert harness.affected(["helper/tk/components/style.py"]) == [*COMPONENTS, *PRESETS]
+
+
+def test_a_components_change_remakes_the_presets_showing_it():
+    assert harness.affected(["helper/web/components/drive/drive.js"]) == ["drive", "top-strip"]
+
+
+def test_a_presets_own_change_remakes_only_its_readme():
+    assert harness.affected(["helper/web/widgets/top-strip/widget.toml"]) == ["top-strip"]
+
+
+def test_a_change_to_reading_widget_settings_remakes_every_preset():
+    assert harness.affected(["helper/widgets.py"]) == list(PRESETS)
 
 
 def test_the_readmes_and_pictures_themselves_dont_count():
-    paths = ["helper/web/components/tip/README.md", "helper/web/components/tip/images/a.png"]
+    paths = [
+        "helper/web/components/tip/README.md",
+        "helper/web/components/tip/images/a.png",
+        "helper/web/widgets/top-strip/README.md",
+        "helper/web/widgets/top-strip/images/a.png",
+    ]
     assert harness.affected(paths) == []
 
 

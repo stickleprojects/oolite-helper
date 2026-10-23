@@ -4,7 +4,8 @@
     .venv/bin/python -m helper.harness clearance           # one component
     .venv/bin/python -m helper.harness clearance+drive     # components together, as a widget
     .venv/bin/python -m helper.harness "tip+keys|all_keys" # "|" makes a tab group
-    .venv/bin/python -m helper.harness top-strip           # a widget from config.toml
+    .venv/bin/python -m helper.harness top-strip           # a preset (helper/web/widgets)
+    .venv/bin/python -m helper.harness my-widget           # a widget from config.toml
     .venv/bin/python -m helper.harness clearance --shots out   # images instead
 
 Where the data comes from:
@@ -47,7 +48,7 @@ from .markets import MarketStore
 from .model import Model
 from .plugins import Manifest, builtin_manifest, discover
 from .webhost.host import content_type, csp
-from .widgets import COMPONENTS, WidgetSpec, load_widgets
+from .widgets import COMPONENTS, PRESETS, WidgetSpec, load_widgets
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios"
 # How each component is shown on its own: (width, height, layout). Small ones
@@ -125,7 +126,7 @@ def snapshots(paths, keymap, folder):
 
 @dataclass(frozen=True)
 class Target:
-    id: str  # "component.drive" or "widget.<id>"
+    id: str  # "component.drive", "preset.<name>" or "widget.<id>"
     title: str
     spec: WidgetSpec
     manifest: Manifest
@@ -172,6 +173,12 @@ def component_target(name):
     return Target(f"component.{name}", name, spec, builtin_manifest(COMPONENTS, (name,)))
 
 
+def preset_target(name):
+    spec = PRESETS[name].spec
+    title = f"{name}: {', '.join(spec.names)}"
+    return Target(f"preset.{name}", title, spec, builtin_manifest(COMPONENTS, spec.components))
+
+
 def config_targets(config_path, manifests):
     found = []
     if config_path and Path(config_path).exists():
@@ -187,14 +194,15 @@ def config_targets(config_path, manifests):
 
 
 def targets(config_path=None, plugins=None, names=()):
-    """What to show. With no names: every built-in component on its own, then
-    every widget in config_path. Otherwise each name is a component, components
-    joined with "+" (shown together, as a widget; "keys|all_keys" is a tab
-    group), or a widget id in config_path."""
+    """What to show. With no names: every built-in component on its own, every
+    preset, then every widget in config_path. Otherwise each name is a
+    component, a preset, components joined with "+" (shown together, as a
+    widget; "keys|all_keys" is a tab group), or a widget id in config_path."""
     manifests = plugins if plugins is not None else discover()[0]
     widgets = config_targets(config_path, manifests)
     if not names:
-        return [component_target(name) for name in COMPONENTS] + widgets
+        presets = [preset_target(name) for name in PRESETS]
+        return [component_target(name) for name in COMPONENTS] + presets + widgets
     found = []
     for name in names:
         parts = tuple(
@@ -203,6 +211,8 @@ def targets(config_path=None, plugins=None, names=()):
         )
         if len(parts) == 1 and name in COMPONENTS:
             found.append(component_target(name))
+        elif name in PRESETS:
+            found.append(preset_target(name))
         elif name not in COMPONENTS and all(part in COMPONENTS for part in web.names(parts)):
             spec = WidgetSpec(components=parts, width=DEFAULT_VIEW[0], layout="large")
             title = " + ".join(" | ".join(p) if isinstance(p, tuple) else p for p in parts)
@@ -210,8 +220,11 @@ def targets(config_path=None, plugins=None, names=()):
         elif any(target.id == f"widget.{name}" for target in widgets):
             found.append(next(target for target in widgets if target.id == f"widget.{name}"))
         else:
-            known = ", ".join([*COMPONENTS, *(t.id.removeprefix("widget.") for t in widgets)])
-            raise ValueError(f"{name!r} isn't a component or a widget in the config: {known}")
+            ids = (t.id.removeprefix("widget.") for t in widgets)
+            known = ", ".join([*COMPONENTS, *PRESETS, *ids])
+            raise ValueError(
+                f"{name!r} isn't a component, a preset or a widget in the config: {known}"
+            )
     return found
 
 
@@ -671,6 +684,10 @@ README_NOTE = (
     "<!-- Made by `python -m helper.harness --readmes` from component.toml and "
     "{name}.states.json: edit those and run it again. -->"
 )
+PRESET_NOTE = (
+    "<!-- Made by `python -m helper.harness --readmes` from widget.toml and its "
+    "components' states: edit those and run it again. -->"
+)
 
 
 def slug(text):
@@ -707,8 +724,13 @@ def readme(component, pictures, size):
         "state; a widget hides while all its components do.",
         "",
     ]
-    # One row per state: its name, then its picture (strips at their own
-    # width, bigger components scaled down).
+    lines += picture_rows(pictures, size)
+    return "\n".join(lines)
+
+
+def picture_rows(pictures, size):
+    """The table of named states: one row per state, its name then its picture
+    (strips at their own width, bigger widgets scaled down)."""
     width, height = size
     shown = min(width, 700) if height <= 100 else 560
     rows = [
@@ -721,7 +743,56 @@ def readme(component, pictures, size):
         + " |"
         for state, file in pictures
     ]
-    lines += ["| State | Picture |", "|---|---|", *rows, ""]
+    return ["| State | Picture |", "|---|---|", *rows, ""]
+
+
+def _extent(given, side, docked_sides):
+    if given:
+        return f"{given} px"
+    return f"the game's {side}" if docked_sides else "what its components need"
+
+
+def preset_readme(preset, pictures, size):
+    """A preset's README.md: what widget.toml says, then a picture of the widget
+    in each of its components' named states."""
+    spec = preset.spec
+    links = ", ".join(f"[`{name}`](../../components/{name}/README.md)" for name in spec.names)
+    side = spec.dock.split(":")[1] if spec.dock else None
+    where = f"`{spec.dock}`" if spec.dock else f"free, on {spec.screen or 'the desktop'}"
+    width = _extent(spec.width, "width", side in ("top", "bottom"))
+    height = _extent(spec.height, "height", side in ("left", "right"))
+    lines = [
+        PRESET_NOTE,
+        "",
+        f"# {preset.name}",
+        "",
+        preset.description,
+        "",
+        "| | |",
+        "|---|---|",
+        f"| **Components** | {links} |",
+        f"| **Dock** | {where} |",
+        f"| **Width** | {width} |",
+        f"| **Height** | {height} |",
+        f"| **Layout** | `{spec.layout}` |",
+        "",
+        "Use it in `config.toml`, changing any setting `[[widgets]]` takes:",
+        "",
+        "```toml",
+        "[[widgets]]",
+        f'widget = "{preset.name}"',
+        "```",
+        "",
+        f"Its id is `{preset.name}` unless you give another. "
+        f"Try it: `python -m helper.harness {preset.name}`.",
+        "",
+        "## Named states",
+        "",
+        "Its components' named states, from their `.states.json` files. *Shows nothing* "
+        "means none of its components draws anything then, so the widget hides.",
+        "",
+    ]
+    lines += picture_rows(pictures, size)
     return "\n".join(lines)
 
 
@@ -735,23 +806,42 @@ SHARED = (
     "helper/plugins.py",
     "helper/tk/components/style.py",  # the theme's colours, fonts and layout scales
 )
-GENERATED = re.compile(r"helper/web/components/[^/]+/(README\.md|images/)")
+PRESETS_SHARED = ("helper/widgets.py",)  # reads widget.toml; a change remakes every preset's
+GENERATED = re.compile(r"helper/web/(components|widgets)/[^/]+/(README\.md|images/)")
 
 
-def affected(paths, components=None):
-    """The components whose README should be made again after these files
-    changed: those whose own files changed, and those that need them. All of
-    them if a shared file changed. The READMEs and pictures themselves don't
-    count, so a refresh never causes another."""
+def _folders(paths, kind):
+    """The folder names under helper/web/<kind>/ that these paths are in."""
+    prefix = f"helper/web/{kind}/"
+    return {path.split("/")[3] for path in paths if path.startswith(prefix) and path.count("/") > 3}
+
+
+def affected(paths, components=None, presets=None):
+    """The components and presets whose README should be made again after
+    these files changed: components whose own files changed and those that
+    need them, then presets whose files or components changed. All of them if
+    a shared file changed. The READMEs and pictures themselves don't count, so
+    a refresh never causes another."""
     components = COMPONENTS if components is None else components
+    presets = PRESETS if presets is None else presets
     paths = [path for path in paths if not GENERATED.match(path)]
     if any(path.startswith(SHARED) for path in paths):
-        return list(components)
-    changed = {
-        path.split("/")[3]
-        for path in paths
-        if path.startswith("helper/web/components/") and path.count("/") >= 4
-    }
+        return [*components, *presets]
+    changed = _components_affected(paths, components)
+    every_preset = any(path.startswith(PRESETS_SHARED) for path in paths)
+    own = _folders(paths, "widgets")
+    remade = [
+        name
+        for name, preset in presets.items()
+        if every_preset
+        or name in own
+        or {c.name for c in web.loaded(components, preset.spec.names)} & set(changed)
+    ]
+    return changed + remade
+
+
+def _components_affected(paths, components):
+    changed = _folders(paths, "components")
     while True:
         needing = {name for name, c in components.items() if set(c.needs) & changed} - changed
         if not needing:
@@ -771,31 +861,50 @@ def changed_since(ref):
     return out.stdout.split()
 
 
-def readmes(server, chrome, folder=web.COMPONENTS_DIR):
-    """Pictures of each component's named states into <component>/images/, and its README.md."""
+def state_pictures(server, chrome, profile, tid, states, images):
+    """Pictures of a target in each state, [(label, stem, {topic: value}), ...],
+    into images/; [(label, file or None if it showed nothing), ...]. Older
+    pictures there are removed."""
+    wanted, pictures = set(), []
+    for label, stem, values in states:
+        file = f"{stem}.png"
+        if not picture(server, chrome, profile, tid, BLANK, values, images / file):
+            continue
+        if server.shown.get((BLANK, tid), (0, True))[1] is False:  # the page hid itself
+            pictures.append((label, None))
+        else:
+            wanted.add(file)
+            pictures.append((label, file))
+    for old in images.glob("*.png") if images.exists() else ():
+        if old.name not in wanted:
+            old.unlink()
+    return pictures
+
+
+def readmes(server, chrome, folder=web.DIR):
+    """Each component's and preset's README.md, with pictures of its named
+    states in its images/ folder."""
     written = []
     with tempfile.TemporaryDirectory(prefix="oolite-harness-chrome-") as profile:
         for name, component in COMPONENTS.items():
             tid = f"component.{name}"
             if tid not in server.targets:
                 continue
-            images = Path(folder) / name / "images"
-            wanted, pictures = set(), []
-            for state, values in component.states:
-                file = f"{slug(state)}.png"
-                if not picture(server, chrome, profile, tid, BLANK, values, images / file):
-                    continue
-                if server.shown.get((BLANK, tid), (0, True))[1] is False:  # the page hid itself
-                    pictures.append((state, None))
-                else:
-                    wanted.add(file)
-                    pictures.append((state, file))
-            for old in images.glob("*.png") if images.exists() else ():
-                if old.name not in wanted:
-                    old.unlink()
-            path = Path(folder) / name / "README.md"
-            path.write_text(readme(component, pictures, server.targets[tid].size))
-            written.append(path)
+            here = Path(folder) / "components" / name
+            states = [(state, slug(state), values) for state, values in component.states]
+            pictures = state_pictures(server, chrome, profile, tid, states, here / "images")
+            (here / "README.md").write_text(readme(component, pictures, server.targets[tid].size))
+            written.append(here / "README.md")
+        for name, preset in PRESETS.items():
+            tid = f"preset.{name}"
+            if tid not in server.targets:
+                continue
+            here = Path(folder) / "widgets" / name
+            target = server.targets[tid]
+            states = [(f"{c}: {s}", slug(f"{c} {s}"), values) for c, s, values in target.states]
+            pictures = state_pictures(server, chrome, profile, tid, states, here / "images")
+            (here / "README.md").write_text(preset_readme(preset, pictures, target.size))
+            written.append(here / "README.md")
     return written
 
 
@@ -824,13 +933,15 @@ def main():
     parser.add_argument(
         "--readmes",
         action="store_true",
-        help="write each component's README.md and pictures of its named states, then exit "
+        help="write each component's and preset's README.md and pictures of its named "
+        "states, then exit "
         "(only the NAMEs given, if any)",
     )
     parser.add_argument(
         "--since",
         metavar="REF",
-        help="--readmes: only components changed since git REF (and those needing them)",
+        help="--readmes: only components and presets changed since git REF (and those "
+        "needing them)",
     )
     args = parser.parse_args()
     try:
@@ -846,7 +957,7 @@ def main():
         except (OSError, subprocess.CalledProcessError) as error:
             parser.error(f"--since {args.since}: {error}")
         if not args.targets:
-            print(f"No component changed since {args.since}: no READMEs to make.")
+            print(f"Nothing changed since {args.since}: no READMEs to make.")
             return
         print(f"Changed since {args.since}: {', '.join(args.targets)}")
     try:
@@ -869,7 +980,7 @@ def main():
             try:
                 if args.readmes:
                     written = readmes(server, chrome)
-                    print(f"{len(written)} READMEs in {web.COMPONENTS_DIR}")
+                    print(f"{len(written)} READMEs in {web.DIR}")
                     return
                 shots = shoot(server, args.shots, chrome, snapshots=not args.states_only)
             finally:

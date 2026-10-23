@@ -1,0 +1,4 @@
+description = "What's in the hold, the last market and the best buys, beside the game window while docked"
+components = ["trade_here"]
+dock = "game:right"
+width = 560

@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
-          git add helper/web/components
+          git add helper/web/components helper/web/widgets
           if git diff --cached --quiet; then
             echo "READMEs and pictures are up to date."
             exit 0
