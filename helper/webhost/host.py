@@ -42,7 +42,7 @@ MIME = {
     ".ttf": "font/ttf",
     ".txt": "text/plain",
 }
-SIZE_LIMITS = (40, 4000)  # px, for a page asking to be resized
+SIZE_LIMITS = (16, 4000)  # px: no vanishing or screen-covering windows (oolite.show hides)
 LOG_TEXT_LIMIT = 500
 PAGE_MESSAGES_PER_SECOND = 20  # more than this from one page are dropped
 ACTION_LIMIT = 2000  # characters of JSON in one dispatched action

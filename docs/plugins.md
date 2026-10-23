@@ -47,7 +47,7 @@ The helper adds an `oolite` object to the page before its scripts run:
 | `oolite.api` | `1` |
 | `oolite.on(topic, fn)` | calls `fn(value)` now if the topic has a value, and whenever it changes. Returns a function that stops it. |
 | `oolite.dispatch(action)` | sends an action listed in `actions`. Anything else is refused and logged. |
-| `oolite.resize(width, height)` | asks for a new size (40–4000 px). Docked widgets keep the game's width or height on the docked side. |
+| `oolite.resize(width, height)` | asks for a new size (16–4000 px). Docked widgets keep the game's width or height on the docked side. |
 | `oolite.show(shown)` | `false` hides the window while the page has nothing to show (e.g. drive lamps while docked); `true` shows it again. Pages start shown. |
 | `oolite.log(text)` | writes a line to the helper's log, for debugging. |
 
