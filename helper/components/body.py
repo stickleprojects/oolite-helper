@@ -5,7 +5,7 @@ import tkinter as tk
 from ..browser import sort_rows
 from ..contexts import ALL_KEY_GROUPS
 from ..trade import ECONOMIES, GOVERNMENTS
-from .base import View
+from .base import Component
 from .style import ACCENT, BG, DIM, FG, GREEN, MONO, PANEL, RED, SANS
 from .trade_here import advice_panel
 
@@ -19,14 +19,14 @@ TRADE_COLUMNS = (
 )
 
 
-class Body(View):
+class Body(Component):
     """Whatever the visible tab shows. Rebuilt only when its value changes."""
 
     def __init__(self, model, style, frame):
         self.frame = frame
         for c in range(style.columns):
             frame.columnconfigure(c, weight=1, uniform="col")
-        self.group = 0  # group shown on the All keys tab (local to this view)
+        self.group = 0  # group shown on the All keys tab (local to this component)
         self.sort = ("margin", True)  # trade table column, high-to-low (local)
         super().__init__(model, style)
 

@@ -14,10 +14,10 @@ plugin.toml and its pages:
     entry = "index.html"         # optional
     description = "Torus and jump status as two lamps"   # optional
 
-It's shown like a built-in view, in a widget of its own:
+It's a component from outside the helper, shown in a widget of its own:
 
     [[widgets]]
-    views = ["jump-lamp"]
+    components = ["jump-lamp"]
     dock = "game:top"
 
 Pages run sandboxed in the web host (helper/webhost). They get only the topics
@@ -47,12 +47,12 @@ from .plugin_api import (
     topic_value,
 )
 from .webhost import WebHost, WebWindow
-from .widgets import VIEWS, place
+from .widgets import COMPONENTS, place
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
-# The built-in views (widgets.VIEWS) as one bundled page: web views are the
+# The built-in components (widgets.COMPONENTS) as one bundled page: web views are the
 # main UI, and the Tk widgets are the fallback when the web host can't start.
-BUILTIN = os.path.join(os.path.dirname(__file__), "builtin", "widgets")
+BUILTIN = os.path.join(os.path.dirname(__file__), "builtin", "components")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
 
 
@@ -88,8 +88,8 @@ def read_manifest(root):
         raise ValueError(f"name must match its folder, {folder!r}")
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ValueError("name must be lower case letters, digits and -, up to 40")
-    if name in VIEWS:
-        raise ValueError(f"{name!r} is the name of a built-in view")
+    if name in COMPONENTS:
+        raise ValueError(f"{name!r} is the name of a built-in component")
     if data.get("api") != API:
         raise ValueError(f"needs api {data.get('api')!r}; this helper has api {API}")
     if not isinstance(data.get("version"), str):
@@ -143,7 +143,7 @@ def discover(folder=DIR):
     return found, broken
 
 
-class PluginPanels:
+class WebWidgets:
     """The widgets that show plugins: their windows, placement and topics.
 
     Call tick() from the helper's poll loop; it reads the web host's events
@@ -153,40 +153,40 @@ class PluginPanels:
     def __init__(
         self, model, manifests, broken=(), monitors=(), host=None, builtin=None, fallback=None
     ):
-        """builtin: the bundled widgets Manifest, for panels showing built-in
-        views; None leaves those to Tk. fallback(panel ids) is called once if
+        """builtin: the bundled components Manifest, for widgets showing built-in
+        components; None leaves those to Tk. fallback(widget ids) is called once if
         the web host fails before it was ever ready, to show them with Tk."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
-        # panel id, "host" or "plugin:<name>" -> message for the status line
+        # widget id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
-        self.panels = {}  # panel id -> manifest; placement comes from the layout topic
-        self.sizes = {}  # panel id -> (w, h): the manifest's, or what the page asked for
-        self.builtin = {}  # panel id -> its built-in views, for the bundled page
-        self.hidden = set()  # panel ids whose page said it has nothing to show
+        self.widgets = {}  # widget id -> manifest; placement comes from the layout topic
+        self.sizes = {}  # widget id -> (w, h): the manifest's, or what the page asked for
+        self.builtin = {}  # widget id -> its built-in components, for the bundled page
+        self.hidden = set()  # widget ids whose page said it has nothing to show
         self.fallback = fallback
         self.ever_ready = False
-        for panel in model.topic("layout"):
-            wid, name = panel.id, panel.spec.views[0]
-            if name in VIEWS:
+        for widget in model.topic("layout"):
+            wid, name = widget.id, widget.spec.components[0]
+            if name in COMPONENTS:
                 if builtin is None:
                     continue  # a Tk widget
-                self.panels[wid] = builtin
+                self.widgets[wid] = builtin
                 self.sizes[wid] = (builtin.width, builtin.height)
-                self.builtin[wid] = panel.spec.views
+                self.builtin[wid] = widget.spec.components
                 self.hidden.add(wid)  # until the page has drawn
             elif name in manifests:
                 manifest = manifests[name]
-                self.panels[wid] = manifest
+                self.widgets[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
             elif name not in broken:  # broken ones are reported already
                 self.problems[wid] = f"plugin {name}: not installed"
-        self.host = host or (WebHost() if self.panels else None)
+        self.host = host or (WebHost() if self.widgets else None)
         self.subscriptions = [
             model.watch(lambda m, wid=wid: self.topics(wid), lambda v, wid=wid: self.send(wid, v))
-            for wid in self.panels
+            for wid in self.widgets
         ]
         # Selectors run on every notify pass, so a page's resize (self.sizes)
         # is placed on the next one without telling the model.
@@ -194,7 +194,7 @@ class PluginPanels:
         self.report()
 
     def topics(self, wid):
-        manifest = self.panels.get(wid)
+        manifest = self.widgets.get(wid)
         if manifest is None:
             return ()  # handed to Tk (fall_back)
         values = [(name, topic_value(self.model, name)) for name in manifest.topics]
@@ -209,18 +209,18 @@ class PluginPanels:
 
     def windows(self, model):
         game_window = model.topic("game_window")
-        panels = {panel.id: panel for panel in model.topic("layout")}
+        layout = {widget.id: widget for widget in model.topic("layout")}
         windows = {}
-        for wid, manifest in self.panels.items():
-            panel = panels[wid]
-            spec = panel.spec
+        for wid, manifest in self.widgets.items():
+            widget = layout[wid]
+            spec = widget.spec
             empty = wid in self.hidden and spec.hide_empty
-            shown = panel.open and not empty
+            shown = widget.open and not empty
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.builtin:
-                widget = {"views": list(self.builtin[wid]), "width": spec.width}
-                extras += (("widget.js", f"globalThis.OOLITE_WIDGET = {json.dumps(widget)};\n"),)
+                config = {"components": list(self.builtin[wid]), "width": spec.width}
+                extras += (("widget.js", f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"),)
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows
 
@@ -240,7 +240,7 @@ class PluginPanels:
     def handle(self, event):
         """Act on one web host event; True if the problems changed."""
         kind, wid = event.get("ev"), event.get("id")
-        name = self.panels[wid].name if wid in self.panels else None
+        name = self.widgets[wid].name if wid in self.widgets else None
         if kind == "page" and name:
             msg = event["msg"]
             if msg["type"] == "resize":
@@ -269,10 +269,10 @@ class PluginPanels:
         return True
 
     def fall_back(self):
-        """Hand the built-in views to Tk: the web host never started."""
+        """Hand the built-in components to Tk: the web host never started."""
         ids = list(self.builtin)
         for wid in ids:
-            del self.panels[wid], self.sizes[wid], self.builtin[wid]
+            del self.widgets[wid], self.sizes[wid], self.builtin[wid]
             self.hidden.discard(wid)
         fallback, self.fallback = self.fallback, None
         fallback(ids)

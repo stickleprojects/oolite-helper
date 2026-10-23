@@ -1,10 +1,10 @@
 import pytest
 
 from helper.app import HelperWindow, should_quit_for_messages
+from helper.components.header import Status
 from helper.markets import MarketStore
 from helper.model import Model
-from helper.plugins import PluginPanels
-from helper.views.header import Status
+from helper.plugins import WebWidgets
 
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def window(source, tmp_path):
     w.ticks, w.game_window = 0, None  # no widgets
     w.model = Model(markets=MarketStore(tmp_path / "markets.json"))
     w.model.on_error = lambda exc, where: w.report(exc)
-    w.plugins = PluginPanels(w.model, {})  # no plugins
+    w.plugins = WebWidgets(w.model, {})  # no plugins
     w.status_label = FakeLabel()
     Status(w.model, None, w.status_label)
     return w

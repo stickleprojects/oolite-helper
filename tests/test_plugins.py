@@ -5,9 +5,9 @@ import pytest
 
 from helper import plist
 from helper.keys import Keymap, from_override
-from helper.layout import panels_from_specs
+from helper.layout import widgets_from_specs
 from helper.model import Model
-from helper.plugins import BUILTIN, TOPICS, PluginPanels, discover, read_manifest
+from helper.plugins import BUILTIN, TOPICS, WebWidgets, discover, read_manifest
 from helper.widgets import WidgetSpec, load_widgets
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
@@ -60,8 +60,8 @@ def test_bad_manifests_say_whats_wrong(tmp_path, change, message):
         read_manifest(root)
 
 
-def test_plugin_names_are_url_safe_and_not_built_in_views(tmp_path):
-    for name, message in (("Lamp", "lower case"), ("drive", "built-in view")):
+def test_plugin_names_are_url_safe_and_not_built_in_components(tmp_path):
+    for name, message in (("Lamp", "lower case"), ("drive", "built-in component")):
         root = make_plugin(tmp_path, name, LAMP.replace('"lamp"', f'"{name}"'))
         with pytest.raises(ValueError, match=message):
             read_manifest(root)
@@ -79,13 +79,13 @@ def test_discover_finds_good_and_broken_plugins_and_skips_other_folders(tmp_path
 
 def test_widgets_can_name_a_plugin_but_only_on_its_own(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text('[[widgets]]\nviews = ["lamp"]\ndock = "game:top"\n')
+    path.write_text('[[widgets]]\ncomponents = ["lamp"]\ndock = "game:top"\n')
     (spec,) = load_widgets(path, plugins={"lamp"})
-    assert spec.views == ("lamp",)
-    with pytest.raises(SystemExit, match="views must be one or more of"):
+    assert spec.components == ("lamp",)
+    with pytest.raises(SystemExit, match="components must be one or more of"):
         load_widgets(path)  # no such plugin
-    path.write_text('[[widgets]]\nviews = ["lamp", "drive"]\n')
-    with pytest.raises(SystemExit, match="must be the only view"):
+    path.write_text('[[widgets]]\ncomponents = ["lamp", "drive"]\n')
+    with pytest.raises(SystemExit, match="must be the only component"):
         load_widgets(path, plugins={"lamp"})
 
 
@@ -120,7 +120,7 @@ def test_topics_have_documented_shapes():
     }
 
 
-# -- panels: windows, topics and problems -----------------------------------
+# -- widgets: windows, topics and problems -----------------------------------
 
 
 class StubHost:
@@ -142,19 +142,19 @@ class StubHost:
 
 
 @pytest.fixture
-def panels(tmp_path):
+def widgets(tmp_path):
     make_plugin(tmp_path)
     make_plugin(tmp_path, "bad", LAMP.replace('"lamp"', '"bad"').replace("api = 1", "api = 9"))
     manifests, broken = discover(tmp_path)
-    specs = [WidgetSpec(views=("lamp",), dock="game:top"), WidgetSpec(views=("gone",))]
-    model = Model(layout=panels_from_specs(specs))
+    specs = [WidgetSpec(components=("lamp",), dock="game:top"), WidgetSpec(components=("gone",))]
+    model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    made = PluginPanels(model, manifests, broken, host=host)
+    made = WebWidgets(model, manifests, broken, host=host)
     return model, host, made
 
 
-def test_panels_get_only_their_topics_and_their_changes(panels):
-    model, host, _ = panels
+def test_panels_get_only_their_topics_and_their_changes(widgets):
+    model, host, _ = widgets
     assert host.published == [
         ("widget1:lamp", "drive", None),
         ("widget1:lamp", "context", "waiting for game"),
@@ -168,13 +168,13 @@ def test_panels_get_only_their_topics_and_their_changes(panels):
     ]
 
 
-def test_panels_dock_like_widgets_and_follow_page_resizes(panels):
-    model, host, made = panels
+def test_panels_dock_like_widgets_and_follow_page_resizes(widgets):
+    model, host, made = widgets
     assert host.windows["widget1:lamp"].rect is None  # no game window yet
     model.dispatch({**GAME, "active": True})
     model.notify()
     window = host.windows["widget1:lamp"]
-    assert (window.plugin, window.root) == ("lamp", made.panels["widget1:lamp"].root)
+    assert (window.plugin, window.root) == ("lamp", made.widgets["widget1:lamp"].root)
     assert window.rect == (100, 200 - 24 - 60, 1280, 60)  # above the title bar, full width
     host.events = [
         {"ev": "page", "id": "widget1:lamp", "msg": {"type": "resize", "width": 300, "height": 90}}
@@ -187,8 +187,8 @@ def test_panels_dock_like_widgets_and_follow_page_resizes(panels):
     assert host.windows["widget1:lamp"].rect is None  # hidden while the game isn't active
 
 
-def test_problems_show_in_the_status_line(panels):
-    model, host, made = panels
+def test_problems_show_in_the_status_line(widgets):
+    model, host, made = widgets
     status = model.status["plugins"]
     assert "plugin bad: needs api 9" in status and "plugin gone: not installed" in status
     host.events = [{"ev": "crashed", "id": "widget1:lamp", "reason": "crashed"}]
@@ -202,15 +202,15 @@ def test_problems_show_in_the_status_line(panels):
     assert "lamp" not in model.status["plugins"] and "DISPLAY" not in model.status["plugins"]
 
 
-def test_page_logs_go_to_the_helpers_log(panels, capsys):
-    _, host, made = panels
+def test_page_logs_go_to_the_helpers_log(widgets, capsys):
+    _, host, made = widgets
     host.events = [{"ev": "page", "id": "widget1:lamp", "msg": {"type": "log", "text": "hello"}}]
     made.tick()
     assert "plugin lamp: hello" in capsys.readouterr().err
 
 
 def test_no_plugin_widgets_means_no_web_host():
-    made = PluginPanels(Model(), {})
+    made = WebWidgets(Model(), {})
     assert made.host is None
     made.tick()
     made.close()
@@ -254,8 +254,8 @@ def test_a_plugin_gets_the_keys_it_lists(tmp_path):
     manifests, _ = discover(tmp_path)
     assert manifests["lamp"].keys == ("key_jumpdrive", "key_not_in_this_game")
     model, host = keyed_model(), StubHost()
-    model.layout = panels_from_specs([WidgetSpec(views=("lamp",))])
-    PluginPanels(model, manifests, host=host)
+    model.layout = widgets_from_specs([WidgetSpec(components=("lamp",))])
+    WebWidgets(model, manifests, host=host)
     keys = {topic: value for _, topic, value in host.published}["keys"]
     assert keys["key_jumpdrive"]["keys"] == model.keys("key_jumpdrive") != ""
     assert keys["key_not_in_this_game"] == {
@@ -342,43 +342,41 @@ def test_clearance_has_a_status_constant_beside_its_text(messages, status):
     assert clearance["status"] == status and clearance["text"]
 
 
-def test_closed_and_moved_panels_follow_the_layout(panels):
-    model, host, _ = panels
+def test_closed_and_moved_panels_follow_the_layout(widgets):
+    model, host, _ = widgets
     model.dispatch({**GAME, "active": True})
-    model.dispatch({"type": "layout/move_panel", "id": "widget1:lamp", "x": 5, "y": -3})
+    model.dispatch({"type": "layout/move_widget", "id": "widget1:lamp", "x": 5, "y": -3})
     model.notify()
     assert host.windows["widget1:lamp"].rect == (105, 200 - 24 - 60 - 3, 1280, 60)
-    model.dispatch({"type": "layout/close_panel", "id": "widget1:lamp"})
+    model.dispatch({"type": "layout/close_widget", "id": "widget1:lamp"})
     model.notify()
     assert host.windows["widget1:lamp"].rect is None
-    model.dispatch({"type": "layout/open_panel", "id": "widget1:lamp"})
+    model.dispatch({"type": "layout/open_widget", "id": "widget1:lamp"})
     model.notify()
     assert host.windows["widget1:lamp"].rect is not None
 
 
-# -- built-in views as the bundled page ----------------------------------------
+# -- built-in components as the bundled page ----------------------------------------
 
 
 @pytest.fixture
-def builtin_panels():
-    specs = [WidgetSpec(views=("clearance", "drive"), dock="game:top")]
-    model = Model(layout=panels_from_specs(specs))
+def builtin_widgets():
+    specs = [WidgetSpec(components=("clearance", "drive"), dock="game:top")]
+    model = Model(layout=widgets_from_specs(specs))
     host, handed = StubHost(), []
-    made = PluginPanels(
-        model, {}, host=host, builtin=read_manifest(BUILTIN), fallback=handed.append
-    )
+    made = WebWidgets(model, {}, host=host, builtin=read_manifest(BUILTIN), fallback=handed.append)
     model.dispatch({**GAME, "active": True})
     model.notify()
     return model, host, made, handed
 
 
-def test_builtin_views_are_the_bundled_page_and_hide_until_it_draws(builtin_panels):
-    model, host, made, _ = builtin_panels
+def test_builtin_components_are_the_bundled_page_and_hide_until_it_draws(builtin_widgets):
+    model, host, made, _ = builtin_widgets
     window = host.windows["widget1:clearance"]
-    assert (window.plugin, window.rect) == ("widgets", None)
+    assert (window.plugin, window.rect) == ("components", None)
     extras = dict(window.extras)
     assert extras["widget.js"] == (
-        'globalThis.OOLITE_WIDGET = {"views": ["clearance", "drive"], "width": null};\n'
+        'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "width": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
@@ -394,8 +392,8 @@ def test_builtin_views_are_the_bundled_page_and_hide_until_it_draws(builtin_pane
     assert host.windows["widget1:clearance"].rect is None
 
 
-def test_builtin_views_fall_back_to_tk_if_the_host_never_starts(builtin_panels):
-    model, host, made, handed = builtin_panels
+def test_builtin_components_fall_back_to_tk_if_the_host_never_starts(builtin_widgets):
+    model, host, made, handed = builtin_widgets
     host.events = [{"ev": "unavailable", "message": "plugins can't start: no gi"}]
     made.tick()
     model.notify()
@@ -406,24 +404,24 @@ def test_builtin_views_fall_back_to_tk_if_the_host_never_starts(builtin_panels):
     assert len(handed) == 1  # only once
 
 
-def test_no_fallback_once_the_host_has_worked(builtin_panels):
-    _, host, made, handed = builtin_panels
+def test_no_fallback_once_the_host_has_worked(builtin_widgets):
+    _, host, made, handed = builtin_widgets
     host.events = [{"ev": "ready"}, {"ev": "host_exited", "code": 1}]
     made.tick()
     assert handed == []
 
 
-def test_the_bundled_page_reads_only_what_its_views_need():
+def test_the_bundled_page_reads_only_what_its_components_need():
     manifest = read_manifest(BUILTIN)
     assert set(manifest.topics) == {"drive", "clearance", "market_advice"}
     assert manifest.actions == ()
 
 
 def test_hide_empty_false_keeps_an_empty_page_shown():
-    specs = [WidgetSpec(views=("drive",), dock="game:top", hide_empty=False)]
-    model = Model(layout=panels_from_specs(specs))
+    specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=False)]
+    model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    made = PluginPanels(model, {}, host=host, builtin=read_manifest(BUILTIN))
+    made = WebWidgets(model, {}, host=host, builtin=read_manifest(BUILTIN))
     model.dispatch({**GAME, "active": True})
     made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
     model.notify()

@@ -1,10 +1,10 @@
 """The heading, location, details, tip and status line."""
 
-from .base import View
+from .base import Component
 from .style import ACCENT, DIM, FG, GREEN, RED
 
 
-class Heading(View):
+class Heading(Component):
     """The context in large letters: FLYING, DOCKED, RED ALERT..."""
 
     def __init__(self, model, style, label):
@@ -19,7 +19,7 @@ class Heading(View):
         self.label.config(text=context.upper(), fg=colour)
 
 
-class Location(View):
+class Location(Component):
     """The system you're in, and whether it was your jump target."""
 
     def __init__(self, model, style, label):
@@ -39,7 +39,7 @@ class Location(View):
         self.label.config(text=text, fg=GREEN if reached else (RED if aimed_at else FG))
 
 
-class Details(View):
+class Details(Component):
     """Small notes on the right: countdown, autopilot, screen, view, price age."""
 
     def __init__(self, model, style, label):
@@ -59,7 +59,7 @@ class Details(View):
         self.label.config(text="\n".join(line for line in lines if line))
 
 
-class Tip(View):
+class Tip(Component):
     """The large tip lines under the tabs."""
 
     def __init__(self, model, style, label):
@@ -85,7 +85,7 @@ def status_line(status):
     return None, ""
 
 
-class Status(View):
+class Status(Component):
     """The last message, or an error, along the bottom."""
 
     def __init__(self, model, style, label):

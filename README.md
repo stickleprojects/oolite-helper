@@ -140,7 +140,7 @@ To run the helper on its own:
 
 `--stay` keeps the window open when the game exits. Right-click the window to close it.
 
-Left-click the tabs under the heading to switch views. Clicking the helper doesn't take keyboard focus from the game, so you can carry on flying.
+Left-click the tabs under the heading to switch tabs. Clicking the helper doesn't take keyboard focus from the game, so you can carry on flying.
 - **Keys** shows the keys for what you're doing now.
 - **All keys** shows every key, grouped as on the game's keyboard configuration screen; click a group to show it.
 - **Trade** lists every commodity with its price here, the best price within fuel range (a remembered real price with its age, or the game's estimate marked "est."), where that is, and the margin. Click a column heading to sort by it, and again to reverse. Illegal goods are in red; goods out of stock here are marked "(none)". In flight, "Here" is the remembered market for the system you're in.
@@ -164,15 +164,15 @@ The helper follows the scenario just as it follows Oolite's log; `--speed` chang
 
 ### Widgets beside the game
 
-Besides the main window, the helper can show **widgets**: small windows with one or more views, docked to the game window or placed on any monitor. For example, the clearance badge and TORUS/JUMP chips along the top of the game, and Trade here down its right-hand side:
+Besides the main window, the helper can show **widgets**: small windows with one or more components, docked to the game window or placed on any monitor. For example, the clearance badge and TORUS/JUMP chips along the top of the game, and Trade here down its right-hand side:
 
 ```toml
 [[widgets]]
-views = ["clearance", "drive"]
+components = ["clearance", "drive"]
 dock = "game:top"
 
 [[widgets]]
-views = ["trade_here"]
+components = ["trade_here"]
 dock = "game:right"
 width = 560
 ```

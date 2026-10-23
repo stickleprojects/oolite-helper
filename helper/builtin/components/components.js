@@ -1,10 +1,10 @@
-// The helper's built-in widget views as one page (#50). _oolite/widget.js says
-// which views this window shows: OOLITE_WIDGET = {views: [...], width: px or null}.
-// Each view draws nothing when it has nothing to show; with every view empty
+// The helper's built-in components as one page (#50). _oolite/widget.js says
+// which components this widget shows: OOLITE_WIDGET = {components: [...], width: px or null}.
+// Each component draws nothing when it has nothing to show; with every one empty
 // the widget hides itself, like the Tk widgets.
 "use strict";
 
-const widget = globalThis.OOLITE_WIDGET || { views: ["clearance", "drive"], width: null };
+const widget = globalThis.OOLITE_WIDGET || { components: ["clearance", "drive"], width: null };
 const state = { drive: null, clearance: null, market_advice: null };
 
 function el(tag, className, text) {
@@ -18,7 +18,7 @@ function chipText(name, indicator) {
   return indicator.ok ? `  ${name} ✓  ` : `  ${name} ✗ ${indicator.by || ""}  `;
 }
 
-const VIEWS = {
+const COMPONENTS = {
   // TORUS ✓/✗ and JUMP ✓/✗ while flying.
   drive() {
     if (!state.drive) return null;
@@ -55,7 +55,7 @@ let shown = null;
 let size = null;
 
 function draw() {
-  const parts = widget.views.map((name) => VIEWS[name] && VIEWS[name]()).filter(Boolean);
+  const parts = widget.components.map((name) => COMPONENTS[name] && COMPONENTS[name]()).filter(Boolean);
   root.replaceChildren(...parts);
   const show = parts.length > 0;
   if (show !== shown) {

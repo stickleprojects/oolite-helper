@@ -1,13 +1,13 @@
-"""The View base class."""
+"""The Component base class."""
 
 
-class View:
+class Component:
     """Subclasses define select(model) and draw(value).
 
-    Constructing a view subscribes it, and it draws straight away.
+    Constructing a component subscribes it, and it draws straight away.
     """
 
-    empty = False  # True while there's nothing to show (a widget of empty views hides)
+    empty = False  # True while there's nothing to show (a widget of empty components hides)
 
     def __init__(self, model, style):
         self.model = model
@@ -26,7 +26,7 @@ class View:
         self.model.notify()
 
     def refresh(self):
-        """Redraw after a change to the view's own local state."""
+        """Redraw after a change to the component's own local state."""
         self.model.notify()
 
     def close(self):

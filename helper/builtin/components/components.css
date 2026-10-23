@@ -1,5 +1,5 @@
-/* The built-in widget views; the same look as the laptop window's chips and Trade here. */
-/* The window can be taller than the views (the host's 16 px minimum, or a width/height set in config.toml): centre them. */
+/* The built-in components; the same look as the laptop window's chips and Trade here. */
+/* The window can be taller than the components (the host's 16 px minimum, or a width/height set in config.toml): centre them. */
 body { display: flex; align-items: center; height: 100vh; }
 #root {
   display: inline-flex;

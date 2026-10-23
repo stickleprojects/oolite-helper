@@ -33,7 +33,7 @@ def test_a_watcher_is_called_now_and_then_only_when_its_value_changes():
     assert len(seen) == 2
 
 
-def test_two_panels_on_one_topic_are_both_told_and_it_is_computed_once(monkeypatch):
+def test_two_components_on_one_topic_are_both_told_and_it_is_computed_once(monkeypatch):
     model = flying()
     calls = []
     selector, every = TOPICS["jump_blocker"]

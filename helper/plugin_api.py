@@ -16,12 +16,12 @@ The topics are enough to rebuild the whole laptop window as a plugin.
 
 import re
 
+from .components.chips import TABS
+from .components.header import status_line
+from .components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
 from .trade import ECONOMIES, GOVERNMENTS
-from .views.chips import TABS
-from .views.header import status_line
-from .views.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 
 API = 1
 ALERTS = {0: "docked", 1: "green", 2: "yellow", 3: "red"}
@@ -387,7 +387,7 @@ def topic_value(model, name):
 
 # -- actions -----------------------------------------------------------------
 # What a plugin may send with oolite.dispatch(), if its manifest lists it in
-# `actions`. The same "ui/..." actions the built-in views send; they change the
+# `actions`. The same "ui/..." actions the built-in components send; they change the
 # shared UI state, so the laptop window follows a plugin's choices and back.
 
 COMMODITY = re.compile(r"[a-z][a-z0-9_]{0,39}")
@@ -421,7 +421,7 @@ def check_action(action, allowed):
 
 
 # -- the stylesheet ----------------------------------------------------------
-# Served to every plugin as _oolite/theme.css. Sizes: the Tk views use points
+# Served to every plugin as _oolite/theme.css. Sizes: the Tk components use points
 # times the layout's scale, so calc(20pt * var(--oo-scale)) matches them.
 
 DEV_JS = (
