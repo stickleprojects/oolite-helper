@@ -4,6 +4,7 @@ Each component is a folder in helper/web/components/<name>/ holding a
 component.toml and its files:
 
     description = "TORUS ✓/✗ and JUMP ✓/✗ while flying"
+    title = "Drive"                      # optional: its tab label; only titled ones can be tabs
     topics = ["drive"]                   # what it reads: names from plugin_api.TOPICS
     actions = ["ui/choose_tab"]          # optional: what it may send (plugin_api.ACTIONS)
     needs = ["keys"]                     # optional: other components whose files it uses
@@ -18,6 +19,11 @@ into a page. A widget's page is generated: it loads the shared
 files in lib/ and the files of the components the widget lists (and what they
 need), nothing else, and the widget gets only those components' topics and
 may send only their actions.
+
+A widget's components are an arrangement: names, side by side, and tab
+groups, ("keys", "all_keys"), shown one at a time under a tab row that is the
+widget's own frame. The chosen tab is in the model (ui/choose_tab), so a
+widget with tabs also gets the "tabs" topic and may send that action.
 """
 
 import html
@@ -40,6 +46,7 @@ class WebComponent:
     name: str
     description: str
     topics: tuple
+    title: str | None = None  # its label as a tab; None: it can't be one
     actions: tuple = ()
     needs: tuple = ()
     files: tuple = ()  # its .css and .js files, relative to DIR
@@ -51,7 +58,7 @@ def read_component(folder):
     name = os.path.basename(os.path.normpath(folder))
     with open(os.path.join(folder, "component.toml"), "rb") as f:
         data = tomllib.load(f)
-    unknown = set(data) - {"description", "topics", "actions", "needs"}
+    unknown = set(data) - {"description", "title", "topics", "actions", "needs"}
     if unknown:
         raise ValueError(f"component {name}: unknown settings: {', '.join(sorted(unknown))}")
     topics, actions = data.get("topics", []), data.get("actions", [])
@@ -77,6 +84,7 @@ def read_component(folder):
         name,
         data.get("description", ""),
         tuple(topics),
+        data.get("title"),
         tuple(actions),
         tuple(data.get("needs", [])),
         tuple(files),
@@ -114,6 +122,29 @@ def loaded(components, names):
     return [components[name] for name in order]
 
 
+def names(arrangement):
+    """The component names in an arrangement, tab groups opened out, in order."""
+    return tuple(
+        name for item in arrangement for name in (item if isinstance(item, tuple) else (item,))
+    )
+
+
+def has_tabs(arrangement):
+    return any(isinstance(item, tuple) for item in arrangement)
+
+
+def as_config(arrangement):
+    """The arrangement for the page's OOLITE_WIDGET: names, and {"tabs": [...]} per group."""
+    return [{"tabs": list(item)} if isinstance(item, tuple) else item for item in arrangement]
+
+
+def tab_titles(components):
+    """[(name, title), ...] for the components that can be tabs: Keys first
+    (an emergency shows it), then by name."""
+    titled = sorted(components.values(), key=lambda c: (c.name != "keys", c.name))
+    return [(c.name, c.title) for c in titled if c.title]
+
+
 def _unique(items):
     return tuple(dict.fromkeys(items))
 
@@ -127,9 +158,10 @@ class Page:
     actions: tuple
 
 
-def page(components, names):
-    """The Page for a widget showing these built-in components."""
-    parts = loaded(components, names)
+def page(components, arrangement):
+    """The Page for a widget showing these built-in components (an arrangement)."""
+    parts = loaded(components, names(arrangement))
+    tabs = has_tabs(arrangement)
     files = [file for part in parts for file in part.files]
     # Relative to the page, _oolite/widget.html, so it works wherever it's
     # served: plugin://builtin/ in the web host, or under the harness's paths.
@@ -145,6 +177,8 @@ def page(components, names):
     ]
     return Page(
         "\n".join(lines) + "\n",
-        _unique(topic for part in parts for topic in part.topics),
-        _unique(action for part in parts for action in part.actions),
+        _unique([*(topic for part in parts for topic in part.topics), *(["tabs"] if tabs else [])]),
+        _unique(
+            [*(a for part in parts for a in part.actions), *(["ui/choose_tab"] if tabs else [])]
+        ),
     )

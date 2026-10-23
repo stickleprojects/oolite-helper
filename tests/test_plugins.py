@@ -421,6 +421,17 @@ def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(built
     assert "trade_here" not in page and "keys" not in page
 
 
+def test_a_widget_page_gets_its_tab_groups():
+    specs = [WidgetSpec(components=(("keys", "all_keys"),), dock="game:right")]
+    model = Model(layout=widgets_from_specs(specs))
+    host = StubHost()
+    WebWidgets(model, {}, host=host, builtin=COMPONENTS)
+    model.dispatch({**GAME, "active": True})
+    model.notify()
+    script = dict(host.windows["widget1:keys"].extras)["widget.js"]
+    assert '"components": [{"tabs": ["keys", "all_keys"]}]' in script
+
+
 def test_hide_empty_false_keeps_an_empty_page_shown():
     specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=False)]
     model = Model(layout=widgets_from_specs(specs))

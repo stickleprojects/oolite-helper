@@ -78,3 +78,34 @@ def test_hide_empty_must_be_a_boolean(tmp_path):
         load_widgets(path)
     path.write_text('[[widgets]]\ncomponents = ["drive"]\nhide_empty = false\n')
     assert load_widgets(path)[0].hide_empty is False
+
+
+def load_one(tmp_path, components):
+    path = tmp_path / "config.toml"
+    path.write_text(f"[[widgets]]\ncomponents = {components}\n")
+    return load_widgets(path)[0]
+
+
+def test_a_tab_group_is_a_tuple_among_the_components(tmp_path):
+    spec = load_one(tmp_path, '["tip", {tabs = ["keys", "all_keys"]}, "status"]')
+    assert spec.components == ("tip", ("keys", "all_keys"), "status")
+
+
+def test_a_widgets_names_open_out_its_tab_groups(tmp_path):
+    spec = load_one(tmp_path, '[{tabs = ["keys", "trade_table"]}, "status"]')
+    assert spec.names == ("keys", "trade_table", "status")
+
+
+@pytest.mark.parametrize(
+    ("components", "message"),
+    [
+        ('[{tabs = ["keys"]}]', "a tab group is"),
+        ('[{tabs = ["keys", "all_keys"], width = 3}]', "a tab group is"),
+        ('[{tabs = ["keys", "drive"]}]', "drive can't be a tab; tabs can be keys, all_keys"),
+        ('[{tabs = ["keys", "radar"]}]', "components must be one or more of"),
+        ('["keys", {tabs = ["keys", "all_keys"]}]', "each component can be in a widget only once"),
+    ],
+)
+def test_a_bad_tab_group_is_explained(tmp_path, components, message):
+    with pytest.raises(SystemExit, match=message):
+        load_one(tmp_path, components)

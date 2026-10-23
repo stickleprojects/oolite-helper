@@ -75,8 +75,8 @@ def test_page_messages_are_whitelisted_and_clamped():
 
 
 def test_dispatches_pass_through_the_host_for_the_helper_to_check():
-    action = {"type": "ui/choose_tab", "tab": "trade"}
-    raw = '{"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "trade"}}'
+    action = {"type": "ui/choose_tab", "tab": "trade_table"}
+    raw = '{"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "trade_table"}}'
     assert host.page_message(raw) == {"type": "dispatch", "action": action}
 
 

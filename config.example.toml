@@ -52,7 +52,10 @@ ui = "web"
 #             "keys", "all_keys", "trade_table", "trade_here", "drive" (TORUS/
 #             JUMP), "clearance" (see helper/web/components/); or the name of
 #             one plugin from ~/.config/oolite-helper/plugins/, alone (plugins
-#             are web pages in their own window; see #59)
+#             are web pages in their own window; see #59). {tabs = [...]} among
+#             them is a tab group: a tab row over one of "keys", "all_keys" and
+#             "trade_table" at a time; the choice is shared, and an emergency
+#             shows Keys
 # dock:       "game:top", "game:bottom", "game:left" or "game:right"
 # screen/x/y: for a free widget instead of dock (x/y are an offset when docked)
 # width/height, layout ("compact", the default when docked to the game, or
@@ -72,3 +75,9 @@ ui = "web"
 # components = ["trade_here"]
 # dock = "game:right"
 # width = 560
+#
+# [[widgets]]
+# components = ["heading", "tip", {tabs = ["keys", "all_keys", "trade_table"]}, "status"]
+# screen = "eDP-1"
+# width = 1920
+# height = 1080

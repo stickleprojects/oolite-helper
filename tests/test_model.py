@@ -121,12 +121,12 @@ def test_ui_actions_go_through_the_same_dispatch_and_notify():
 
 def test_urgent_contexts_show_keys_then_the_chosen_tab_returns():
     model = flying()
-    model.dispatch({"type": "ui/choose_tab", "tab": "all"})
-    assert model.topic("tab") == "all"
+    model.dispatch({"type": "ui/choose_tab", "tab": "all_keys"})
+    assert model.topic("tab") == "all_keys"
     model.dispatch({"type": "alert", "level": 3})
     assert model.topic("tab") == "keys"
     model.dispatch({"type": "alert", "level": 1})
-    assert model.topic("tab") == "all"
+    assert model.topic("tab") == "all_keys"
     model.dispatch({"type": "died", "cause": "energy damage", "by": None})
     assert model.topic("tab") == "keys"
 

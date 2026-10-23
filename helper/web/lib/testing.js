@@ -105,23 +105,29 @@ function withNeeds(names) {
 }
 
 // A fresh page with the shared files and these components' .js files (and
-// what they need) loaded. Returns {Oolite, root, sent}: sent collects what
-// oolite.dispatch() was given.
+// what they need) loaded. Returns {Oolite, root, sent, start}: sent collects
+// what oolite.dispatch() was given, and start(widget, state) starts the page
+// as the widget OOLITE_WIDGET = widget, its topics having the values in state.
 function loadComponents(...names) {
   const root = new FakeNode("div");
   const sent = [];
+  const loaded = [];
+  const handlers = [];
   const context = {
     document: {
       createElement: (tag) => new FakeNode(tag),
       getElementById: () => root,
-      addEventListener: () => {},
+      addEventListener: (type, listener) => loaded.push(listener),
       documentElement: { classList: { add: () => {} } },
     },
     oolite: {
       // Copied: the components run in their own context, so their objects
       // wouldn't compare equal with the test's.
       dispatch: (action) => sent.push(JSON.parse(JSON.stringify(action))),
-      on: () => () => {},
+      on: (topic, handler) => {
+        handlers.push([topic, handler]);
+        return () => {};
+      },
       resize: () => {},
       show: () => {},
       log: () => {},
@@ -141,7 +147,21 @@ function loadComponents(...names) {
   for (const file of files) {
     vm.runInContext(fs.readFileSync(path.join(WEB, file), "utf8"), context, { filename: file });
   }
-  return { Oolite: context.Oolite, root, sent };
+  const start = (widget, state) => {
+    context.OOLITE_WIDGET = widget;
+    for (const listener of loaded) listener();
+    for (const [topic, handler] of handlers) if (topic in state) handler(state[topic]);
+  };
+  return { Oolite: context.Oolite, root, sent, start };
+}
+
+// A widget's page drawn for a state: {root, sent}. components is the
+// widget's arrangement, e.g. ["tip", {tabs: ["keys", "all_keys"]}].
+function widget(components, state) {
+  const names = components.flatMap((item) => (typeof item === "string" ? [item] : item.tabs));
+  const page = loadComponents(...names);
+  page.start({ components, topics: Object.keys(state), width: null }, state);
+  return { root: page.root, sent: page.sent };
 }
 
 // Render one component: {node, sent, refreshed()} where refreshed() counts
@@ -168,4 +188,4 @@ function states(name) {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
 }
 
-module.exports = { FakeNode, loadComponents, render, states, WEB };
+module.exports = { FakeNode, loadComponents, render, states, widget, WEB };

@@ -136,7 +136,7 @@ def test_a_click_the_component_may_send_is_applied_to_that_snapshot(server, snap
 
 
 def test_a_click_the_component_may_not_send_is_refused(server, snaps):
-    assert post(server, trade_dispatch(snaps), {"type": "ui/choose_tab", "tab": "all"}) == 403
+    assert post(server, trade_dispatch(snaps), {"type": "ui/choose_tab", "tab": "all_keys"}) == 403
 
 
 # -- choosing targets by name ------------------------------------------------------
@@ -312,3 +312,14 @@ def test_the_readmes_and_pictures_themselves_dont_count():
 
 def test_files_outside_the_components_dont_count():
     assert harness.affected(["helper/state.py", "README.md"]) == []
+
+
+def test_a_bar_joins_components_into_a_tab_group():
+    (target,) = harness.targets(None, plugins={}, names=["tip+keys|all_keys"])
+    assert target.spec.components == ("tip", ("keys", "all_keys"))
+
+
+def test_a_tabs_named_states_show_that_tab():
+    (target,) = harness.targets(None, plugins={}, names=["keys|all_keys"])
+    values = next(v for c, _, v in target.states if c == "all_keys")
+    assert values["tabs"]["shown"] == "all_keys"

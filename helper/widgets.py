@@ -60,7 +60,7 @@ WIDGET_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
 
 @dataclass(frozen=True)
 class WidgetSpec:
-    components: tuple
+    components: tuple  # names, and tuples of names for tab groups (helper.web)
     dock: str | None = None  # one of DOCKS, or None for a free widget
     screen: str | None = None  # free widgets: monitor name; None = the whole desktop
     x: int = 0  # free: position on that monitor; docked: offset from the docked spot
@@ -72,6 +72,11 @@ class WidgetSpec:
     show: str | None = None  # SHOW; default with_game when docked, always when free
     hide_empty: bool = True  # hide while its components have nothing to show
     id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
+
+    @property
+    def names(self):
+        """Its component names, tab groups opened out."""
+        return web.names(self.components)
 
     @property
     def shown(self):
@@ -102,16 +107,7 @@ def _spec(path, n, entry, plugins=()):
     unknown = set(entry) - known
     if unknown:
         raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
-    components = entry.get("components")
-    if isinstance(components, str):
-        components = [components]
-    if isinstance(components, list) and len(components) == 1 and components[0] in plugins:
-        pass  # a plugin, alone
-    elif isinstance(components, list) and any(name in plugins for name in components):
-        raise SystemExit(f"{where}: a plugin must be the only component in its widget")
-    elif not components or not all(name in COMPONENTS for name in components):
-        names = ", ".join((*COMPONENTS, *sorted(plugins)))
-        raise SystemExit(f"{where}: components must be one or more of {names}")
+    components = _arrangement(where, entry.get("components"), plugins)
     checks = (
         ("dock", entry.get("dock") in (None, *DOCKS), f"one of {', '.join(DOCKS)}"),
         ("layout", entry.get("layout", "large") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
@@ -135,8 +131,41 @@ def _spec(path, n, entry, plugins=()):
     # Strips docked to the game are compact unless asked; other widgets are large.
     layout = entry.get("layout", "compact" if entry.get("dock") else "large")
     return WidgetSpec(
-        **{**entry, "components": tuple(components), "font_scale": float(scale), "layout": layout}
+        **{**entry, "components": components, "font_scale": float(scale), "layout": layout}
     )
+
+
+def _arrangement(where, components, plugins):
+    """A widget's components from config.toml: names, and {tabs = [...]} groups
+    (tuples here). Stops with a message if they're wrong."""
+    if isinstance(components, str):
+        components = [components]
+    if not isinstance(components, list) or not components:
+        components = [None]  # reported below
+    if len(components) == 1 and components[0] in plugins:
+        return tuple(components)  # a plugin, alone
+    arrangement = []
+    for item in components:
+        if isinstance(item, dict):
+            group = item.get("tabs")
+            if set(item) != {"tabs"} or not isinstance(group, list) or len(group) < 2:
+                raise SystemExit(f"{where}: a tab group is {{tabs = [two or more components]}}")
+            untitled = [name for name in group if name in COMPONENTS and not COMPONENTS[name].title]
+            if untitled:
+                titled = ", ".join(name for name, _ in web.tab_titles(COMPONENTS))
+                raise SystemExit(f"{where}: {untitled[0]} can't be a tab; tabs can be {titled}")
+            arrangement.append(tuple(group))
+        else:
+            arrangement.append(item)
+    names = web.names(arrangement)
+    if any(name in plugins for name in names):
+        raise SystemExit(f"{where}: a plugin must be the only component in its widget")
+    if not all(isinstance(name, str) and name in COMPONENTS for name in names):
+        known = ", ".join((*COMPONENTS, *sorted(plugins)))
+        raise SystemExit(f"{where}: components must be one or more of {known}")
+    if len(set(names)) < len(names):
+        raise SystemExit(f"{where}: each component can be in a widget only once")
+    return tuple(arrangement)
 
 
 def place(spec, game_window, size, monitors=()):
@@ -186,9 +215,7 @@ class TkWidget:
         frame = tk.Frame(self.window, bg=BG, padx=style.px(6), pady=style.px(4))
         frame.pack(fill="both", expand=True)
         self.components = [
-            TK_COMPONENTS[name](model, style, frame)
-            for name in spec.components
-            if name in TK_COMPONENTS
+            TK_COMPONENTS[name](model, style, frame) for name in spec.names if name in TK_COMPONENTS
         ]
         self.placed = None
         # Re-place when the game window moves or the components need a different size

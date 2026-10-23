@@ -38,3 +38,6 @@ body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
 .clickable { cursor: pointer; }
 .empty { font-size: calc(18pt * var(--oo-scale)); }
 .hint { margin: calc(8px * var(--oo-scale)) 0 0; font-size: calc(14pt * var(--oo-scale)); }
+/* A tab group: the widget's tab row over the tab shown. */
+.tabs { display: flex; flex-direction: column; gap: calc(8px * var(--oo-scale)); min-width: 0; }
+.tab-row { display: flex; gap: calc(12px * var(--oo-scale)); padding: 0 calc(40px * var(--oo-scale)); }

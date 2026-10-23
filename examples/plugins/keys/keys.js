@@ -31,14 +31,14 @@ function draw() {
   const shown = state.tabs ? state.tabs.shown : "keys";
   tabs.replaceChildren(
     ...(state.tabs ? state.tabs.tabs : [])
-      .filter((t) => t.id !== "trade") // this plugin only shows keys
+      .filter((t) => t.id !== "trade_table") // this plugin only shows keys
       .map((t) => {
         const chip = el("span", { className: t.id === shown ? "tab active" : "tab", textContent: t.text });
         chip.addEventListener("click", () => oolite.dispatch({ type: "ui/choose_tab", tab: t.id }));
         return chip;
       }),
   );
-  if (shown === "all") {
+  if (shown === "all_keys") {
     const chips = el("nav", { id: "groups" });
     state.all_keys.forEach((g, i) => {
       const chip = el("span", { className: i === group ? "tab active" : "tab", textContent: g.title });
