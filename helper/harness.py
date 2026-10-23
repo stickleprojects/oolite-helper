@@ -240,7 +240,7 @@ DEV_JS = """(() => {
     },
     dispatch(action) { post("dispatch", action).then(poll); },
     resize(width, height) {},
-    show(shown) {},
+    show(shown) { post("show", {shown: Boolean(shown)}); },
     log(text) { post("log", {text: String(text)}); },
   });
   Object.defineProperty(window, "oolite", {value: oolite});
@@ -261,6 +261,7 @@ class HarnessServer(ThreadingHTTPServer):
         # (snapshot id, target id) -> {topic: value} set over the snapshot's own
         # values by a named state or an edit.
         self.overrides = {}
+        self.shown = {}  # (snapshot id, target id) -> what the page last said with oolite.show()
         self.lock = threading.Lock()  # the models aren't thread-safe
         super().__init__(address, HarnessHandler)
 
@@ -348,6 +349,9 @@ class HarnessHandler(BaseHTTPRequestHandler):
                 snap.model.dispatch(checked)
         elif path == "_oolite/log":
             print(f"harness: {target.id}: {body.get('text')}", file=sys.stderr)
+        elif path == "_oolite/show":
+            with self.server.lock:
+                self.server.shown[(snap.id, target.id)] = body.get("shown") is not False
         elif path == "_oolite/override":
             if not self.server.override(snap.id, target.id, body):
                 return self.send(400, "text/plain", b"not a topic or state of this target")
@@ -582,6 +586,7 @@ def picture(server, chrome, profile, tid, sid, overrides, path):
     width, height = server.targets[tid].size
     with server.lock:
         server.overrides[(sid, tid)] = dict(overrides)
+        server.shown.pop((sid, tid), None)
     path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         chrome,
@@ -636,6 +641,94 @@ def shoot(server, out, chrome, only=None, snapshots=True, states=True):
     return shots
 
 
+README_NOTE = (
+    "<!-- Made by `python -m helper.harness --readmes` from component.toml and "
+    "{name}.states.json: edit those and run it again. -->"
+)
+
+
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def readme(component, pictures, size):
+    """A component's README.md: what component.toml says, then each named state's picture."""
+    reads = ", ".join(f"`{item}`" for item in component.topics) or "nothing"
+    sends = ", ".join(f"`{item}`" for item in component.actions) or "nothing"
+    needs = ", ".join(f"[`{item}`](../{item}/README.md)" for item in component.needs) or "nothing"
+    files = ", ".join(f"`{Path(file).name}`" for file in component.files)
+    lines = [
+        README_NOTE.format(name=component.name),
+        "",
+        f"# {component.name}",
+        "",
+        component.description,
+        "",
+        "| | |",
+        "|---|---|",
+        f"| **Reads** | {reads} |",
+        f"| **Sends** | {sends} |",
+        f"| **Needs** | {needs} |",
+        f"| **Files** | {files} |",
+        f"| **Tests** | `{component.name}.test.js` |",
+        "",
+        f'Use it in a widget: `components = ["{component.name}"]`. '
+        f"Try it: `python -m helper.harness {component.name}`.",
+        "",
+        "## Named states",
+        "",
+        f"From `{component.name}.states.json`. *Shows nothing* means it draws nothing in that "
+        "state; a widget hides while all its components do.",
+        "",
+    ]
+    # Strips (a line or so high) one per row; bigger components two to a row.
+    width, height = size
+    columns, shown = (1, min(width, 900)) if height <= 100 else (2, 440)
+    cells = [
+        f'<td valign="top"><b>{html.escape(state)}</b><br>'
+        + (
+            f'<img src="images/{file}" width="{shown}" alt="{html.escape(state)}">'
+            if file
+            else "<i>shows nothing</i>"
+        )
+        + "</td>"
+        for state, file in pictures
+    ]
+    rows = [
+        "<tr>" + "".join(cells[i : i + columns]) + "</tr>" for i in range(0, len(cells), columns)
+    ]
+    lines += ["<table>", *rows, "</table>", ""]
+    return "\n".join(lines)
+
+
+def readmes(server, chrome, folder=web.COMPONENTS_DIR):
+    """Pictures of each component's named states into <component>/images/, and its README.md."""
+    written = []
+    with tempfile.TemporaryDirectory(prefix="oolite-harness-chrome-") as profile:
+        for name, component in COMPONENTS.items():
+            tid = f"component.{name}"
+            if tid not in server.targets:
+                continue
+            images = Path(folder) / name / "images"
+            wanted, pictures = set(), []
+            for state, values in component.states:
+                file = f"{slug(state)}.png"
+                if not picture(server, chrome, profile, tid, BLANK, values, images / file):
+                    continue
+                if server.shown.get((BLANK, tid)) is False:  # the page hid itself
+                    pictures.append((state, None))
+                else:
+                    wanted.add(file)
+                    pictures.append((state, file))
+            for old in images.glob("*.png") if images.exists() else ():
+                if old.name not in wanted:
+                    old.unlink()
+            path = Path(folder) / name / "README.md"
+            path.write_text(readme(component, pictures, server.targets[tid].size))
+            written.append(path)
+    return written
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
@@ -658,6 +751,11 @@ def main():
     parser.add_argument(
         "--states-only", action="store_true", help="--shots: only the named states, no snapshots"
     )
+    parser.add_argument(
+        "--readmes",
+        action="store_true",
+        help="write each component's README.md and pictures of its named states, then exit",
+    )
     args = parser.parse_args()
     try:
         import tests.fakegame  # noqa: F401
@@ -674,14 +772,18 @@ def main():
             found = targets(args.config, names=args.targets)
         except (OSError, ValueError) as error:
             parser.error(str(error))
-        port = 0 if args.shots else args.port
+        port = 0 if args.shots or args.readmes else args.port
         server = HarnessServer(("127.0.0.1", port), snaps, found)
-        if args.shots:
+        if args.shots or args.readmes:
             chrome = find_chrome()
             if chrome is None:
-                parser.error("--shots needs google-chrome or chromium on the PATH")
+                parser.error("pictures need google-chrome or chromium on the PATH")
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
+                if args.readmes:
+                    written = readmes(server, chrome)
+                    print(f"{len(written)} READMEs in {web.COMPONENTS_DIR}")
+                    return
                 shots = shoot(server, args.shots, chrome, snapshots=not args.states_only)
             finally:
                 server.shutdown()

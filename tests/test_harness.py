@@ -223,3 +223,50 @@ def test_pictures_are_taken_at_each_snapshot_then_in_each_named_state(clearance_
     stems = [stem for _, stem, _, _ in harness.cases(clearance_server, "component.clearance")]
     assert stems[: len(snaps)] == [snap.id for snap in snaps]
     assert "state.clearance-expiring" in stems
+
+
+# -- READMEs -------------------------------------------------------------------------
+
+CLEARANCE = COMPONENTS["clearance"]
+PICTURES = [("away from stations", None), ("expiring", "expiring.png")]
+
+
+def clearance_readme(size=(640, 40)):
+    return harness.readme(CLEARANCE, PICTURES, size)
+
+
+def test_a_readme_starts_with_the_components_description():
+    assert f"# clearance\n\n{CLEARANCE.description}\n" in clearance_readme()
+
+
+def test_a_readme_lists_what_the_component_reads():
+    assert "| **Reads** | `clearance` |" in clearance_readme()
+
+
+def test_a_readme_links_what_a_component_needs():
+    page = harness.readme(COMPONENTS["all_keys"], [], (1600, 900))
+    assert "[`keys`](../keys/README.md)" in page
+
+
+def test_a_readme_shows_each_states_picture():
+    assert '<img src="images/expiring.png"' in clearance_readme()
+
+
+def test_a_readme_says_when_a_state_shows_nothing():
+    assert "<b>away from stations</b><br><i>shows nothing</i>" in clearance_readme()
+
+
+def test_strips_are_one_to_a_row():
+    assert clearance_readme().count("<tr>") == 2
+
+
+def test_bigger_components_are_two_to_a_row():
+    assert clearance_readme(size=(1600, 900)).count("<tr>") == 1
+
+
+@pytest.mark.parametrize("name", list(COMPONENTS))
+def test_each_components_readme_is_up_to_date_with_its_states(name):
+    """Run `python -m helper.harness --readmes` after changing a states file."""
+    text = (Path(harness.web.COMPONENTS_DIR) / name / "README.md").read_text()
+    for state, _ in COMPONENTS[name].states:
+        assert f"<b>{state}</b>" in text, f"{name}: {state!r} isn't in its README"

@@ -56,6 +56,7 @@ OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.
   .venv/bin/python -m helper.harness clearance --shots /tmp/clearance
   OOLITE_HELPER_SHOTS=/tmp/shots .venv/bin/python -m pytest tests/test_component_images.py
   ```
+- **Component READMEs**: each component folder has a generated `README.md` (what `component.toml` says, and a picture of each named state in `images/`). After changing a component's look, `component.toml` or its states, run `.venv/bin/python -m helper.harness --readmes` and commit the result; a test fails if a README misses a state.
 - **Plugin browser preview**: serve a plugin with live scenario data, without the helper or WebKit:
   ```bash
   .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
