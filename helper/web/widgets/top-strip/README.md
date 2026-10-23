@@ -1,4 +1,4 @@
-<!-- Made by `python -m helper.harness --readmes` from widget.toml and its components' states: edit those and run it again. -->
+<!-- Made by `python -m helper.harness --readmes` from widget.toml: edit it and run it again. -->
 
 # top-strip
 
@@ -23,18 +23,15 @@ Its id is `top-strip` unless you give another. Try it: `python -m helper.harness
 
 ## Named states
 
-Its components' named states, from their `.states.json` files. *Shows nothing* means none of its components draws anything then, so the widget hides.
+From `[states]` in `widget.toml`: each names a state of each of its components. *Shows nothing* means none of them draws anything then, so the widget hides.
 
 | State | Picture |
 |---|---|
-| **clearance: away from stations** | *shows nothing* |
-| **clearance: none** | <img src="images/clearance-none.png" width="700" alt="clearance: none"> |
-| **clearance: requested** | <img src="images/clearance-requested.png" width="700" alt="clearance: requested"> |
-| **clearance: granted** | <img src="images/clearance-granted.png" width="700" alt="clearance: granted"> |
-| **clearance: expiring** | <img src="images/clearance-expiring.png" width="700" alt="clearance: expiring"> |
-| **clearance: refused** | <img src="images/clearance-refused.png" width="700" alt="clearance: refused"> |
-| **drive: docked** | *shows nothing* |
-| **drive: both ready** | <img src="images/drive-both-ready.png" width="700" alt="drive: both ready"> |
-| **drive: mass locked** | <img src="images/drive-mass-locked.png" width="700" alt="drive: mass locked"> |
-| **drive: jump blocked** | <img src="images/drive-jump-blocked.png" width="700" alt="drive: jump blocked"> |
-| **drive: torus only** | <img src="images/drive-torus-only.png" width="700" alt="drive: torus only"> |
+| **docked** | *shows nothing* |
+| **just launched** | <img src="images/just-launched.png" width="700" alt="just launched"> |
+| **waiting for clearance** | <img src="images/waiting-for-clearance.png" width="700" alt="waiting for clearance"> |
+| **cleared to dock** | <img src="images/cleared-to-dock.png" width="700" alt="cleared to dock"> |
+| **clearance running out** | <img src="images/clearance-running-out.png" width="700" alt="clearance running out"> |
+| **refused clearance** | <img src="images/refused-clearance.png" width="700" alt="refused clearance"> |
+| **in open space** | <img src="images/in-open-space.png" width="700" alt="in open space"> |
+| **too near a planet to jump** | <img src="images/too-near-a-planet-to-jump.png" width="700" alt="too near a planet to jump"> |

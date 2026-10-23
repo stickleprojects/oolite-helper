@@ -289,7 +289,7 @@ TOP_STRIP = PRESETS["top-strip"]
 
 
 def top_strip_readme():
-    pictures = [("drive: mass locked", "drive-mass-locked.png")]
+    pictures = [("just launched", "just-launched.png")]
     return harness.preset_readme(TOP_STRIP, pictures, (1280, 40))
 
 
@@ -317,17 +317,24 @@ def test_a_preset_readme_shows_how_to_use_it():
     assert 'widget = "top-strip"' in top_strip_readme()
 
 
-def test_a_preset_readme_shows_its_components_states():
-    row = '| **drive: mass locked** | <img src="images/drive-mass-locked.png"'
+def test_a_preset_readme_shows_its_own_states():
+    row = '| **just launched** | <img src="images/just-launched.png"'
     assert row in top_strip_readme()
 
 
 @pytest.mark.parametrize("name", list(PRESETS))
-def test_each_presets_readme_is_up_to_date_with_its_components_states(name):
-    """Run `python -m helper.harness --readmes` after changing a preset or a states file."""
+def test_each_presets_readme_is_up_to_date_with_its_states(name):
+    """Run `python -m helper.harness --readmes` after changing a preset's states."""
     text = (Path(harness.web.DIR) / "widgets" / name / "README.md").read_text()
-    for component, state, _ in harness.preset_target(name).states:
-        assert f"| **{component}: {state}** |" in text, f"{name}: {state!r} isn't in its README"
+    for state, _ in PRESETS[name].states:
+        assert f"| **{state}** |" in text, f"{name}: {state!r} isn't in its README"
+
+
+def test_a_presets_state_sets_each_of_its_components_states():
+    target = harness.preset_target("top-strip")
+    values = {state: values for c, state, values in target.states if c == "widget"}
+    drive, clearance = dict(COMPONENTS["drive"].states), dict(COMPONENTS["clearance"].states)
+    assert values["just launched"] == {**clearance["none"], **drive["mass locked"]}
 
 
 def show_url():

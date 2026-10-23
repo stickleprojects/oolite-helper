@@ -27,9 +27,15 @@ Configured in config.toml as an array of [[widgets]] tables:
     dock = "game:bottom"
 
 A preset is a folder in helper/web/widgets/<name>/: a widget.toml with the
-settings a [[widgets]] table takes, plus a description, and a generated
-README.md with pictures of it (python -m helper.harness --readmes). Its name is
-the widget's id unless the config gives another.
+settings a [[widgets]] table takes, plus a description and named states, each
+naming a state for each of its components:
+
+    [states]
+    "leaving the station" = {clearance = "away from stations", drive = "mass locked"}
+
+and a generated README.md with a picture of it in each state (python -m
+helper.harness --readmes). Its name is the widget's id unless the config gives
+another.
 
 Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
@@ -192,6 +198,7 @@ class Preset:
     description: str
     settings: dict  # what a [[widgets]] table takes
     spec: WidgetSpec  # those settings, checked, with the name as its id
+    states: tuple = ()  # ((name, {component: its state's name}), ...)
 
 
 def read_preset(folder):
@@ -201,13 +208,21 @@ def read_preset(folder):
     with open(path, "rb") as f:
         settings = tomllib.load(f)
     description = settings.pop("description", "")
+    states = settings.pop("states", {})
     if "id" in settings or "widget" in settings:
         raise ValueError(f"{path}: a preset's id is its folder name, and it can't use a preset")
     try:
         spec = _spec(path, name, {**settings, "id": name})
     except SystemExit as error:
         raise ValueError(str(error)) from None
-    return Preset(name, description, settings, spec)
+    for state, chosen in states.items():
+        if not isinstance(chosen, dict) or set(chosen) != set(spec.names):
+            wanted = ", ".join(spec.names)
+            raise ValueError(f"{path}: state {state!r} must name a state for each of {wanted}")
+        for component, choice in chosen.items():
+            if choice not in dict(COMPONENTS[component].states):
+                raise ValueError(f"{path}: state {state!r}: {component} has no state {choice!r}")
+    return Preset(name, description, settings, spec, tuple(states.items()))
 
 
 def discover_presets(folder=WIDGETS_DIR):

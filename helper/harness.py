@@ -130,6 +130,7 @@ class Target:
     title: str
     spec: WidgetSpec
     manifest: Manifest
+    named: tuple = ()  # a preset's own states: ((name, {component: state}), ...)
 
     @property
     def builtin(self):
@@ -150,15 +151,26 @@ class Target:
     @property
     def states(self):
         """[(component, state name, {topic: value}), ...]: its components' named
-        states. A tab's states show that tab."""
+        states, after a preset's own (as component "widget"). A tab's states
+        show that tab."""
         if not self.builtin:
             return []
-        tabbed = {name for item in self.spec.components if isinstance(item, tuple) for name in item}
-        return [
-            (name, state, {**values, **(self.showing(name) if name in tabbed else {})})
+        own = [("widget", state, self.together(chosen)) for state, chosen in self.named]
+        return own + [
+            (name, state, self.together({name: state}))
             for name in self.spec.names
-            for state, values in COMPONENTS[name].states
+            for state, _ in COMPONENTS[name].states
         ]
+
+    def together(self, chosen):
+        """{topic: value} for these components' states, {component: state name}."""
+        tabbed = {name for item in self.spec.components if isinstance(item, tuple) for name in item}
+        values = {}
+        for name, state in chosen.items():
+            values.update(dict(COMPONENTS[name].states)[state])
+            if name in tabbed:
+                values.update(self.showing(name))
+        return values
 
     @staticmethod
     def showing(tab):
@@ -174,9 +186,11 @@ def component_target(name):
 
 
 def preset_target(name):
-    spec = PRESETS[name].spec
+    preset = PRESETS[name]
+    spec = preset.spec
     title = f"{name}: {', '.join(spec.names)}"
-    return Target(f"preset.{name}", title, spec, builtin_manifest(COMPONENTS, spec.components))
+    manifest = builtin_manifest(COMPONENTS, spec.components)
+    return Target(f"preset.{name}", title, spec, manifest, preset.states)
 
 
 def config_targets(config_path, manifests):
@@ -685,8 +699,8 @@ README_NOTE = (
     "{name}.states.json: edit those and run it again. -->"
 )
 PRESET_NOTE = (
-    "<!-- Made by `python -m helper.harness --readmes` from widget.toml and its "
-    "components' states: edit those and run it again. -->"
+    "<!-- Made by `python -m helper.harness --readmes` from widget.toml: "
+    "edit it and run it again. -->"
 )
 
 
@@ -754,7 +768,7 @@ def _extent(given, side, docked_sides):
 
 def preset_readme(preset, pictures, size):
     """A preset's README.md: what widget.toml says, then a picture of the widget
-    in each of its components' named states."""
+    in each of its named states."""
     spec = preset.spec
     links = ", ".join(f"[`{name}`](../../components/{name}/README.md)" for name in spec.names)
     side = spec.dock.split(":")[1] if spec.dock else None
@@ -788,8 +802,8 @@ def preset_readme(preset, pictures, size):
         "",
         "## Named states",
         "",
-        "Its components' named states, from their `.states.json` files. *Shows nothing* "
-        "means none of its components draws anything then, so the widget hides.",
+        "From `[states]` in `widget.toml`: each names a state of each of its components. "
+        "*Shows nothing* means none of them draws anything then, so the widget hides.",
         "",
     ]
     lines += picture_rows(pictures, size)
@@ -901,7 +915,7 @@ def readmes(server, chrome, folder=web.DIR):
                 continue
             here = Path(folder) / "widgets" / name
             target = server.targets[tid]
-            states = [(f"{c}: {s}", slug(f"{c} {s}"), values) for c, s, values in target.states]
+            states = [(s, slug(s), values) for c, s, values in target.states if c == "widget"]
             pictures = state_pictures(server, chrome, profile, tid, states, here / "images")
             (here / "README.md").write_text(preset_readme(preset, pictures, target.size))
             written.append(here / "README.md")

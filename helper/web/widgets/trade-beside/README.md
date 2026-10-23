@@ -1,4 +1,4 @@
-<!-- Made by `python -m helper.harness --readmes` from widget.toml and its components' states: edit those and run it again. -->
+<!-- Made by `python -m helper.harness --readmes` from widget.toml: edit it and run it again. -->
 
 # trade-beside
 
@@ -23,9 +23,9 @@ Its id is `trade-beside` unless you give another. Try it: `python -m helper.harn
 
 ## Named states
 
-Its components' named states, from their `.states.json` files. *Shows nothing* means none of its components draws anything then, so the widget hides.
+From `[states]` in `widget.toml`: each names a state of each of its components. *Shows nothing* means none of them draws anything then, so the widget hides.
 
 | State | Picture |
 |---|---|
-| **trade_here: not docked yet** | <img src="images/trade-here-not-docked-yet.png" width="560" alt="trade_here: not docked yet"> |
-| **trade_here: docked with cargo** | <img src="images/trade-here-docked-with-cargo.png" width="560" alt="trade_here: docked with cargo"> |
+| **in flight** | <img src="images/in-flight.png" width="560" alt="in flight"> |
+| **docked with cargo** | <img src="images/docked-with-cargo.png" width="560" alt="docked with cargo"> |

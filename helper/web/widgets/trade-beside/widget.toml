@@ -2,3 +2,7 @@ description = "What's in the hold, the last market and the best buys, beside the
 components = ["trade_here"]
 dock = "game:right"
 width = 560
+
+[states]
+"in flight" = {trade_here = "not docked yet"}
+"docked with cargo" = {trade_here = "docked with cargo"}

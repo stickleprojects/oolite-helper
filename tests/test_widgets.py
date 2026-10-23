@@ -94,6 +94,22 @@ def test_a_presets_settings_are_checked_like_a_config_widgets(tmp_path):
         read_preset(tmp_path)
 
 
+def test_a_presets_state_must_name_a_state_for_each_component(tmp_path):
+    (tmp_path / "widget.toml").write_text(
+        'components = ["clearance", "drive"]\n[states]\nx = {drive = "docked"}\n'
+    )
+    with pytest.raises(ValueError, match="must name a state for each of clearance, drive"):
+        read_preset(tmp_path)
+
+
+def test_a_presets_state_must_name_states_its_components_have(tmp_path):
+    (tmp_path / "widget.toml").write_text(
+        'components = ["drive"]\n[states]\nx = {drive = "warp"}\n'
+    )
+    with pytest.raises(ValueError, match="drive has no state 'warp'"):
+        read_preset(tmp_path)
+
+
 def test_a_preset_cant_set_its_own_id(tmp_path):
     (tmp_path / "widget.toml").write_text('components = ["drive"]\nid = "x"\n')
     with pytest.raises(ValueError, match="id is its folder name"):
