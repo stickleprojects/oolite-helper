@@ -1,0 +1,9 @@
+.chips { display: flex; gap: calc(12px * var(--oo-scale)); }
+.chip {
+  padding: 0 calc(12px * var(--oo-scale));
+  color: var(--oo-bg);
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  white-space: pre;
+}
+.chip.good { background: var(--oo-green); }
+.chip.bad { background: var(--oo-red); }

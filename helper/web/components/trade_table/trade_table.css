@@ -1,0 +1,29 @@
+.trade, .detail { margin: calc(12px * var(--oo-scale)) calc(40px * var(--oo-scale)); }
+table { border-collapse: collapse; white-space: nowrap; }
+th, td { padding: 0 calc(14px * var(--oo-scale)); text-align: left; font-size: calc(18pt * var(--oo-scale)); }
+th { padding-bottom: calc(6px * var(--oo-scale)); }
+th button { border: 0; padding: 0; background: transparent; color: var(--oo-dim); font: bold calc(16pt * var(--oo-scale)) var(--oo-sans); cursor: pointer; }
+th button.active { color: var(--oo-accent); }
+td { font-family: var(--oo-sans); }
+.trade td:nth-child(2), .trade td:nth-child(3), .trade td:nth-child(5) { font-family: var(--oo-mono); }
+.offers td:nth-child(2), .offers td:nth-child(3), .offers td:nth-child(4) { font-family: var(--oo-mono); }
+.detail-heading { display: flex; align-items: baseline; gap: calc(28px * var(--oo-scale)); font-size: calc(20pt * var(--oo-scale)); white-space: pre; }
+.detail-heading button, .quantity {
+  border: 0;
+  padding: calc(3px * var(--oo-scale)) calc(8px * var(--oo-scale));
+  background: var(--oo-bg);
+  color: var(--oo-fg);
+  font: calc(18pt * var(--oo-scale)) var(--oo-sans);
+  cursor: pointer;
+}
+.detail-heading button { background: transparent; color: var(--oo-accent); font-size: calc(16pt * var(--oo-scale)); }
+.offers { margin-top: calc(10px * var(--oo-scale)); }
+.offers th { color: var(--oo-dim); font: bold calc(16pt * var(--oo-scale)) var(--oo-sans); }
+.picker { display: flex; align-items: center; gap: calc(8px * var(--oo-scale)); margin-top: calc(14px * var(--oo-scale)); }
+.picker strong { margin-right: calc(6px * var(--oo-scale)); color: var(--oo-dim); font-size: calc(18pt * var(--oo-scale)); }
+.quantity { font-weight: bold; }
+.quantity.current { background: var(--oo-panel); color: var(--oo-accent); font-family: var(--oo-mono); }
+.limit { margin-left: calc(6px * var(--oo-scale)); font-size: calc(16pt * var(--oo-scale)); }
+.summary, .step { margin: calc(8px * var(--oo-scale)) 0 0; font-size: calc(18pt * var(--oo-scale)); }
+.summary { white-space: pre; }
+.step { max-width: 60vw; }

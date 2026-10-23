@@ -1,10 +1,10 @@
 import pytest
 
 from helper.app import HelperWindow, should_quit_for_messages
-from helper.components.header import Status
 from helper.markets import MarketStore
 from helper.model import Model
 from helper.plugins import WebWidgets
+from helper.tk.components.header import Status
 
 
 @pytest.mark.parametrize(

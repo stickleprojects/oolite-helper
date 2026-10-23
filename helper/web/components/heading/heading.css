@@ -1,0 +1,18 @@
+.heading {
+  display: flex;
+  align-items: flex-end;
+  padding: calc(24px * var(--oo-scale)) calc(40px * var(--oo-scale)) calc(8px * var(--oo-scale));
+}
+.heading .context { color: var(--oo-accent); font-size: calc(44pt * var(--oo-scale)); }
+.heading .context.urgent { color: var(--oo-red); }
+.heading .location { margin-left: calc(24px * var(--oo-scale)); font-size: calc(28pt * var(--oo-scale)); }
+.heading .location.reached { color: var(--oo-green); }
+.heading .location.aimed { color: var(--oo-red); }
+.heading .details {
+  margin-left: auto;
+  padding-bottom: calc(10px * var(--oo-scale));
+  color: var(--oo-dim);
+  font-size: calc(20pt * var(--oo-scale));
+  text-align: right;
+  white-space: pre; /* keeps the four spaces between Screen and View */
+}

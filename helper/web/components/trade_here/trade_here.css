@@ -1,0 +1,4 @@
+.trade-here { width: calc(560px * var(--oo-scale)); }
+.fixed .trade-here { width: auto; }
+.trade-here h3 { margin: calc(8px * var(--oo-scale)) 0 0; color: var(--oo-accent); font-size: calc(18pt * var(--oo-scale)); }
+.trade-here p { margin: 0; font-size: calc(18pt * var(--oo-scale)); }

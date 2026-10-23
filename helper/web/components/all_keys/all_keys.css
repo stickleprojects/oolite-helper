@@ -1,0 +1,2 @@
+.all-keys { padding: calc(12px * var(--oo-scale)) calc(40px * var(--oo-scale)); }
+.groups { display: flex; flex-wrap: wrap; gap: calc(8px * var(--oo-scale)); margin-bottom: calc(12px * var(--oo-scale)); }

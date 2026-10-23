@@ -11,19 +11,19 @@ import traceback
 
 from . import config
 from . import layout as layout_file
-from .components import Style
-from .components.body import Body
-from .components.chips import ClearanceBadge, DriveChips, Tabs
-from .components.header import Details, Heading, Location, Status, Tip
-from .components.style import ACCENT, BG, DIM, FG, MONO, SANS
 from .gamewindow import GameWindow
 from .keys import load_keymap
 from .layout import widgets_from_specs
 from .markets import MarketStore
 from .model import Model
-from .plugins import BUILTIN, WebWidgets, discover, read_manifest
+from .plugins import WebWidgets, discover
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
 from .sources import DEFAULT_LOG, LogSource
+from .tk.components import Style
+from .tk.components.body import Body
+from .tk.components.chips import ClearanceBadge, DriveChips, Tabs
+from .tk.components.header import Details, Heading, Location, Status, Tip
+from .tk.components.style import ACCENT, BG, DIM, FG, MONO, SANS
 from .widgets import COMPONENTS, TkWidget, load_widgets
 
 POLL_MS = 200
@@ -142,7 +142,7 @@ class HelperWindow:
         self.monitors = monitors
         self.widgets = []
         manifests, broken = plugins
-        builtin = read_manifest(BUILTIN) if ui == "web" else None
+        builtin = COMPONENTS if ui == "web" else None
         self.plugins = WebWidgets(
             model, manifests, broken, monitors, builtin=builtin, fallback=self.tk_widgets
         )

@@ -48,12 +48,15 @@ ui = "web"
 # and show only while the game is the active window. A widget with nothing to
 # show (e.g. the drive chips while docked) hides itself.
 #
-# components: one or more of "drive" (TORUS/JUMP), "clearance", "trade_here";
-#             or the name of one plugin from ~/.config/oolite-helper/plugins/,
-#             alone (plugins are web pages in their own window; see #59)
+# components: one or more built-in components: "heading", "tip", "status",
+#             "keys", "all_keys", "trade_table", "trade_here", "drive" (TORUS/
+#             JUMP), "clearance" (see helper/web/components/); or the name of
+#             one plugin from ~/.config/oolite-helper/plugins/, alone (plugins
+#             are web pages in their own window; see #59)
 # dock:       "game:top", "game:bottom", "game:left" or "game:right"
 # screen/x/y: for a free widget instead of dock (x/y are an offset when docked)
-# width/height, layout ("compact" default, or "large"), font_scale,
+# width/height, layout ("compact", the default when docked to the game, or
+# "large", the default otherwise), font_scale,
 # show ("with_game" default when docked: only while the game is the active
 # window; or "always"), hide_empty (true default: hide while the components have
 # nothing to show, e.g. drive lamps while docked; false keeps it up)

@@ -1,0 +1,23 @@
+{
+  "no keys": {"key_sections": []},
+  "near a station": {"key_sections": [
+    {"title": "Docking", "keys": [
+      {"action": "key_docking_clearance_request", "keys": "Shift+L", "description": "Request docking clearance", "available": true},
+      {"action": "key_autopilot", "keys": "C", "description": "Docking computer", "available": true},
+      {"action": "key_autodock", "keys": "Shift+C", "description": "Fast docking", "available": false}
+    ]},
+    {"title": "Flight", "keys": [
+      {"action": "key_roll_left", "keys": "←", "description": "Roll left", "available": true},
+      {"action": "key_roll_right", "keys": "→", "description": "Roll right", "available": true},
+      {"action": "key_increase_speed", "keys": "W", "description": "Increase thrust", "available": true},
+      {"action": "key_decrease_speed", "keys": "S", "description": "Decrease thrust", "available": true}
+    ]}
+  ]},
+  "missing and unbound": {"key_sections": [
+    {"title": "Docking", "keys": [
+      {"action": "key_docking_clearance_request", "keys": "Shift+L", "description": "Request docking clearance", "available": true},
+      {"action": "key_ecm", "keys": "E", "description": "ECM", "available": false},
+      {"action": "key_unbound", "keys": "", "description": "Something unbound", "available": true}
+    ]}
+  ]}
+}

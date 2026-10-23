@@ -1,0 +1,13 @@
+.badge {
+  padding: 0 calc(12px * var(--oo-scale));
+  color: var(--oo-bg);
+  font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
+  white-space: pre;
+}
+.badge.green { background: var(--oo-green); }
+.badge.red { background: var(--oo-red); }
+.badge.amber { background: var(--oo-accent); }
+.badge.flashes { animation: badge-flash 0.5s steps(1, end) infinite alternate; }
+@keyframes badge-flash {
+  to { color: var(--oo-accent); background: var(--oo-panel); }
+}

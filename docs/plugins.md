@@ -91,6 +91,7 @@ Plain JSON. **Constants for logic, text for showing:** anything meant to be read
 | `market_advice` | Trade here, while docked: [{"heading", "lines": [{"text", "warning"}]}, ...] |
 | `equipment` | what's fitted: {"items": [{"key": "EQ_ECM", "name": "E.C.M. System", "description": the game's own text, "count": 1, "ok": false if damaged}, ...], "missiles": {"pylons": how many, or null before the game says, "loaded": [{"key": "EQ_MISSILE", "name": "Missile", "count": 2}, ...]}} |
 | `status` | the status line: {"kind": "error", "warning", "notice", "message" or null, "text"} |
+| `last_message` | the last message from the game, as raw JSON text, for debugging; null before one |
 | `keys` | the actions in your manifest's `keys`: {action: {"action", "bindings", "keys", "description"}} |
 
 A key entry is `{"action": "key_roll_left", "bindings": [{"key": "arrowLeft", "shift": false, "ctrl": false, "alt": false}], "keys": "←", "description": "Roll left"}`. `bindings` uses the game's own key names (`keyconfig2.plist`), after your remaps; `keys` is how the helper shows them.

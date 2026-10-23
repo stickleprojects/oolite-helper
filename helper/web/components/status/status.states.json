@@ -1,0 +1,7 @@
+{
+  "all well": {"status": {"kind": null, "text": ""}},
+  "a message only": {"status": {"kind": "message", "text": "{\"type\": \"alert\", \"level\": 1}"}},
+  "notice": {"status": {"kind": "notice", "text": "Market prices loaded from your last visit"}},
+  "warning": {"status": {"kind": "warning", "text": "plugin lamp: not installed"}},
+  "error": {"status": {"kind": "error", "text": "Error (still running): PermissionError: Latest.log"}}
+}
