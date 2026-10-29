@@ -1,10 +1,17 @@
 ---
 name: refine-issue
-description: Refine a rough oolite-helper issue into a buildable spec. Reads the issue and the code, checks game facts in the Oolite 1.92.1 source, asks Kieron only what's his to decide, and writes the spec into the issue body. Use when Kieron types /refine-issue [N], asks to refine an issue, or an issue has the "needs refinement" label.
+description: Refine a rough oolite-helper issue into a buildable spec. Reads the issue and the code, checks game facts in the Oolite 1.92.1 source, asks Kieron only what's his to decide, and writes the spec into the issue body. Use when Kieron types /refine-issue [N | check], asks to refine an issue or which issues need refining, or an issue has the "needs refinement" label.
 ---
 # Refine an issue
 
 A rough issue holds Kieron's idea in a few lines. A refined one is a spec that someone can build in small, verified steps without guessing (examples: #70, #71, #89). Refining is design work only: don't write code or open a branch.
+
+## Check: which issues need refining
+With `check` (or when Kieron asks which issues need refining), only report; change nothing:
+1. List the open issues labelled `needs refinement`: `gh issue list --label "needs refinement" --json number,title,labels,body`.
+2. For each one, give a line with its number and title, what it's missing (no Goal, no Steps, open questions, unchecked game facts, stale terms or decisions), and whether it's blocked (`on hold`, or waiting on another issue).
+3. Flag the open issues **without** the label that look rough: a body of a few lines, no `## Goal` or `## Steps`, or "to be refined" in the text. Suggest adding the label rather than adding it.
+4. Recommend which one to refine first, and why.
 
 ## 1. Pick the issue
 With a number, refine that issue. Without one, list the open issues labelled `needs refinement` (`gh issue list --label "needs refinement"`) and ask which one to do. Do one issue at a time.
