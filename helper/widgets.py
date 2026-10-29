@@ -37,6 +37,14 @@ and a generated README.md with a picture of it in each state (python -m
 helper.harness --readmes). Its name is the widget's id unless the config gives
 another.
 
+A preset may also draw itself (#89): its own .js registers it with
+Oolite.widget() (helper/web/lib/widget.js) and arranges its components, as the
+tabs preset does. Then widget.toml may say what the widget itself reads and
+sends, beyond its components' (topics, actions), and that every component
+needs a title (titled = true: its tab label). Its own named states are in
+<name>.states.json, over its own topics, and a [states] entry then names one
+of them too, keyed by the preset's name.
+
 Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
@@ -48,14 +56,16 @@ for ui = "tk" or when the web host can't start; it shows the components that
 have a Tk version (TK_COMPONENTS) and leaves the others out.
 """
 
+import json
 import os
 import re
 import tkinter as tk
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from . import config, web
 from .layout import find
+from .plugin_api import ACTIONS, TOPICS
 from .tk.components.chips import ClearanceBadge, DriveChips
 from .tk.components.style import BG, LAYOUTS, Style
 from .tk.components.trade_here import TradeHere
@@ -76,7 +86,7 @@ WIDGETS_DIR = os.path.join(web.DIR, "widgets")  # the presets
 
 @dataclass(frozen=True)
 class WidgetSpec:
-    components: tuple  # names, and tuples of names for tab groups (helper.web)
+    components: tuple  # names
     dock: str | None = None  # one of DOCKS, or None for a free widget
     screen: str | None = None  # free widgets: monitor name; None = the whole desktop
     x: int = 0  # free: position on that monitor; docked: offset from the docked spot
@@ -88,11 +98,7 @@ class WidgetSpec:
     show: str | None = None  # SHOW; default with_game when docked, always when free
     hide_empty: bool = True  # hide while its components have nothing to show
     id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
-
-    @property
-    def names(self):
-        """Its component names, tab groups opened out."""
-        return web.names(self.components)
+    widget: str | None = None  # the preset it came from, if any
 
     @property
     def shown(self):
@@ -123,13 +129,14 @@ def _spec(path, n, entry, plugins=()):
         preset = PRESETS.get(entry["widget"])
         if preset is None:
             raise SystemExit(f"{where}: widget must be one of {', '.join(PRESETS)}")
-        mine = {key: value for key, value in entry.items() if key != "widget"}
-        entry = {"id": preset.name, **preset.settings, **mine}
+        entry = {"id": preset.name, **preset.settings, **entry}
+        if preset.titled:
+            _check_titled(where, entry.get("components"))
     known = set(WidgetSpec.__dataclass_fields__)
     unknown = set(entry) - known
     if unknown:
         raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
-    components = _arrangement(where, entry.get("components"), plugins)
+    components = _components(where, entry.get("components"), plugins)
     checks = (
         ("dock", entry.get("dock") in (None, *DOCKS), f"one of {', '.join(DOCKS)}"),
         ("layout", entry.get("layout", "large") in LAYOUTS, f"one of {', '.join(LAYOUTS)}"),
@@ -157,37 +164,32 @@ def _spec(path, n, entry, plugins=()):
     )
 
 
-def _arrangement(where, components, plugins):
-    """A widget's components from config.toml: names, and {tabs = [...]} groups
-    (tuples here). Stops with a message if they're wrong."""
+def _components(where, components, plugins):
+    """A widget's component names from config.toml. Stops with a message if they're wrong."""
     if isinstance(components, str):
         components = [components]
     if not isinstance(components, list) or not components:
         components = [None]  # reported below
     if len(components) == 1 and components[0] in plugins:
         return tuple(components)  # a plugin, alone
-    arrangement = []
-    for item in components:
-        if isinstance(item, dict):
-            group = item.get("tabs")
-            if set(item) != {"tabs"} or not isinstance(group, list) or len(group) < 2:
-                raise SystemExit(f"{where}: a tab group is {{tabs = [two or more components]}}")
-            untitled = [name for name in group if name in COMPONENTS and not COMPONENTS[name].title]
-            if untitled:
-                titled = ", ".join(name for name, _ in web.tab_titles(COMPONENTS))
-                raise SystemExit(f"{where}: {untitled[0]} can't be a tab; tabs can be {titled}")
-            arrangement.append(tuple(group))
-        else:
-            arrangement.append(item)
-    names = web.names(arrangement)
-    if any(name in plugins for name in names):
+    if any(name in plugins for name in components):
         raise SystemExit(f"{where}: a plugin must be the only component in its widget")
-    if not all(isinstance(name, str) and name in COMPONENTS for name in names):
+    if not all(isinstance(name, str) and name in COMPONENTS for name in components):
         known = ", ".join((*COMPONENTS, *sorted(plugins)))
         raise SystemExit(f"{where}: components must be one or more of {known}")
-    if len(set(names)) < len(names):
+    if len(set(components)) < len(components):
         raise SystemExit(f"{where}: each component can be in a widget only once")
-    return tuple(arrangement)
+    return tuple(components)
+
+
+def _check_titled(where, components):
+    """Stops with a message unless every component has a title (a tab label)."""
+    if isinstance(components, str):
+        components = [components]
+    for name in components if isinstance(components, list) else ():
+        if name in COMPONENTS and not COMPONENTS[name].title:
+            titled = ", ".join(name for name, _ in web.tab_titles(COMPONENTS))
+            raise SystemExit(f"{where}: {name} has no title, so it can't be here; try {titled}")
 
 
 @dataclass(frozen=True)
@@ -199,6 +201,11 @@ class Preset:
     settings: dict  # what a [[widgets]] table takes
     spec: WidgetSpec  # those settings, checked, with the name as its id
     states: tuple = ()  # ((name, {component: its state's name}), ...)
+    topics: tuple = ()  # what the widget itself reads, beyond its components'
+    actions: tuple = ()  # and may send
+    titled: bool = False  # every component needs a title (its tab label)
+    files: tuple = ()  # its own .css and .js files, relative to web.DIR
+    own_states: tuple = ()  # ((name, {topic: value}), ...) from <name>.states.json
 
 
 def read_preset(folder):
@@ -209,20 +216,62 @@ def read_preset(folder):
         settings = tomllib.load(f)
     description = settings.pop("description", "")
     states = settings.pop("states", {})
+    topics, actions = settings.pop("topics", []), settings.pop("actions", [])
+    titled = settings.pop("titled", False)
     if "id" in settings or "widget" in settings:
         raise ValueError(f"{path}: a preset's id is its folder name, and it can't use a preset")
+    if not all(topic in TOPICS for topic in topics):
+        raise ValueError(f"{path}: topics must be from plugin_api.TOPICS")
+    if not all(action in ACTIONS for action in actions):
+        raise ValueError(f"{path}: actions must be from plugin_api.ACTIONS")
+    if not isinstance(titled, bool):
+        raise ValueError(f"{path}: titled must be true or false")
     try:
-        spec = _spec(path, name, {**settings, "id": name})
+        if titled:
+            _check_titled(path, settings.get("components"))
+        spec = replace(_spec(path, name, {**settings, "id": name}), widget=name)
     except SystemExit as error:
         raise ValueError(str(error)) from None
+    own = _own_states(folder, name, topics)
+    wanted = set(spec.components) | ({name} if own else set())
     for state, chosen in states.items():
-        if not isinstance(chosen, dict) or set(chosen) != set(spec.names):
-            wanted = ", ".join(spec.names)
-            raise ValueError(f"{path}: state {state!r} must name a state for each of {wanted}")
-        for component, choice in chosen.items():
-            if choice not in dict(COMPONENTS[component].states):
-                raise ValueError(f"{path}: state {state!r}: {component} has no state {choice!r}")
-    return Preset(name, description, settings, spec, tuple(states.items()))
+        if not isinstance(chosen, dict) or set(chosen) != wanted:
+            listed = ", ".join([*spec.components, *([name] if own else [])])
+            raise ValueError(f"{path}: state {state!r} must name a state for each of {listed}")
+        for part, choice in chosen.items():
+            known = own if part == name else dict(COMPONENTS[part].states)
+            if choice not in known:
+                raise ValueError(f"{path}: state {state!r}: {part} has no state {choice!r}")
+    files = sorted(
+        f"widgets/{name}/{file}"
+        for file in os.listdir(folder)
+        if file.endswith((".css", ".js")) and not file.endswith(".test.js")
+    )
+    return Preset(
+        name,
+        description,
+        settings,
+        spec,
+        tuple(states.items()),
+        tuple(topics),
+        tuple(actions),
+        titled,
+        tuple(files),
+        tuple(own.items()),
+    )
+
+
+def _own_states(folder, name, topics):
+    """A preset's own named states, {name: {topic: value}}, from <name>.states.json."""
+    path = os.path.join(folder, f"{name}.states.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        named = json.load(f)
+    for state, values in named.items():
+        if not isinstance(values, dict) or not set(values) <= set(topics):
+            raise ValueError(f"{path}: state {state!r} may only set the widget's own topics")
+    return named
 
 
 def discover_presets(folder=WIDGETS_DIR):
@@ -286,7 +335,9 @@ class TkWidget:
         frame = tk.Frame(self.window, bg=BG, padx=style.px(6), pady=style.px(4))
         frame.pack(fill="both", expand=True)
         self.components = [
-            TK_COMPONENTS[name](model, style, frame) for name in spec.names if name in TK_COMPONENTS
+            TK_COMPONENTS[name](model, style, frame)
+            for name in spec.components
+            if name in TK_COMPONENTS
         ]
         self.placed = None
         # Re-place when the game window moves or the components need a different size

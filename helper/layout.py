@@ -44,7 +44,7 @@ def widgets_from_specs(specs):
     """The widgets for the configured widgets, in order. Ids must be unique."""
     widgets = []
     for n, spec in enumerate(specs, start=1):
-        wid = spec.id or f"widget{n}:{spec.names[0]}"
+        wid = spec.id or f"widget{n}:{spec.components[0]}"
         if any(widget.id == wid for widget in widgets):
             raise SystemExit(f"{config.PATH}: two widgets have the id {wid!r}")
         widgets.append(Widget(wid, spec))

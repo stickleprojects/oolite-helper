@@ -376,7 +376,7 @@ def test_builtin_components_get_a_page_of_their_own_and_hide_until_it_draws(buil
     assert (window.plugin, window.rect) == ("builtin", None)
     extras = dict(window.extras)
     assert extras["widget.js"] == (
-        'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], '
+        'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
         '"topics": ["clearance", "drive"], "width": null};\n'
     )
     host.events = [
@@ -421,15 +421,15 @@ def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(built
     assert "trade_here" not in page and "keys" not in page
 
 
-def test_a_widget_page_gets_its_tab_groups():
-    specs = [WidgetSpec(components=(("keys", "all_keys"),), dock="game:right")]
+def test_a_widget_page_names_its_preset():
+    specs = [WidgetSpec(components=("keys", "all_keys"), dock="game:right", widget="tabs")]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
     WebWidgets(model, {}, host=host, builtin=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     model.notify()
     script = dict(host.windows["widget1:keys"].extras)["widget.js"]
-    assert '"components": [{"tabs": ["keys", "all_keys"]}]' in script
+    assert '"components": ["keys", "all_keys"], "widget": "tabs"' in script
 
 
 def test_hide_empty_false_keeps_an_empty_page_shown():

@@ -66,12 +66,12 @@ jobs:
       - name: Syntax check
         run: |
           node --check oxp/CtxKeys.oxp/Config/script.js
-          for f in helper/web/lib/*.js helper/web/components/*/*.js; do node --check "$f"; done
+          for f in helper/web/lib/*.js helper/web/components/*/*.js helper/web/widgets/*/*.js; do node --check "$f"; done
       - name: Fake-Oolite harness tests
         # Name the file: a bare folder argument fails on Node 22+.
         run: node --test tests/oxp/script.test.js
       - name: Web component tests
-        run: node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js
+        run: node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js helper/web/widgets/*/*.test.js
 
   shell:
     name: Shell

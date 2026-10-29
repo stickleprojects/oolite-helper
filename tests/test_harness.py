@@ -355,7 +355,8 @@ def test_a_components_own_change_remakes_its_readme():
 
 
 def test_a_change_remakes_the_components_that_need_it_too():
-    assert set(harness.affected(["helper/web/components/keys/keys.js"])) == {"keys", "all_keys"}
+    changed = harness.affected(["helper/web/components/keys/keys.js"], presets={})
+    assert set(changed) == {"keys", "all_keys"}
 
 
 def test_a_change_to_the_shared_stylesheet_remakes_every_readme():
@@ -392,9 +393,14 @@ def test_files_outside_the_components_dont_count():
     assert harness.affected(["helper/state.py", "README.md"]) == []
 
 
-def test_a_bar_joins_components_into_a_tab_group():
-    (target,) = harness.targets(None, plugins={}, names=["tip+keys|all_keys"])
-    assert target.spec.components == ("tip", ("keys", "all_keys"))
+def test_a_bar_makes_a_tabs_widget():
+    (target,) = harness.targets(None, plugins={}, names=["keys|all_keys"])
+    assert (target.spec.widget, target.spec.components) == ("tabs", ("keys", "all_keys"))
+
+
+def test_a_plus_and_a_bar_cant_be_mixed():
+    with pytest.raises(ValueError, match="not both"):
+        harness.targets(None, plugins={}, names=["tip+keys|all_keys"])
 
 
 def test_a_tabs_named_states_show_that_tab():

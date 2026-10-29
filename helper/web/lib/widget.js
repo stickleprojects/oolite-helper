@@ -3,11 +3,8 @@
 //
 // The helper generates each widget's page: it loads this file, the listed
 // components' files, and _oolite/widget.js, which sets
-// OOLITE_WIDGET = {components: [...], topics: [...], width: px or null}.
-// Each entry in components is a name, or {tabs: [names]}: a tab group, drawn
-// as a tab row (the widget's own frame) over the tab shown. The model keeps
-// the choice (ui/choose_tab, the "tabs" topic), so every widget agrees, and an
-// emergency shows Keys.
+// OOLITE_WIDGET = {components: [names], widget: preset name or null,
+// topics: [...], width: px or null}.
 //
 // A component is
 //   Oolite.component("name", {render(state, refresh) { return node or null; }});
@@ -15,10 +12,16 @@
 // in component.toml) and refresh() redraws after a change to the component's
 // own local state, e.g. a sort order. render returns null when there's
 // nothing to show; with every component empty the widget hides itself.
+//
+// A widget draws its components side by side (a column when it has a fixed
+// size), unless its preset draws it (helper/web/widgets/<name>/):
+//   Oolite.widget("name", {draw(names, state, part, dispatch) { return node or null; }});
+// where part(name) renders one of its components and dispatch sends an action.
 "use strict";
 
 const Oolite = (() => {
   const registry = new Map();
+  const widgets = new Map();
   const state = {};
   let shown = null;
   let size = null;
@@ -28,38 +31,18 @@ const Oolite = (() => {
     return component ? component.render(state, draw) : null;
   }
 
-  // The tab of a group to show: the model's, else the player's choice if it's
-  // in this group, else the group's first.
-  function shownTab(group) {
-    const tabs = state.tabs || {};
-    return [tabs.shown, tabs.chosen].find((name) => group.includes(name)) || group[0];
-  }
-
-  // The group's tab row over the tab shown.
-  function tabGroup(group) {
-    const { el, button } = globalThis.OoliteDom;
-    const shown = shownTab(group);
-    const titles = new Map(((state.tabs || {}).tabs || []).map((tab) => [tab.id, tab.text]));
-    const row = el(
-      "div",
-      "tab-row",
-      ...group.map((name) =>
-        button(
-          titles.get(name) || name,
-          () => oolite.dispatch({ type: "ui/choose_tab", tab: name }),
-          name === shown ? "tab active" : "tab",
-        ),
-      ),
-    );
-    return el("div", "tabs", row, part(shown));
+  // What the widget draws: its preset's drawing, or its components in order.
+  function drawn(widget) {
+    const own = widgets.get(widget.widget);
+    if (!own) return widget.components.map(part).filter(Boolean);
+    const node = own.draw(widget.components, state, part, (action) => oolite.dispatch(action));
+    return node ? [node] : [];
   }
 
   function draw() {
     const widget = globalThis.OOLITE_WIDGET;
     const root = document.getElementById("root");
-    const parts = widget.components
-      .map((item) => (typeof item === "string" ? part(item) : tabGroup(item.tabs)))
-      .filter(Boolean);
+    const parts = drawn(widget);
     root.replaceChildren(...parts);
     const show = parts.length > 0;
     if (show !== shown) {
@@ -95,6 +78,12 @@ const Oolite = (() => {
     },
     get(name) {
       return registry.get(name); // for tests and the harness
+    },
+    widget(name, definition) {
+      widgets.set(name, definition);
+    },
+    getWidget(name) {
+      return widgets.get(name); // for tests
     },
   });
 })();

@@ -1,0 +1,65 @@
+{
+  "keys shown": {
+    "tabs": {
+      "shown": "keys",
+      "chosen": "keys",
+      "urgent": false,
+      "tabs": [
+        {
+          "id": "keys",
+          "text": "Keys"
+        },
+        {
+          "id": "all_keys",
+          "text": "All keys"
+        },
+        {
+          "id": "trade_table",
+          "text": "Trade"
+        }
+      ]
+    }
+  },
+  "all keys shown": {
+    "tabs": {
+      "shown": "all_keys",
+      "chosen": "all_keys",
+      "urgent": false,
+      "tabs": [
+        {
+          "id": "keys",
+          "text": "Keys"
+        },
+        {
+          "id": "all_keys",
+          "text": "All keys"
+        },
+        {
+          "id": "trade_table",
+          "text": "Trade"
+        }
+      ]
+    }
+  },
+  "trade table shown": {
+    "tabs": {
+      "shown": "trade_table",
+      "chosen": "trade_table",
+      "urgent": false,
+      "tabs": [
+        {
+          "id": "keys",
+          "text": "Keys"
+        },
+        {
+          "id": "all_keys",
+          "text": "All keys"
+        },
+        {
+          "id": "trade_table",
+          "text": "Trade"
+        }
+      ]
+    }
+  }
+}

@@ -104,11 +104,26 @@ function withNeeds(names) {
   return order;
 }
 
+// The .js files in a folder under WEB, tests left out.
+function scripts(folder) {
+  return fs
+    .readdirSync(path.join(WEB, folder))
+    .sort()
+    .filter((file) => file.endsWith(".js") && !file.endsWith(".test.js"))
+    .map((file) => path.join(folder, file));
+}
+
 // A fresh page with the shared files and these components' .js files (and
 // what they need) loaded. Returns {Oolite, root, sent, start}: sent collects
 // what oolite.dispatch() was given, and start(widget, state) starts the page
 // as the widget OOLITE_WIDGET = widget, its topics having the values in state.
 function loadComponents(...names) {
+  return load(names, null);
+}
+
+// The same, with the preset's own files (helper/web/widgets/<preset>/)
+// loaded after the components', as the helper's page loads them.
+function load(names, preset) {
   const root = new FakeNode("div");
   const sent = [];
   const loaded = [];
@@ -135,15 +150,8 @@ function loadComponents(...names) {
   };
   context.globalThis = context;
   vm.createContext(context);
-  const files = [...LIB];
-  for (const name of withNeeds(names)) {
-    const folder = path.join(WEB, "components", name);
-    for (const file of fs.readdirSync(folder).sort()) {
-      if (file.endsWith(".js") && !file.endsWith(".test.js")) {
-        files.push(path.join("components", name, file));
-      }
-    }
-  }
+  const files = [...LIB, ...withNeeds(names).flatMap((name) => scripts(path.join("components", name)))];
+  if (preset) files.push(...scripts(path.join("widgets", preset)));
   for (const file of files) {
     vm.runInContext(fs.readFileSync(path.join(WEB, file), "utf8"), context, { filename: file });
   }
@@ -155,12 +163,11 @@ function loadComponents(...names) {
   return { Oolite: context.Oolite, root, sent, start };
 }
 
-// A widget's page drawn for a state: {root, sent}. components is the
-// widget's arrangement, e.g. ["tip", {tabs: ["keys", "all_keys"]}].
-function widget(components, state) {
-  const names = components.flatMap((item) => (typeof item === "string" ? [item] : item.tabs));
-  const page = loadComponents(...names);
-  page.start({ components, topics: Object.keys(state), width: null }, state);
+// A widget's page drawn for a state: {root, sent}. components are its
+// names, e.g. ["tip", "keys"]; preset, if given, draws it, e.g. "tabs".
+function widget(components, state, preset = null) {
+  const page = load(components, preset);
+  page.start({ components, widget: preset, topics: Object.keys(state), width: null }, state);
   return { root: page.root, sent: page.sent };
 }
 
@@ -188,4 +195,4 @@ function states(name) {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
 }
 
-module.exports = { FakeNode, loadComponents, render, states, widget, WEB };
+module.exports = { FakeNode, load, loadComponents, render, states, widget, WEB };
