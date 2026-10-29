@@ -142,3 +142,29 @@ def test_a_version_1_file_is_saved_as_version_2(tmp_path):
     MarketStore(path)
     saved = json.loads(path.read_text())
     assert (saved["version"], "cost_basis" in saved) == (2, False)
+
+
+def test_a_hold_message_read_again_changes_nothing(tmp_path):
+    """The helper reads Latest.log from the start when it starts, so old hold
+    messages come round again."""
+    store = MarketStore(tmp_path / "markets.json")
+    start = {
+        "type": "hold",
+        "cause": "start",
+        "gameClock": 1.0,
+        "goods": [{"commodity": "food", "quantity": 4}],
+    }
+    store.apply(start)
+    trade(store, "bought", 2, 50, 2.0)
+    store.apply(
+        {
+            **start,
+            "goods": [{"commodity": "food", "quantity": 6}],
+            "cause": "bought",
+            "gameClock": 2.0,
+        }
+    )
+    trade(store, "sold", 4, 55, 3.0)
+    before = lots(store)
+    store.apply(start)  # the replay begins again
+    assert lots(store) == before
