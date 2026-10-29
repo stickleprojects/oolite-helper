@@ -92,8 +92,10 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 
 ## Git workflow
 
-- **Never commit to `main`.** It's protected for everyone, admins included: changes go in only through pull requests, with no force-pushes. Start each change on a branch from an up-to-date `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`), push it, and open a PR with `gh pr create`. Reference issues with `Closes #N`.
-- Kieron merges PRs (0 approvals are required), or tells Claude to. After a merge: `git checkout main && git pull --ff-only && git fetch --prune`, then delete the local branch.
+- **Never commit to `main`.** It's protected for everyone, admins included: changes go in only through pull requests, with no force-pushes.
+- **One branch per issue.** Start each change on a branch from an up-to-date `main`, named after its issue: `<type>/<N>-<short-slug>`, e.g. `feat/89-tabs-widget-draws-itself` (types: `feat`, `fix`, `docs`, `chore`). A branch must cover at least that issue and may cover related ones too. Push it, open a PR with `gh pr create` and reference each issue with `Closes #N`.
+- **Mark the issue in progress.** When work starts, add the `in progress` label (`gh issue edit N --add-label "in progress"`) to each issue the branch covers. Remove it when the PR merges, and also if the work is dropped.
+- Kieron merges PRs (0 approvals are required), or tells Claude to. After a merge: `git checkout main && git pull --ff-only && git fetch --prune`, delete the local branch, and remove the `in progress` label from the issues it closed.
 - Commits use the noreply address set in this repo's git config, so don't change `user.email`.
 - **CI is required** (`.github/workflows/ci.yml`): 7 checks (Python 3.11/3.12/3.13, Lint, Add-on Node 20/22, Shell), and **strict**, so a PR must be up to date with `main`. Run the same checks locally before pushing (see CONTRIBUTING.md).
 - If `gh pr merge` fails with "part of a stack", use `gh api -X PUT repos/stickleprojects/oolite-helper/pulls/N/merge-async -f merge_method=squash -f merge_action=direct_merge`, then poll `.../merge-async/<details.uuid>` until `merged`.
