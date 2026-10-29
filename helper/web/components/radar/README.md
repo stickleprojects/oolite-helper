@@ -2,7 +2,7 @@
 
 # radar
 
-Every blip on the scanner, nearest first: its scanner colour (flashing as the scanner does), name and role, distance, what it's doing and its bounty; click a heading to sort. says when the scanner is empty
+Every blip on the scanner, nearest first: its scanner colour (flashing as the scanner does), name and role, distance, what it's doing and its bounty; click a heading to sort; it says when the scanner is empty
 
 | | |
 |---|---|
