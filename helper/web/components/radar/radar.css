@@ -1,0 +1,23 @@
+.radar { margin: calc(8px * var(--oo-scale)) calc(12px * var(--oo-scale)); }
+.radar table { border-collapse: collapse; white-space: nowrap; }
+.radar th, .radar td { padding: 0 calc(10px * var(--oo-scale)); text-align: left; font-size: calc(16pt * var(--oo-scale)); }
+.radar th button { border: 0; padding: 0; background: transparent; color: var(--oo-dim); font: bold calc(14pt * var(--oo-scale)) var(--oo-sans); cursor: pointer; }
+.radar th button.active { color: var(--oo-accent); }
+.radar .km { font-family: var(--oo-mono); text-align: right; }
+.radar .hostile { font-weight: bold; }
+.radar .role { margin-left: 0.5em; font-size: 0.8em; }
+.radar .more { margin: calc(6px * var(--oo-scale)) 0 0; }
+/* The scanner's blip: its colour, swapping to the flash colour every 0.25 s
+   (HeadUpDisplay: flash = (int)(time * 4) & 1). */
+.radar .dot {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  background: var(--blip);
+}
+.radar .dot.flashing { animation: radar-flash 0.5s steps(1) infinite; }
+@keyframes radar-flash {
+  0% { background: var(--blip); }
+  50% { background: var(--blip-flash); }
+}

@@ -299,6 +299,16 @@ TOPICS = {
         None,
         'what locks the torus drive: a ship\'s name, or "planet" or "sun"; null if nothing',
     ),
+    "radar": (
+        lambda m: list(m.topic("radar")),
+        None,
+        'what\'s on the scanner while flying, nearest first: [{"name": "Krait", "kind": "ship" '
+        '(or "police", "military", "thargoid", "missile", "station", "buoy", "rock", "cargo", '
+        '"mine"), "role": e.g. "pirate", "distance_km": 4.2, "bounty": credits, "doing": '
+        '"attacking you", "attacking <name>", "fleeing" or null, "hostile": bool (targeting '
+        'you), "colour": "#ff4000" its scanner colour, "flash": the colour it flashes to '
+        "every 0.25 s, or null}]; [] when nothing is there",
+    ),
     "jump_blocker": (
         _jump_blocker,
         None,

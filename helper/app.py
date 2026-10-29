@@ -36,6 +36,11 @@ def should_quit_for_messages(messages, first_poll, quit_with_game=True):
     return quit_with_game and not replay and any(m.get("type") == "closed" for m in messages)
 
 
+# Messages the add-on sends every second in flight: not worth showing as the
+# last message, which would then never show anything else.
+EVERY_SECOND = ("radar",)
+
+
 class HelperWindow:
     def __init__(
         self,
@@ -180,7 +185,8 @@ class HelperWindow:
             except Exception as exc:  # one bad message mustn't drop the rest
                 self.report(exc, msg)
                 continue
-            applied = msg
+            if msg.get("type") not in EVERY_SECOND:
+                applied = msg
             if msg.get("type") == "closed" and quit_for_game:
                 self.root.destroy()
                 return False

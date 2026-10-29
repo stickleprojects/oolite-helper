@@ -39,6 +39,7 @@ class GameState:
         self.jump_failed = None  # reason the last jump failed, until the next try
         self.jump_blocker = None  # {"by", "clearAt"} while a nearby mass would block a jump
         self.mass_lock = None  # what locks the torus drive: a ship's name, "planet" or "sun"
+        self.radar = None  # the last radar message: {"filter", "blips"} while flying (#100)
         self.market_station = None
         self.market = None
         self.credits = None
@@ -74,7 +75,7 @@ class GameState:
             self.alert = msg.get("alert")
         elif kind == "docked":
             self.docked = True
-            self.jump_blocker = self.mass_lock = None
+            self.jump_blocker = self.mass_lock = self.radar = None
             self.in_aegis = False
             self.autopilot = False
             self.clearance = None
@@ -86,6 +87,8 @@ class GameState:
             self.jump_blocker = msg if msg.get("by") else None
         elif kind == "mass_lock":
             self.mass_lock = msg.get("by")
+        elif kind == "radar":
+            self.radar = msg if msg.get("blips") else None
         elif kind == "gui":
             self.gui = msg.get("to")
         elif kind == "view":

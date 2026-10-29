@@ -169,7 +169,7 @@ def test_named_widgets_and_components_have_different_names():
 
 def test_an_unknown_name_says_whats_available():
     with pytest.raises(ValueError, match="isn't a component, a named widget or a widget"):
-        harness.targets(None, plugins={}, names=["radar"])
+        harness.targets(None, plugins={}, names=["sonar"])
 
 
 def test_a_widgets_states_are_its_components_states():

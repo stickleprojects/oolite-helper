@@ -24,6 +24,7 @@ bucket ends, for topics that depend on the clock).
 import time
 from dataclasses import dataclass, replace
 
+from . import radar
 from .browser import buy_limit, commodity_offers, commodity_rows, held, market_advice, trade_steps
 from .contexts import ACTION_NOTES, clearance_badge, indicators, missing, sections, tip
 from .keys import commodity_fallback
@@ -283,6 +284,7 @@ TOPICS = {
     "market_age": (lambda m: m.markets.price_age if m.markets else None, 30),
     "tip": (lambda m: tip(m.state, m.keymap), None),
     "mass_lock": (lambda m: m.state.mass_lock, None),
+    "radar": (lambda m: radar.blips(m.state.radar), None),
     "jump_blocker": (lambda m: dict(m.state.jump_blocker or {}) or None, None),
     "indicators": (lambda m: tuple(indicators(m.state)), None),
     "clearance": (lambda m: clearance_badge(m.state, m.keymap), None),

@@ -44,7 +44,7 @@ def test_load_widgets_reads_the_config_and_explains_mistakes(tmp_path):
     assert first == WidgetSpec(components=("clearance", "drive"), dock="game:top")
     assert (second.components, second.width, second.shown) == (("trade_here",), 520, "with_game")
     for bad, message in (
-        ('components = ["radar"]', "components must be one or more of"),
+        ('components = ["sonar"]', "components must be one or more of"),
         ('components = "drive"\ndock = "game:middle"', "dock must be one of"),
         ('components = "drive"\nwidth = "wide"', "width must be a whole number"),
         ('components = "drive"\nfont_scale = 0', "font_scale must be a positive number"),
@@ -84,8 +84,8 @@ def test_a_named_widget_changed_badly_is_explained(tmp_path):
 
 
 def test_an_unknown_named_widget_says_which_there_are(tmp_path):
-    with pytest.raises(SystemExit, match="widget must be one of tabs, top-strip"):
-        widget_from(tmp_path, 'widget = "radar"')
+    with pytest.raises(SystemExit, match="widget must be one of radar-beside, tabs, top-strip"):
+        widget_from(tmp_path, 'widget = "sonar"')
 
 
 def test_a_named_widgets_settings_are_checked_like_a_config_widgets(tmp_path):
@@ -184,6 +184,6 @@ def test_a_named_widgets_own_states_may_only_set_its_own_topics(tmp_path):
 
 
 def test_a_named_widgets_topics_must_be_known(tmp_path):
-    (tmp_path / "widget.toml").write_text('components = ["keys"]\ntopics = ["radar"]\n')
+    (tmp_path / "widget.toml").write_text('components = ["keys"]\ntopics = ["sonar"]\n')
     with pytest.raises(ValueError, match="topics must be from plugin_api.TOPICS"):
         read_widget(tmp_path)

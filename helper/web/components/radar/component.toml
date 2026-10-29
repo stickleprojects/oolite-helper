@@ -1,0 +1,2 @@
+description = "Every blip on the scanner, nearest first: its scanner colour (flashing as the scanner does), name and role, distance, what it's doing and its bounty; click a heading to sort"
+topics = ["radar"]
