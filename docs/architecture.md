@@ -2,7 +2,7 @@
 
 ## Terms
 - A **component** renders part of the model: `drive`, `clearance`, `trade_here`, the laptop window's heading, tabs and body, or a **plugin** (a component from outside the helper, run as a sandboxed web page).
-- A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`). A **preset** is a ready-made widget in `helper/web/widgets/<name>/` (`widget.toml` and a generated README), used with `widget = "<name>"` and any setting changed.
+- A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`). A widget can also be defined in a folder, `helper/web/widgets/<name>/` (`widget.toml`, optionally its own drawing, and a generated README), and then used by name with `widget = "<name>"`, changing any setting.
 - A **dock** is a place beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) that holds widgets. Docks that lay out several widgets automatically are planned in #80.
 - The **layout** places every widget, either in a dock or free on a monitor (`helper/layout.py`, saved in `layout.toml`).
 - A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.
@@ -36,7 +36,7 @@ Oolite + CtxKeys.oxp ──messages──▶ LogSource ──▶ Model.dispatch 
 - **Named topics** (`TOPICS` in `model.py`) are shared and memoised. Each one is computed once per notify pass however many components use it, and kept between passes until the state changes. Topics that depend on the clock give a period (`every`), e.g. 60 s for price ages shown in minutes.
 - **Reducers replace values; they never edit them in place.** Otherwise `==` can't see the change.
 - **Errors are isolated.** A selector or draw that raises is reported in the status line (once per distinct error) and retried on the next pass, and the other components carry on.
-- **UI state:** selections that several components (or #50's widgets) might share live in the model's `UI` slice and change only through `ui/...` actions: the tab (a component name: a widget's `{tabs = [...]}` group shows it, its tab row being the widget's own frame), the open commodity, the chosen destination and quantity. A component's purely local choices (the trade table's sort order, the All keys group) stay in the component, which calls `self.refresh()` after changing one.
+- **UI state:** selections that several components (or #50's widgets) might share live in the model's `UI` slice and change only through `ui/...` actions: the tab (a component name: the tabs widget, `widget = "tabs"`, shows it, its tab row being the widget's own frame), the open commodity, the chosen destination and quantity. A component's purely local choices (the trade table's sort order, the All keys group) stay in the component, which calls `self.refresh()` after changing one.
 
 ## Writing a component
 Components are web components (#82): a folder in [helper/web/components/](../helper/web/components/) with a `component.toml` and its files, much like a Vue or React single-file component without a build step.

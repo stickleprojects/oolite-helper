@@ -26,7 +26,6 @@ plugin API in helper/plugin_api.py. The helper's stylesheet is served to each
 page as _oolite/theme.css.
 """
 
-import json
 import os
 import re
 import sys
@@ -47,7 +46,7 @@ from .plugin_api import (
     topic_value,
 )
 from .webhost import WebHost, WebWindow
-from .widgets import COMPONENTS, place
+from .widgets import COMPONENTS, WIDGETS, place
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
@@ -140,10 +139,10 @@ def discover(folder=DIR):
     return found, broken
 
 
-def builtin_manifest(components, names):
+def builtin_manifest(components, names, widget=None):
     """A Manifest for a widget of built-in components: its generated page, and
-    only those components' topics and actions."""
-    page = web.page(components, names)
+    only those components' topics and actions (and its named widget's, widget)."""
+    page = web.page(components, names, widget)
     return BuiltinManifest(
         name=web.HOST,
         root=web.DIR,
@@ -190,11 +189,12 @@ class WebWidgets:
         self.fallback = fallback
         self.ever_ready = False
         for widget in model.topic("layout"):
-            wid, name = widget.id, widget.spec.names[0]
+            wid, name = widget.id, widget.spec.components[0]
             if name in COMPONENTS or name == web.HOST:
                 if builtin is None:
                     continue  # a Tk widget
-                manifest = builtin_manifest(builtin, widget.spec.components)
+                named = WIDGETS.get(widget.spec.widget)
+                manifest = builtin_manifest(builtin, widget.spec.components, named)
                 self.widgets[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
                 self.builtin[wid] = widget.spec.components
@@ -241,12 +241,9 @@ class WebWidgets:
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.builtin:
-                config = {
-                    "components": web.as_config(self.builtin[wid]),
-                    "topics": list(manifest.topics),
-                    "width": spec.width,
-                }
-                script = f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"
+                script = web.widget_config(
+                    spec.components, spec.widget, manifest.topics, spec.width
+                )
                 extras += (("widget.html", manifest.page), ("widget.js", script))
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
         return windows

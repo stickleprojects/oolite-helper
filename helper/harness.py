@@ -3,8 +3,8 @@
     .venv/bin/python -m helper.harness                     # everything, at http://127.0.0.1:8566/
     .venv/bin/python -m helper.harness clearance           # one component
     .venv/bin/python -m helper.harness clearance+drive     # components together, as a widget
-    .venv/bin/python -m helper.harness "tip+keys|all_keys" # "|" makes a tab group
-    .venv/bin/python -m helper.harness top-strip           # a preset (helper/web/widgets)
+    .venv/bin/python -m helper.harness "keys|all_keys"     # "|" makes a tabs widget of them
+    .venv/bin/python -m helper.harness top-strip           # a named widget (helper/web/widgets)
     .venv/bin/python -m helper.harness my-widget           # a widget from config.toml
     .venv/bin/python -m helper.harness clearance --shots out   # images instead
 
@@ -48,7 +48,7 @@ from .markets import MarketStore
 from .model import Model
 from .plugins import Manifest, builtin_manifest, discover
 from .webhost.host import content_type, csp
-from .widgets import COMPONENTS, PRESETS, WidgetSpec, load_widgets
+from .widgets import COMPONENTS, WIDGETS, WidgetSpec, load_widgets
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios"
 # How each component is shown on its own: (width, height, layout). Small ones
@@ -126,11 +126,11 @@ def snapshots(paths, keymap, folder):
 
 @dataclass(frozen=True)
 class Target:
-    id: str  # "component.drive", "preset.<name>" or "widget.<id>"
+    id: str  # "component.drive", "widget.<name>", "config.<id>", or "widget.a+b" joined
     title: str
     spec: WidgetSpec
     manifest: Manifest
-    named: tuple = ()  # a preset's own states: ((name, {component: state}), ...)
+    named: tuple = ()  # a named widget's own states: ((name, {component: state}), ...)
 
     @property
     def builtin(self):
@@ -151,25 +151,29 @@ class Target:
     @property
     def states(self):
         """[(component, state name, {topic: value}), ...]: its components' named
-        states, after a preset's own (as component "widget"). A tab's states
-        show that tab."""
+        states, after a named widget's own (as component "widget"). In a widget that
+        reads the tabs topic, a component's states show its tab."""
         if not self.builtin:
             return []
         own = [("widget", state, self.together(chosen)) for state, chosen in self.named]
         return own + [
             (name, state, self.together({name: state}))
-            for name in self.spec.names
+            for name in self.spec.components
             for state, _ in COMPONENTS[name].states
         ]
 
     def together(self, chosen):
-        """{topic: value} for these components' states, {component: state name}."""
-        tabbed = {name for item in self.spec.components if isinstance(item, tuple) for name in item}
+        """{topic: value} for these components' states, {component: state name},
+        and the named widget's own state, keyed by its name, applied last."""
+        tabbed = "tabs" in self.manifest.topics
         values = {}
         for name, state in chosen.items():
-            values.update(dict(COMPONENTS[name].states)[state])
-            if name in tabbed:
-                values.update(self.showing(name))
+            if name in COMPONENTS:
+                values.update(dict(COMPONENTS[name].states)[state])
+                if tabbed:
+                    values.update(self.showing(name))
+        own = WIDGETS[self.spec.widget].own_states if self.spec.widget in WIDGETS else ()
+        values.update(dict(own).get(chosen.get(self.spec.widget), {}))
         return values
 
     @staticmethod
@@ -185,59 +189,63 @@ def component_target(name):
     return Target(f"component.{name}", name, spec, builtin_manifest(COMPONENTS, (name,)))
 
 
-def preset_target(name):
-    preset = PRESETS[name]
-    spec = preset.spec
-    title = f"{name}: {', '.join(spec.names)}"
-    manifest = builtin_manifest(COMPONENTS, spec.components)
-    return Target(f"preset.{name}", title, spec, manifest, preset.states)
+def widget_target(name):
+    named = WIDGETS[name]
+    spec = named.spec
+    title = f"{name}: {', '.join(spec.components)}"
+    manifest = builtin_manifest(COMPONENTS, spec.components, named)
+    return Target(f"widget.{name}", title, spec, manifest, named.states)
 
 
 def config_targets(config_path, manifests):
     found = []
     if config_path and Path(config_path).exists():
         for n, spec in enumerate(load_widgets(config_path, plugins=set(manifests)), start=1):
-            wid = spec.id or f"widget{n}:{spec.names[0]}"
-            if spec.names[0] in manifests:
-                manifest = manifests[spec.names[0]]
+            wid = spec.id or f"widget{n}:{spec.components[0]}"
+            if spec.components[0] in manifests:
+                manifest = manifests[spec.components[0]]
             else:
-                manifest = builtin_manifest(COMPONENTS, spec.components)
-            title = f"{wid}: {', '.join(spec.names)}"
-            found.append(Target(f"widget.{wid}", title, spec, manifest))
+                named = WIDGETS.get(spec.widget)
+                manifest = builtin_manifest(COMPONENTS, spec.components, named)
+            title = f"{wid}: {', '.join(spec.components)}"
+            found.append(Target(f"config.{wid}", title, spec, manifest))
     return found
 
 
 def targets(config_path=None, plugins=None, names=()):
     """What to show. With no names: every built-in component on its own, every
-    preset, then every widget in config_path. Otherwise each name is a
-    component, a preset, components joined with "+" (shown together, as a
-    widget; "keys|all_keys" is a tab group), or a widget id in config_path."""
+    named widget, then every widget in config_path. Otherwise each name is a
+    component, a named widget, components joined with "+" (shown together, as a
+    widget; "keys|all_keys" makes a tabs widget of them), or a widget id in
+    config_path."""
     manifests = plugins if plugins is not None else discover()[0]
     widgets = config_targets(config_path, manifests)
     if not names:
-        presets = [preset_target(name) for name in PRESETS]
-        return [component_target(name) for name in COMPONENTS] + presets + widgets
+        named = [widget_target(name) for name in WIDGETS]
+        return [component_target(name) for name in COMPONENTS] + named + widgets
     found = []
     for name in names:
-        parts = tuple(
-            tuple(group) if len(group) > 1 else group[0]
-            for group in (part.split("|") for part in name.split("+"))
-        )
+        if "+" in name and "|" in name:
+            raise ValueError(f"{name!r}: join components with + or with |, not both")
+        tabs = "|" in name
+        parts = tuple(name.split("|" if tabs else "+"))
         if len(parts) == 1 and name in COMPONENTS:
             found.append(component_target(name))
-        elif name in PRESETS:
-            found.append(preset_target(name))
-        elif name not in COMPONENTS and all(part in COMPONENTS for part in web.names(parts)):
-            spec = WidgetSpec(components=parts, width=DEFAULT_VIEW[0], layout="large")
-            title = " + ".join(" | ".join(p) if isinstance(p, tuple) else p for p in parts)
-            found.append(Target(f"widget.{name}", title, spec, builtin_manifest(COMPONENTS, parts)))
-        elif any(target.id == f"widget.{name}" for target in widgets):
-            found.append(next(target for target in widgets if target.id == f"widget.{name}"))
+        elif name in WIDGETS:
+            found.append(widget_target(name))
+        elif name not in COMPONENTS and all(part in COMPONENTS for part in parts):
+            widget = "tabs" if tabs else None
+            spec = WidgetSpec(parts, width=DEFAULT_VIEW[0], layout="large", widget=widget)
+            title = (" | " if tabs else " + ").join(parts)
+            manifest = builtin_manifest(COMPONENTS, parts, WIDGETS.get(widget))
+            found.append(Target(f"widget.{name}", title, spec, manifest))
+        elif any(target.id == f"config.{name}" for target in widgets):
+            found.append(next(target for target in widgets if target.id == f"config.{name}"))
         else:
-            ids = (t.id.removeprefix("widget.") for t in widgets)
-            known = ", ".join([*COMPONENTS, *PRESETS, *ids])
+            ids = (t.id.removeprefix("config.") for t in widgets)
+            known = ", ".join([*COMPONENTS, *WIDGETS, *ids])
             raise ValueError(
-                f"{name!r} isn't a component, a preset or a widget in the config: {known}"
+                f"{name!r} isn't a component, a named widget or a widget in the config: {known}"
             )
     return found
 
@@ -431,12 +439,8 @@ class HarnessHandler(BaseHTTPRequestHandler):
         if name == "dev.js":
             return self.send(200, "text/javascript", DEV_JS.encode(), target)
         if name == "widget.js" and target.builtin:
-            widget = {
-                "components": web.as_config(spec.components),
-                "topics": list(target.manifest.topics),
-                "width": target.size[0],
-            }
-            script = f"globalThis.OOLITE_WIDGET = {json.dumps(widget)};\n"
+            topics = target.manifest.topics
+            script = web.widget_config(spec.components, spec.widget, topics, target.size[0])
             return self.send(200, "text/javascript", script.encode(), target)
         if name == "topics":
             values = self.server.values(snap.id, target.id)
@@ -698,7 +702,7 @@ README_NOTE = (
     "<!-- Made by `python -m helper.harness --readmes` from component.toml and "
     "{name}.states.json: edit those and run it again. -->"
 )
-PRESET_NOTE = (
+WIDGET_NOTE = (
     "<!-- Made by `python -m helper.harness --readmes` from widget.toml: "
     "edit it and run it again. -->"
 )
@@ -766,21 +770,35 @@ def _extent(given, side, docked_sides):
     return f"the game's {side}" if docked_sides else "what its components need"
 
 
-def preset_readme(preset, pictures, size):
-    """A preset's README.md: what widget.toml says, then a picture of the widget
+def _own_rows(named):
+    """Table rows for what a widget that draws itself reads and sends."""
+
+    def listed(items):
+        return ", ".join(f"`{item}`" for item in items)
+
+    rows = []
+    if named.topics:
+        rows.append(f"| **Reads too** | {listed(named.topics)} |")
+    if named.actions:
+        rows.append(f"| **Sends too** | {listed(named.actions)} |")
+    return rows
+
+
+def widget_readme(named, pictures, size):
+    """A named widget's README.md: what widget.toml says, then a picture of the widget
     in each of its named states."""
-    spec = preset.spec
-    links = ", ".join(f"[`{name}`](../../components/{name}/README.md)" for name in spec.names)
+    spec = named.spec
+    links = ", ".join(f"[`{name}`](../../components/{name}/README.md)" for name in spec.components)
     side = spec.dock.split(":")[1] if spec.dock else None
     where = f"`{spec.dock}`" if spec.dock else f"free, on {spec.screen or 'the desktop'}"
     width = _extent(spec.width, "width", side in ("top", "bottom"))
     height = _extent(spec.height, "height", side in ("left", "right"))
     lines = [
-        PRESET_NOTE,
+        WIDGET_NOTE,
         "",
-        f"# {preset.name}",
+        f"# {named.name}",
         "",
-        preset.description,
+        named.description,
         "",
         "| | |",
         "|---|---|",
@@ -789,16 +807,17 @@ def preset_readme(preset, pictures, size):
         f"| **Width** | {width} |",
         f"| **Height** | {height} |",
         f"| **Layout** | `{spec.layout}` |",
+        *_own_rows(named),
         "",
         "Use it in `config.toml`, changing any setting `[[widgets]]` takes:",
         "",
         "```toml",
         "[[widgets]]",
-        f'widget = "{preset.name}"',
+        f'widget = "{named.name}"',
         "```",
         "",
-        f"Its id is `{preset.name}` unless you give another. "
-        f"Try it: `python -m helper.harness {preset.name}`.",
+        f"Its id is `{named.name}` unless you give another. "
+        f"Try it: `python -m helper.harness {named.name}`.",
         "",
         "## Named states",
         "",
@@ -820,7 +839,7 @@ SHARED = (
     "helper/plugins.py",
     "helper/tk/components/style.py",  # the theme's colours, fonts and layout scales
 )
-PRESETS_SHARED = ("helper/widgets.py",)  # reads widget.toml; a change remakes every preset's
+WIDGETS_SHARED = ("helper/widgets.py",)  # reads widget.toml; a change remakes every named widget's
 GENERATED = re.compile(r"helper/web/(components|widgets)/[^/]+/(README\.md|images/)")
 
 
@@ -830,26 +849,26 @@ def _folders(paths, kind):
     return {path.split("/")[3] for path in paths if path.startswith(prefix) and path.count("/") > 3}
 
 
-def affected(paths, components=None, presets=None):
-    """The components and presets whose README should be made again after
+def affected(paths, components=None, widgets=None):
+    """The components and named widgets whose README should be made again after
     these files changed: components whose own files changed and those that
-    need them, then presets whose files or components changed. All of them if
+    need them, then named widgets whose files or components changed. All of them if
     a shared file changed. The READMEs and pictures themselves don't count, so
     a refresh never causes another."""
     components = COMPONENTS if components is None else components
-    presets = PRESETS if presets is None else presets
+    widgets = WIDGETS if widgets is None else widgets
     paths = [path for path in paths if not GENERATED.match(path)]
     if any(path.startswith(SHARED) for path in paths):
-        return [*components, *presets]
+        return [*components, *widgets]
     changed = _components_affected(paths, components)
-    every_preset = any(path.startswith(PRESETS_SHARED) for path in paths)
+    every_widget = any(path.startswith(WIDGETS_SHARED) for path in paths)
     own = _folders(paths, "widgets")
     remade = [
         name
-        for name, preset in presets.items()
-        if every_preset
+        for name, named in widgets.items()
+        if every_widget
         or name in own
-        or {c.name for c in web.loaded(components, preset.spec.names)} & set(changed)
+        or {c.name for c in web.loaded(components, named.spec.components)} & set(changed)
     ]
     return changed + remade
 
@@ -896,7 +915,7 @@ def state_pictures(server, chrome, profile, tid, states, images):
 
 
 def readmes(server, chrome, folder=web.DIR):
-    """Each component's and preset's README.md, with pictures of its named
+    """Each component's and named widget's README.md, with pictures of its named
     states in its images/ folder."""
     written = []
     with tempfile.TemporaryDirectory(prefix="oolite-harness-chrome-") as profile:
@@ -909,15 +928,15 @@ def readmes(server, chrome, folder=web.DIR):
             pictures = state_pictures(server, chrome, profile, tid, states, here / "images")
             (here / "README.md").write_text(readme(component, pictures, server.targets[tid].size))
             written.append(here / "README.md")
-        for name, preset in PRESETS.items():
-            tid = f"preset.{name}"
+        for name, named in WIDGETS.items():
+            tid = f"widget.{name}"
             if tid not in server.targets:
                 continue
             here = Path(folder) / "widgets" / name
             target = server.targets[tid]
             states = [(s, slug(s), values) for c, s, values in target.states if c == "widget"]
             pictures = state_pictures(server, chrome, profile, tid, states, here / "images")
-            (here / "README.md").write_text(preset_readme(preset, pictures, target.size))
+            (here / "README.md").write_text(widget_readme(named, pictures, target.size))
             written.append(here / "README.md")
     return written
 
@@ -947,14 +966,14 @@ def main():
     parser.add_argument(
         "--readmes",
         action="store_true",
-        help="write each component's and preset's README.md and pictures of its named "
+        help="write each component's and named widget's README.md and pictures of its named "
         "states, then exit "
         "(only the NAMEs given, if any)",
     )
     parser.add_argument(
         "--since",
         metavar="REF",
-        help="--readmes: only components and presets changed since git REF (and those "
+        help="--readmes: only components and named widgets changed since git REF (and those "
         "needing them)",
     )
     args = parser.parse_args()

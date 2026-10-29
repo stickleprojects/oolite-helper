@@ -24,4 +24,4 @@ oolite-helper = "helper.app:main"
 include = ["helper*"]  # helper.components and helper.webhost too
 
 [tool.setuptools.package-data]
-helper = ["web/lib/*", "web/components/*/*", "web/widgets/*/*"]  # components (#82), presets (#84)
+helper = ["web/lib/*", "web/components/*/*", "web/widgets/*/*"]  # components (#82), widgets (#84)

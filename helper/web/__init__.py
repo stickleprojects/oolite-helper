@@ -4,7 +4,7 @@ Each component is a folder in helper/web/components/<name>/ holding a
 component.toml and its files:
 
     description = "TORUS ✓/✗ and JUMP ✓/✗ while flying"
-    title = "Drive"                      # optional: its tab label; only titled ones can be tabs
+    title = "Drive"                      # optional: its tab label in a tabs widget
     topics = ["drive"]                   # what it reads: names from plugin_api.TOPICS
     actions = ["ui/choose_tab"]          # optional: what it may send (plugin_api.ACTIONS)
     needs = ["keys"]                     # optional: other components whose files it uses
@@ -20,10 +20,11 @@ files in lib/ and the files of the components the widget lists (and what they
 need), nothing else, and the widget gets only those components' topics and
 may send only their actions.
 
-A widget's components are an arrangement: names, side by side, and tab
-groups, ("keys", "all_keys"), shown one at a time under a tab row that is the
-widget's own frame. The chosen tab is in the model (ui/choose_tab), so a
-widget with tabs also gets the "tabs" topic and may send that action.
+A widget draws its components side by side, unless it's a named widget that
+draws itself (helper/widgets.py): then the page also loads the widget's own
+files, after the components', and gets the widget's own topics and actions
+too. The tabs widget, for one, shows its components one at a time under a
+tab row.
 """
 
 import html
@@ -122,22 +123,6 @@ def loaded(components, names):
     return [components[name] for name in order]
 
 
-def names(arrangement):
-    """The component names in an arrangement, tab groups opened out, in order."""
-    return tuple(
-        name for item in arrangement for name in (item if isinstance(item, tuple) else (item,))
-    )
-
-
-def has_tabs(arrangement):
-    return any(isinstance(item, tuple) for item in arrangement)
-
-
-def as_config(arrangement):
-    """The arrangement for the page's OOLITE_WIDGET: names, and {"tabs": [...]} per group."""
-    return [{"tabs": list(item)} if isinstance(item, tuple) else item for item in arrangement]
-
-
 def tab_titles(components):
     """[(name, title), ...] for the components that can be tabs: Keys first
     (an emergency shows it), then by name."""
@@ -158,11 +143,12 @@ class Page:
     actions: tuple
 
 
-def page(components, arrangement):
-    """The Page for a widget showing these built-in components (an arrangement)."""
-    parts = loaded(components, names(arrangement))
-    tabs = has_tabs(arrangement)
+def page(components, names, widget=None):
+    """The Page for a widget showing these built-in components. widget: the
+    named widget it is, if any (widgets.NamedWidget), whose own files load last."""
+    parts = loaded(components, names)
     files = [file for part in parts for file in part.files]
+    files += widget.files if widget else ()
     # Relative to the page, _oolite/widget.html, so it works wherever it's
     # served: plugin://builtin/ in the web host, or under the harness's paths.
     css = ["theme.css", *(f"../{f}" for f in (*LIB_CSS, *files) if f.endswith(".css"))]
@@ -175,10 +161,15 @@ def page(components, arrangement):
         *(f'<script src="{html.escape(src)}"></script>' for src in js),
         "</body></html>",
     ]
+    own = (widget.topics, widget.actions) if widget else ((), ())
     return Page(
         "\n".join(lines) + "\n",
-        _unique([*(topic for part in parts for topic in part.topics), *(["tabs"] if tabs else [])]),
-        _unique(
-            [*(a for part in parts for a in part.actions), *(["ui/choose_tab"] if tabs else [])]
-        ),
+        _unique([*(topic for part in parts for topic in part.topics), *own[0]]),
+        _unique([*(action for part in parts for action in part.actions), *own[1]]),
     )
+
+
+def widget_config(names, widget, topics, width):
+    """The page's OOLITE_WIDGET, as the script that sets it (_oolite/widget.js)."""
+    config = {"components": list(names), "widget": widget, "topics": list(topics), "width": width}
+    return f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"

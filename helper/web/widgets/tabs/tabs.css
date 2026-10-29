@@ -1,0 +1,3 @@
+/* The tabs widget: its tab row over the tab shown. */
+.tabs { display: flex; flex-direction: column; gap: calc(8px * var(--oo-scale)); min-width: 0; }
+.tab-row { display: flex; gap: calc(12px * var(--oo-scale)); padding: 0 calc(40px * var(--oo-scale)); }

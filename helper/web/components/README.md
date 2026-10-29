@@ -1,6 +1,6 @@
 # Components
 
-A **component** draws one part of the game's state, such as the key list, the docking clearance badge or the TORUS/JUMP lamps. It has no window of its own: it's shown inside a **widget**, a window that hosts one or more components, docked beside the game or placed on a monitor. Ready-made widgets are called presets and live in [../widgets/](../widgets/README.md). The helper's main window is made of components too.
+A **component** draws one part of the game's state, such as the key list, the docking clearance badge or the TORUS/JUMP lamps. It has no window of its own: it's shown inside a **widget**, a window that hosts one or more components, docked beside the game or placed on a monitor. Widgets you can use by name live in [../widgets/](../widgets/README.md). The helper's main window is made of components too.
 
 Each folder here is one component. Open its `README.md` to see what it reads and sends, and a picture of each of its named states.
 
@@ -30,8 +30,8 @@ to look at the result, or let CI do it.
 
 It remakes only what your branch changed:
 
-- **A component's own files changed:** that component's README, the READMEs of components that `need` it, and those of the widget presets that show any of them.
-- **A shared file changed** (`helper/web/lib/`, the harness, the plugin API, the theme's styles): every component and every preset.
+- **A component's own files changed:** that component's README, the READMEs of components that `need` it, and those of the widgets that show any of them.
+- **A shared file changed** (`helper/web/lib/`, the harness, the plugin API, the theme's styles): every component and every widget.
 - **Anything else** (game state, the add-on, docs, generated READMEs and pictures): nothing.
 
 A test fails if a README is missing a named state, so a new state needs a refresh.

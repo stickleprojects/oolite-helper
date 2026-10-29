@@ -2,7 +2,7 @@ import pytest
 
 from helper.model import Model
 from helper.screen import Monitor
-from helper.widgets import PRESETS, WidgetSpec, load_widgets, place, read_preset
+from helper.widgets import WIDGETS, WidgetSpec, load_widgets, place, read_widget
 
 GAME = ((1282, 204, 1280, 720), (2, 2, 24, 2), True)  # geometry, frame, active
 
@@ -61,59 +61,59 @@ def widget_from(tmp_path, text):
     return load_widgets(path)[0]
 
 
-def test_a_config_widget_can_be_a_preset(tmp_path):
-    assert widget_from(tmp_path, 'widget = "top-strip"') == PRESETS["top-strip"].spec
+def test_a_config_widget_can_be_a_named_widget(tmp_path):
+    assert widget_from(tmp_path, 'widget = "top-strip"') == WIDGETS["top-strip"].spec
 
 
-def test_a_presets_id_is_its_name(tmp_path):
+def test_a_named_widgets_id_is_its_name(tmp_path):
     assert widget_from(tmp_path, 'widget = "top-strip"').id == "top-strip"
 
 
-def test_a_config_widget_can_change_a_presets_settings(tmp_path):
+def test_a_config_widget_can_change_a_named_widgets_settings(tmp_path):
     spec = widget_from(tmp_path, 'widget = "top-strip"\ndock = "game:bottom"')
     assert (spec.components, spec.dock) == (("clearance", "drive"), "game:bottom")
 
 
-def test_a_config_widget_can_give_a_preset_another_id(tmp_path):
+def test_a_config_widget_can_give_a_named_widget_another_id(tmp_path):
     assert widget_from(tmp_path, 'widget = "top-strip"\nid = "strip2"').id == "strip2"
 
 
-def test_a_preset_changed_badly_is_explained(tmp_path):
+def test_a_named_widget_changed_badly_is_explained(tmp_path):
     with pytest.raises(SystemExit, match="dock must be one of"):
         widget_from(tmp_path, 'widget = "top-strip"\ndock = "game:middle"')
 
 
-def test_an_unknown_preset_says_which_there_are(tmp_path):
-    with pytest.raises(SystemExit, match="widget must be one of top-strip"):
+def test_an_unknown_named_widget_says_which_there_are(tmp_path):
+    with pytest.raises(SystemExit, match="widget must be one of tabs, top-strip"):
         widget_from(tmp_path, 'widget = "radar"')
 
 
-def test_a_presets_settings_are_checked_like_a_config_widgets(tmp_path):
+def test_a_named_widgets_settings_are_checked_like_a_config_widgets(tmp_path):
     (tmp_path / "widget.toml").write_text('components = ["drive"]\ncolour = "red"\n')
     with pytest.raises(ValueError, match="unknown settings: colour"):
-        read_preset(tmp_path)
+        read_widget(tmp_path)
 
 
-def test_a_presets_state_must_name_a_state_for_each_component(tmp_path):
+def test_a_named_widgets_state_must_name_a_state_for_each_component(tmp_path):
     (tmp_path / "widget.toml").write_text(
         'components = ["clearance", "drive"]\n[states]\nx = {drive = "docked"}\n'
     )
     with pytest.raises(ValueError, match="must name a state for each of clearance, drive"):
-        read_preset(tmp_path)
+        read_widget(tmp_path)
 
 
-def test_a_presets_state_must_name_states_its_components_have(tmp_path):
+def test_a_named_widgets_state_must_name_states_its_components_have(tmp_path):
     (tmp_path / "widget.toml").write_text(
         'components = ["drive"]\n[states]\nx = {drive = "warp"}\n'
     )
     with pytest.raises(ValueError, match="drive has no state 'warp'"):
-        read_preset(tmp_path)
+        read_widget(tmp_path)
 
 
-def test_a_preset_cant_set_its_own_id(tmp_path):
+def test_a_named_widget_cant_set_its_own_id(tmp_path):
     (tmp_path / "widget.toml").write_text('components = ["drive"]\nid = "x"\n')
     with pytest.raises(ValueError, match="id is its folder name"):
-        read_preset(tmp_path)
+        read_widget(tmp_path)
 
 
 def test_the_model_keeps_the_game_window_for_widgets():
@@ -147,26 +147,43 @@ def load_one(tmp_path, components):
     return load_widgets(path)[0]
 
 
-def test_a_tab_group_is_a_tuple_among_the_components(tmp_path):
-    spec = load_one(tmp_path, '["tip", {tabs = ["keys", "all_keys"]}, "status"]')
-    assert spec.components == ("tip", ("keys", "all_keys"), "status")
+def test_a_tabs_widget_can_change_its_components(tmp_path):
+    spec = widget_from(tmp_path, 'widget = "tabs"\ncomponents = ["keys", "trade_table"]')
+    assert (spec.widget, spec.components) == ("tabs", ("keys", "trade_table"))
 
 
-def test_a_widgets_names_open_out_its_tab_groups(tmp_path):
-    spec = load_one(tmp_path, '[{tabs = ["keys", "trade_table"]}, "status"]')
-    assert spec.names == ("keys", "trade_table", "status")
+def test_a_titled_widget_refuses_an_untitled_component(tmp_path):
+    with pytest.raises(SystemExit, match="drive has no title"):
+        widget_from(tmp_path, 'widget = "tabs"\ncomponents = ["keys", "drive"]')
 
 
-@pytest.mark.parametrize(
-    ("components", "message"),
-    [
-        ('[{tabs = ["keys"]}]', "a tab group is"),
-        ('[{tabs = ["keys", "all_keys"], width = 3}]', "a tab group is"),
-        ('[{tabs = ["keys", "drive"]}]', "drive can't be a tab; tabs can be keys, all_keys"),
-        ('[{tabs = ["keys", "radar"]}]', "components must be one or more of"),
-        ('["keys", {tabs = ["keys", "all_keys"]}]', "each component can be in a widget only once"),
-    ],
-)
-def test_a_bad_tab_group_is_explained(tmp_path, components, message):
-    with pytest.raises(SystemExit, match=message):
-        load_one(tmp_path, components)
+def test_a_titled_named_widget_refuses_an_untitled_component(tmp_path):
+    (tmp_path / "widget.toml").write_text('components = ["keys", "drive"]\ntitled = true\n')
+    with pytest.raises(ValueError, match="drive has no title"):
+        read_widget(tmp_path)
+
+
+def test_a_named_widgets_state_must_name_its_own_state_when_it_has_some(tmp_path):
+    folder = tmp_path / "pick"
+    folder.mkdir()
+    (folder / "widget.toml").write_text(
+        'components = ["keys"]\ntopics = ["tabs"]\n[states]\nx = {keys = "no keys"}\n'
+    )
+    (folder / "pick.states.json").write_text('{"keys shown": {"tabs": {}}}')
+    with pytest.raises(ValueError, match="must name a state for each of keys, pick"):
+        read_widget(folder)
+
+
+def test_a_named_widgets_own_states_may_only_set_its_own_topics(tmp_path):
+    folder = tmp_path / "pick"
+    folder.mkdir()
+    (folder / "widget.toml").write_text('components = ["keys"]\ntopics = ["tabs"]\n')
+    (folder / "pick.states.json").write_text('{"odd": {"drive": {}}}')
+    with pytest.raises(ValueError, match="may only set the widget's own topics"):
+        read_widget(folder)
+
+
+def test_a_named_widgets_topics_must_be_known(tmp_path):
+    (tmp_path / "widget.toml").write_text('components = ["keys"]\ntopics = ["radar"]\n')
+    with pytest.raises(ValueError, match="topics must be from plugin_api.TOPICS"):
+        read_widget(tmp_path)

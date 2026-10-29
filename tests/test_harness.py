@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from helper import harness
-from helper.widgets import COMPONENTS, PRESETS
+from helper.widgets import COMPONENTS, WIDGETS
 
 SCENARIOS = Path(__file__).parent.parent / "scenarios"
 
@@ -44,14 +44,14 @@ def config_with_a_strip(tmp_path):
     return config
 
 
-def test_every_component_is_a_target_on_its_own_then_every_preset():
+def test_every_component_is_a_target_on_its_own_then_every_named_widget():
     ids = [target.id for target in harness.targets(None, plugins={})]
-    assert ids == [f"component.{name}" for name in COMPONENTS] + [f"preset.{n}" for n in PRESETS]
+    assert ids == [f"component.{name}" for name in COMPONENTS] + [f"widget.{n}" for n in WIDGETS]
 
 
 def test_the_configs_widgets_come_after_the_components(tmp_path):
     found = harness.targets(config_with_a_strip(tmp_path), plugins={})
-    assert found[-1].id == "widget.strip"
+    assert found[-1].id == "config.strip"
 
 
 def test_a_widget_target_reads_only_its_components_topics(tmp_path):
@@ -96,7 +96,7 @@ def test_the_index_links_each_target_at_the_chosen_snapshot(server, snaps):
 
 def test_the_index_has_a_frame_per_target(server, snaps):
     page = get(server, "")[2].decode()
-    assert page.count("<iframe") == len(COMPONENTS) + len(PRESETS)
+    assert page.count("<iframe") == len(COMPONENTS) + len(WIDGETS)
 
 
 def test_a_targets_page_loads_its_components(server, snaps):
@@ -155,20 +155,20 @@ def test_components_joined_with_plus_are_one_widget():
 
 def test_a_widget_id_is_that_widget_from_the_config(tmp_path):
     (target,) = harness.targets(config_with_a_strip(tmp_path), plugins={}, names=["strip"])
-    assert target.id == "widget.strip"
+    assert target.id == "config.strip"
 
 
-def test_a_preset_name_is_that_preset():
+def test_a_widgets_name_is_that_named_widget():
     (target,) = harness.targets(None, plugins={}, names=["top-strip"])
-    assert (target.id, target.spec.dock) == ("preset.top-strip", "game:top")
+    assert (target.id, target.spec.dock) == ("widget.top-strip", "game:top")
 
 
-def test_presets_and_components_have_different_names():
-    assert not set(PRESETS) & set(COMPONENTS)
+def test_named_widgets_and_components_have_different_names():
+    assert not set(WIDGETS) & set(COMPONENTS)
 
 
 def test_an_unknown_name_says_whats_available():
-    with pytest.raises(ValueError, match="isn't a component, a preset or a widget"):
+    with pytest.raises(ValueError, match="isn't a component, a named widget or a widget"):
         harness.targets(None, plugins={}, names=["radar"])
 
 
@@ -285,53 +285,53 @@ def test_each_components_readme_is_up_to_date_with_its_states(name):
         assert f"| **{state}** |" in text, f"{name}: {state!r} isn't in its README"
 
 
-TOP_STRIP = PRESETS["top-strip"]
+TOP_STRIP = WIDGETS["top-strip"]
 
 
 def top_strip_readme():
     pictures = [("just launched", "just-launched.png")]
-    return harness.preset_readme(TOP_STRIP, pictures, (1280, 40))
+    return harness.widget_readme(TOP_STRIP, pictures, (1280, 40))
 
 
-def test_a_preset_readme_starts_with_its_description():
+def test_a_named_widget_readme_starts_with_its_description():
     assert f"# top-strip\n\n{TOP_STRIP.description}\n" in top_strip_readme()
 
 
-def test_a_preset_readme_links_its_components_readmes():
+def test_a_named_widget_readme_links_its_components_readmes():
     assert "[`drive`](../../components/drive/README.md)" in top_strip_readme()
 
 
-def test_a_preset_readme_says_where_it_docks():
+def test_a_named_widget_readme_says_where_it_docks():
     assert "| **Dock** | `game:top` |" in top_strip_readme()
 
 
-def test_a_preset_readme_says_its_width():
+def test_a_named_widget_readme_says_its_width():
     assert "| **Width** | the game's width |" in top_strip_readme()
 
 
-def test_a_preset_readme_says_when_its_components_choose_its_size():
+def test_a_named_widget_readme_says_when_its_components_choose_its_size():
     assert "| **Height** | what its components need |" in top_strip_readme()
 
 
-def test_a_preset_readme_shows_how_to_use_it():
+def test_a_named_widget_readme_shows_how_to_use_it():
     assert 'widget = "top-strip"' in top_strip_readme()
 
 
-def test_a_preset_readme_shows_its_own_states():
+def test_a_named_widget_readme_shows_its_own_states():
     row = '| **just launched** | <img src="images/just-launched.png"'
     assert row in top_strip_readme()
 
 
-@pytest.mark.parametrize("name", list(PRESETS))
-def test_each_presets_readme_is_up_to_date_with_its_states(name):
-    """Run `python -m helper.harness --readmes` after changing a preset's states."""
+@pytest.mark.parametrize("name", list(WIDGETS))
+def test_each_named_widgets_readme_is_up_to_date_with_its_states(name):
+    """Run `python -m helper.harness --readmes` after changing a named widget's states."""
     text = (Path(harness.web.DIR) / "widgets" / name / "README.md").read_text()
-    for state, _ in PRESETS[name].states:
+    for state, _ in WIDGETS[name].states:
         assert f"| **{state}** |" in text, f"{name}: {state!r} isn't in its README"
 
 
-def test_a_presets_state_sets_each_of_its_components_states():
-    target = harness.preset_target("top-strip")
+def test_a_named_widgets_state_sets_each_of_its_components_states():
+    target = harness.widget_target("top-strip")
     values = {state: values for c, state, values in target.states if c == "widget"}
     drive, clearance = dict(COMPONENTS["drive"].states), dict(COMPONENTS["clearance"].states)
     assert values["just launched"] == {**clearance["none"], **drive["mass locked"]}
@@ -355,27 +355,28 @@ def test_a_components_own_change_remakes_its_readme():
 
 
 def test_a_change_remakes_the_components_that_need_it_too():
-    assert set(harness.affected(["helper/web/components/keys/keys.js"])) == {"keys", "all_keys"}
+    changed = harness.affected(["helper/web/components/keys/keys.js"], widgets={})
+    assert set(changed) == {"keys", "all_keys"}
 
 
 def test_a_change_to_the_shared_stylesheet_remakes_every_readme():
-    assert harness.affected(["helper/web/lib/base.css"]) == [*COMPONENTS, *PRESETS]
+    assert harness.affected(["helper/web/lib/base.css"]) == [*COMPONENTS, *WIDGETS]
 
 
 def test_a_change_to_the_themes_colours_remakes_every_readme():
-    assert harness.affected(["helper/tk/components/style.py"]) == [*COMPONENTS, *PRESETS]
+    assert harness.affected(["helper/tk/components/style.py"]) == [*COMPONENTS, *WIDGETS]
 
 
-def test_a_components_change_remakes_the_presets_showing_it():
+def test_a_components_change_remakes_the_named_widgets_showing_it():
     assert harness.affected(["helper/web/components/drive/drive.js"]) == ["drive", "top-strip"]
 
 
-def test_a_presets_own_change_remakes_only_its_readme():
+def test_a_named_widgets_own_change_remakes_only_its_readme():
     assert harness.affected(["helper/web/widgets/top-strip/widget.toml"]) == ["top-strip"]
 
 
-def test_a_change_to_reading_widget_settings_remakes_every_preset():
-    assert harness.affected(["helper/widgets.py"]) == list(PRESETS)
+def test_a_change_to_reading_widget_settings_remakes_every_named_widget():
+    assert harness.affected(["helper/widgets.py"]) == list(WIDGETS)
 
 
 def test_the_readmes_and_pictures_themselves_dont_count():
@@ -392,9 +393,14 @@ def test_files_outside_the_components_dont_count():
     assert harness.affected(["helper/state.py", "README.md"]) == []
 
 
-def test_a_bar_joins_components_into_a_tab_group():
-    (target,) = harness.targets(None, plugins={}, names=["tip+keys|all_keys"])
-    assert target.spec.components == ("tip", ("keys", "all_keys"))
+def test_a_bar_makes_a_tabs_widget():
+    (target,) = harness.targets(None, plugins={}, names=["keys|all_keys"])
+    assert (target.spec.widget, target.spec.components) == ("tabs", ("keys", "all_keys"))
+
+
+def test_a_plus_and_a_bar_cant_be_mixed():
+    with pytest.raises(ValueError, match="not both"):
+        harness.targets(None, plugins={}, names=["tip+keys|all_keys"])
 
 
 def test_a_tabs_named_states_show_that_tab():

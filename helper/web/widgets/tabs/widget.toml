@@ -1,0 +1,10 @@
+description = "Keys, all keys and the trade table, one at a time under a tab row"
+components = ["keys", "all_keys", "trade_table"]
+topics = ["tabs"]
+actions = ["ui/choose_tab"]
+titled = true
+
+[states]
+"near a station" = {keys = "near a station", all_keys = "two groups", trade_table = "three commodities", tabs = "keys shown"}
+"all keys" = {keys = "near a station", all_keys = "two groups", trade_table = "three commodities", tabs = "all keys shown"}
+"trading" = {keys = "near a station", all_keys = "two groups", trade_table = "three commodities", tabs = "trade table shown"}
