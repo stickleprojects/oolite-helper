@@ -2,7 +2,7 @@
 
 # radar
 
-Every blip on the scanner, nearest first: its scanner colour (flashing as the scanner does), name and role, distance, what it's doing and its bounty; click a heading to sort
+Every blip on the scanner, nearest first: its scanner colour (flashing as the scanner does), name and role, distance, what it's doing and its bounty; click a heading to sort; it says when the scanner is empty
 
 | | |
 |---|---|
@@ -20,7 +20,7 @@ From `radar.states.json`. *Shows nothing* means it draws nothing in that state; 
 
 | State | Picture |
 |---|---|
-| **nothing on the scanner** | *shows nothing* |
+| **nothing on the scanner** | <img src="images/nothing-on-the-scanner.png" width="560" alt="nothing on the scanner"> |
 | **quiet** | <img src="images/quiet.png" width="560" alt="quiet"> |
 | **pirate attacking you** | <img src="images/pirate-attacking-you.png" width="560" alt="pirate attacking you"> |
 | **police chasing an offender** | <img src="images/police-chasing-an-offender.png" width="560" alt="police chasing an offender"> |

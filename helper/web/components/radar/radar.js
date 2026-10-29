@@ -43,7 +43,9 @@ Oolite.component("radar", {
   render(state, refresh) {
     const { el, button } = OoliteDom;
     const all = radarRows(state.radar || [], ...radarSort);
-    if (!all.length) return null;
+    if (!all.length) {
+      return el("section", "panel radar", el("h2", "", "Radar"), el("p", "empty", "Nothing on the scanner"));
+    }
     const header = el("tr", "");
     for (const [key, title, highFirst] of RADAR_COLUMNS) {
       const active = key === radarSort[0];
