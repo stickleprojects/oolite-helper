@@ -196,8 +196,8 @@ class ScenarioTests(unittest.TestCase):
             )
             self.assertEqual(market["prices"]["food"]["quantity"], 6)
             self.assertEqual(
-                stored.data["cost_basis"]["food"],
-                {"units": 3, "total_cost": 138, "average_price": 46},
+                stored.cost_basis["food"],  # the oldest lot sold first: 1 @ 42 and 2 @ 50 left
+                {"units": 3, "total_cost": 142, "average_price": 142 / 3},
             )
             self.assertEqual(stored.price_age, "2h ago")
 
@@ -215,12 +215,12 @@ class ScenarioTests(unittest.TestCase):
             }
             store.apply(first)
             store.apply(first)
-            self.assertEqual(store.data["cost_basis"]["food"]["units"], 2)
+            self.assertEqual(store.cost_basis["food"]["units"], 2)
 
             # A truncated log can restart line numbering, but a new game-clock event
             # remains distinct because deduplication uses the event payload itself.
             store.apply({**first, "gameClock": 11})
-            self.assertEqual(store.data["cost_basis"]["food"]["units"], 4)
+            self.assertEqual(store.cost_basis["food"]["units"], 4)
 
     def test_market_and_trade_storage_remain_bounded(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -253,7 +253,7 @@ class ScenarioTests(unittest.TestCase):
             self.assertEqual(store.data["markets"][0]["game_clock"], 599)
             self.assertEqual(len(store.data["market_events"]), 500)
             self.assertEqual(len(store.data["trade_events"]), 500)
-            self.assertEqual(store.data["cost_basis"]["food"]["units"], 600)
+            self.assertEqual(store.cost_basis["food"]["units"], 600)
             reopened = MarketStore(Path(directory) / "markets.json")
             self.assertEqual(len(reopened.data["markets"]), 1)
             self.assertEqual(len(reopened.data["market_events"]), 500)
@@ -288,7 +288,7 @@ class ScenarioTests(unittest.TestCase):
             finally:
                 source._file.close()
 
-            self.assertEqual(store.data["cost_basis"]["food"]["units"], 4)
+            self.assertEqual(store.cost_basis["food"]["units"], 4)
 
     def test_market_manifest_reconciles_saved_cost_basis(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -319,7 +319,7 @@ class ScenarioTests(unittest.TestCase):
             )
 
             self.assertEqual(
-                store.data["cost_basis"],
+                store.cost_basis,
                 {
                     "food": {"units": 3, "total_cost": 300, "average_price": 100},
                 },

@@ -1,4 +1,13 @@
-"""Persist market snapshots and the player's average commodity cost basis."""
+"""Persist market snapshots and what the player bought: each purchase (lot).
+
+Lots (#95): each commodity in the hold is a list of lots, oldest first:
+{"units", "price", "galaxy", "system_id", "system_name", "game_clock",
+"seen_at", "from"}. "from" is "bought", "scooped" (units that appeared in the
+hold with no purchase, price None) or "unknown" (held before the helper knew,
+or a version 1 file's average). Selling, dumping or losing cargo uses up the
+oldest lot first. The average price per commodity (cost_basis) comes from the
+priced lots, as version 1 kept it.
+"""
 
 import json
 import math
@@ -27,7 +36,7 @@ class MarketStore:
         previous_trade_events = self.data.get("trade_events", [])
         had_source_events = "source_events" in self.data
         self.data.setdefault("markets", [])
-        self.data.setdefault("cost_basis", {})
+        migrated = self._migrate()
         self.data.pop("source_events", None)
         self.data["market_events"] = self.data.get("market_events", [])[-MAX_MARKET_EVENTS:]
         self.data["markets"] = list(
@@ -43,6 +52,7 @@ class MarketStore:
             or previous_market_events != self.data["market_events"]
             or previous_trade_events != self.data["trade_events"]
             or had_source_events
+            or migrated
         ):
             self._save()
 
@@ -51,7 +61,7 @@ class MarketStore:
 
         A damaged file is kept as markets.json.bad rather than overwritten.
         """
-        empty = {"version": 1, "markets": [], "cost_basis": {}}
+        empty = {"version": 2, "markets": [], "lots": {}}
         try:
             with self.path.open(encoding="utf-8") as file:
                 data = json.load(file)
@@ -63,10 +73,68 @@ class MarketStore:
         if (
             not isinstance(data, dict)
             or not isinstance(data.get("cost_basis", {}), dict)
+            or not isinstance(data.get("lots", {}), dict)
             or any(not isinstance(data.get(key, []), list) for key in list_keys)
         ):
             return self._set_aside(empty, "unexpected layout")
         return data
+
+    def _migrate(self):
+        """Version 1 kept one average per commodity: read it as one lot of
+        unknown origin. True if the data changed."""
+        if "lots" in self.data and "cost_basis" not in self.data:
+            return False
+        lots = self.data.setdefault("lots", {})
+        for commodity, basis in (self.data.pop("cost_basis", None) or {}).items():
+            units = basis.get("units") if isinstance(basis, dict) else None
+            if commodity not in lots and self._valid_number(units) and units > 0:
+                price = basis.get("average_price")
+                lots[commodity] = [self._lot(units, price if self._valid_number(price) else None)]
+        self.data["version"] = 2
+        return True
+
+    @staticmethod
+    def _lot(units, price, where=None, origin="unknown", seen_at=None):
+        where = where or {}
+        return {
+            "units": units,
+            "price": price,
+            "galaxy": where.get("galaxy"),
+            "system_id": where.get("systemID"),
+            "system_name": where.get("systemName"),
+            "game_clock": where.get("gameClock"),
+            "seen_at": seen_at,
+            "from": origin,
+        }
+
+    def _use_up(self, commodity, units):
+        """Take units of a commodity out of its lots, oldest first."""
+        lots = self.data["lots"].get(commodity, [])
+        while units > 1e-9 and lots:
+            taken = min(units, lots[0]["units"])
+            lots[0]["units"] -= taken
+            units -= taken
+            if lots[0]["units"] <= 1e-9:
+                lots.pop(0)
+        if not lots:
+            self.data["lots"].pop(commodity, None)
+
+    def held_lots(self, commodity):
+        """The units of a commodity the lots account for."""
+        return sum(lot["units"] for lot in self.data["lots"].get(commodity, []))
+
+    @property
+    def cost_basis(self):
+        """{commodity: {"units", "total_cost", "average_price"}} from the priced lots."""
+        basis = {}
+        for commodity, lots in self.data["lots"].items():
+            priced = [lot for lot in lots if lot["price"] is not None]
+            units = sum(lot["units"] for lot in priced)
+            if units <= 0:
+                continue
+            total = sum(lot["units"] * lot["price"] for lot in priced)
+            basis[commodity] = {"units": units, "total_cost": total, "average_price": total / units}
+        return basis
 
     def _set_aside(self, empty, reason):
         bad = self.path.with_name(self.path.name + ".bad")
@@ -80,12 +148,12 @@ class MarketStore:
 
     def apply(self, message):
         kind = message.get("type")
-        if kind not in ("market", "bought", "sold"):
-            return
         if kind == "market" and isinstance(message.get("market"), dict):
             self._record_market(message)
         elif kind in ("bought", "sold"):
             self._record_trade(message)
+        elif kind == "hold":
+            self._record_hold(message)
 
     def _record_market(self, message):
         identity = self._market_identity(message)
@@ -109,7 +177,7 @@ class MarketStore:
             "system_name": message.get("systemName"),
             "game_clock": message.get("gameClock"),
             "station": message.get("station"),
-            "seen_at": self.now().astimezone(UTC).isoformat(),
+            "seen_at": self._now_text(),
             "prices": message["market"],
         }
         if existing:
@@ -135,9 +203,10 @@ class MarketStore:
     def _market_location(market):
         return market.get("galaxy"), market.get("system_id"), market.get("station")
 
-    def _reconcile_manifest(self, manifest):
+    def _held(self, manifest):
+        """{commodity: units} in a manifest; None if it isn't one."""
         if not isinstance(manifest, list):
-            return
+            return None
         held = {}
         for item in manifest:
             if not isinstance(item, dict):
@@ -146,15 +215,45 @@ class MarketStore:
             quantity = item.get("quantity")
             if isinstance(commodity, str) and self._valid_number(quantity) and quantity > 0:
                 held[commodity] = held.get(commodity, 0) + quantity
-        for commodity, current in list(self.data["cost_basis"].items()):
-            quantity = held.get(commodity, 0)
-            if quantity <= 0:
-                del self.data["cost_basis"][commodity]
-            elif quantity < current["units"]:
-                average = current["total_cost"] / current["units"]
-                current["units"] = quantity
-                current["total_cost"] = quantity * average
-                current["average_price"] = average
+        return held
+
+    def _reconcile_manifest(self, manifest, add=None):
+        """Use up lots the hold no longer has, oldest first. With add (a lot's
+        "from"), also add an unpriced lot for units the lots don't account for.
+        True if the lots changed."""
+        held = self._held(manifest)
+        if held is None:
+            return False
+        before = json.dumps(self.data["lots"], sort_keys=True)
+        for commodity in list(self.data["lots"]):
+            extra = self.held_lots(commodity) - held.get(commodity, 0)
+            if extra > 1e-9:
+                self._use_up(commodity, extra)
+        if add:
+            for commodity, units in held.items():
+                missing = units - self.held_lots(commodity)
+                if missing > 1e-9:
+                    lot = self._lot(missing, None, origin=add, seen_at=self._now_text())
+                    self.data["lots"].setdefault(commodity, []).append(lot)
+        return json.dumps(self.data["lots"], sort_keys=True) != before
+
+    def _record_hold(self, message):
+        """A hold message (#95): the goods aboard, less the cargo that belongs
+        to contracts (it's in the manifest too, but wasn't bought)."""
+        goods = self._held(message.get("goods"))
+        if goods is None:
+            return
+        for contract in message.get("contracts") or ():
+            commodity = contract.get("commodity") if isinstance(contract, dict) else None
+            if commodity in goods and self._valid_number(contract.get("quantity")):
+                goods[commodity] = max(0, goods[commodity] - contract["quantity"])
+        manifest = [{"commodity": c, "quantity": q} for c, q in goods.items() if q > 0]
+        origin = "scooped" if message.get("cause") == "scooped" else "unknown"
+        if self._reconcile_manifest(manifest, add=origin):
+            self._save()
+
+    def _now_text(self):
+        return self.now().astimezone(UTC).isoformat()
 
     def _record_trade(self, message):
         commodity = message.get("commodity")
@@ -174,34 +273,11 @@ class MarketStore:
         if event_key in self.data["trade_events"]:
             return
 
-        basis = self.data["cost_basis"]
-        current = basis.get(commodity)
         if message["type"] == "bought":
-            held = current["units"] if current else 0
-            total_cost = current["total_cost"] if current else 0
-            held += units
-            total_cost += units * price
+            lot = self._lot(units, price, message, "bought", self._now_text())
+            self.data["lots"].setdefault(commodity, []).append(lot)
         else:
-            if not current:
-                self._remember_trade(event_key)
-                return
-            held = current["units"]
-            total_cost = current["total_cost"]
-            if held <= 0:
-                self._remember_trade(event_key)
-                return
-            sold = min(units, held)
-            held -= sold
-            total_cost -= sold * (total_cost / current["units"])
-            if held <= 1e-12:
-                held = 0
-                total_cost = 0
-
-        basis[commodity] = {
-            "units": held,
-            "total_cost": total_cost,
-            "average_price": total_cost / held if held else 0,
-        }
+            self._use_up(commodity, units)
         self._remember_trade(event_key)
 
     @staticmethod
