@@ -11,8 +11,8 @@ const rows = (node) => node.all("tr").slice(1);
 const names = (node) => rows(node).map((tr) => tr.children[0].children[1].textContent);
 const heading = (node, title) => node.all("button").find((b) => b.textContent.startsWith(title));
 
-test("draws nothing with nothing on the scanner", () => {
-  assert.equal(render("radar", STATES["nothing on the scanner"]).node, null);
+test("says so when there's nothing on the scanner", () => {
+  assert.equal(render("radar", STATES["nothing on the scanner"]).node.all(".empty")[0].textContent, "Nothing on the scanner");
 });
 
 test("is headed Radar with the number of blips", () => {

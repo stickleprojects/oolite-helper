@@ -2,7 +2,7 @@
 
 # radar-beside
 
-Every blip on the scanner, left of the game window while flying
+Every blip on the scanner, left of the game window; stays open, saying when the scanner is empty
 
 | | |
 |---|---|
@@ -27,6 +27,7 @@ From `[states]` in `widget.toml`: each names a state of each of its components. 
 
 | State | Picture |
 |---|---|
+| **nothing on the scanner** | <img src="images/nothing-on-the-scanner.png" width="560" alt="nothing on the scanner"> |
 | **quiet** | <img src="images/quiet.png" width="560" alt="quiet"> |
 | **pirate attacking you** | <img src="images/pirate-attacking-you.png" width="560" alt="pirate attacking you"> |
 | **police attacking you** | <img src="images/police-attacking-you.png" width="560" alt="police attacking you"> |

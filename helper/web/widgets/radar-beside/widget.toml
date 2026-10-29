@@ -1,9 +1,11 @@
-description = "Every blip on the scanner, left of the game window while flying"
+description = "Every blip on the scanner, left of the game window; stays open, saying when the scanner is empty"
 components = ["radar"]
 dock = "game:left"
 width = 620
+hide_empty = false
 
 [states]
+"nothing on the scanner" = {radar = "nothing on the scanner"}
 "quiet" = {radar = "quiet"}
 "pirate attacking you" = {radar = "pirate attacking you"}
 "police attacking you" = {radar = "police attacking you"}
