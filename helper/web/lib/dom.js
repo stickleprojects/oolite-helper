@@ -1,4 +1,4 @@
-// Small DOM helpers shared by the built-in components (#82).
+// Small DOM helpers shared by the components (#82).
 "use strict";
 
 // el("span", "chip good", "TORUS ✓") or el("div", "row", childA, childB):

@@ -46,7 +46,7 @@ from . import config, plugin_api, web
 from .keys import load_keymap
 from .markets import MarketStore
 from .model import Model
-from .plugins import Manifest, builtin_manifest, discover
+from .plugins import Manifest, discover, page_manifest
 from .webhost.host import content_type, csp
 from .widgets import COMPONENTS, WIDGETS, WidgetSpec, load_widgets
 
@@ -133,7 +133,8 @@ class Target:
     named: tuple = ()  # a named widget's own states: ((name, {component: state}), ...)
 
     @property
-    def builtin(self):
+    def generated(self):
+        """Its page is the one the helper generates (not a plugin's)."""
         return self.manifest.name == web.HOST
 
     @property
@@ -153,7 +154,7 @@ class Target:
         """[(component, state name, {topic: value}), ...]: its components' named
         states, after a named widget's own (as component "widget"). In a widget that
         reads the tabs topic, a component's states show its tab."""
-        if not self.builtin:
+        if not self.generated:
             return []
         own = [("widget", state, self.together(chosen)) for state, chosen in self.named]
         return own + [
@@ -186,14 +187,14 @@ class Target:
 def component_target(name):
     width, height, layout = COMPONENT_VIEWS.get(name, DEFAULT_VIEW)
     spec = WidgetSpec(components=(name,), width=width, height=height, layout=layout)
-    return Target(f"component.{name}", name, spec, builtin_manifest(COMPONENTS, (name,)))
+    return Target(f"component.{name}", name, spec, page_manifest(COMPONENTS, (name,)))
 
 
 def widget_target(name):
     named = WIDGETS[name]
     spec = named.spec
     title = f"{name}: {', '.join(spec.components)}"
-    manifest = builtin_manifest(COMPONENTS, spec.components, named)
+    manifest = page_manifest(COMPONENTS, spec.components, named)
     return Target(f"widget.{name}", title, spec, manifest, named.states)
 
 
@@ -206,14 +207,14 @@ def config_targets(config_path, manifests):
                 manifest = manifests[spec.components[0]]
             else:
                 named = WIDGETS.get(spec.widget)
-                manifest = builtin_manifest(COMPONENTS, spec.components, named)
+                manifest = page_manifest(COMPONENTS, spec.components, named)
             title = f"{wid}: {', '.join(spec.components)}"
             found.append(Target(f"config.{wid}", title, spec, manifest))
     return found
 
 
 def targets(config_path=None, plugins=None, names=()):
-    """What to show. With no names: every built-in component on its own, every
+    """What to show. With no names: every component on its own, every
     named widget, then every widget in config_path. Otherwise each name is a
     component, a named widget, components joined with "+" (shown together, as a
     widget; "keys|all_keys" makes a tabs widget of them), or a widget id in
@@ -237,7 +238,7 @@ def targets(config_path=None, plugins=None, names=()):
             widget = "tabs" if tabs else None
             spec = WidgetSpec(parts, width=DEFAULT_VIEW[0], layout="large", widget=widget)
             title = (" | " if tabs else " + ").join(parts)
-            manifest = builtin_manifest(COMPONENTS, parts, WIDGETS.get(widget))
+            manifest = page_manifest(COMPONENTS, parts, WIDGETS.get(widget))
             found.append(Target(f"widget.{name}", title, spec, manifest))
         elif any(target.id == f"config.{name}" for target in widgets):
             found.append(next(target for target in widgets if target.id == f"config.{name}"))
@@ -431,14 +432,14 @@ class HarnessHandler(BaseHTTPRequestHandler):
 
     def extra(self, snap, target, name):
         spec = target.spec
-        if name == "widget.html" and target.builtin:
+        if name == "widget.html" and target.generated:
             return self.send(200, "text/html", target.manifest.page.encode(), target)
         if name == "theme.css":
             css = plugin_api.theme_css(spec.layout, spec.font_scale)
             return self.send(200, "text/css", css.encode(), target)
         if name == "dev.js":
             return self.send(200, "text/javascript", DEV_JS.encode(), target)
-        if name == "widget.js" and target.builtin:
+        if name == "widget.js" and target.generated:
             topics = target.manifest.topics
             script = web.widget_config(spec.components, spec.widget, topics, target.size[0])
             return self.send(200, "text/javascript", script.encode(), target)

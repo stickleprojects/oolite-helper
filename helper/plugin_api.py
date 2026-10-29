@@ -402,7 +402,7 @@ def topic_value(model, name):
 
 # -- actions -----------------------------------------------------------------
 # What a plugin may send with oolite.dispatch(), if its manifest lists it in
-# `actions`. The same "ui/..." actions the built-in components send; they change the
+# `actions`. The same "ui/..." actions the helper's components send; they change the
 # shared UI state, so the laptop window follows a plugin's choices and back.
 
 COMMODITY = re.compile(r"[a-z][a-z0-9_]{0,39}")

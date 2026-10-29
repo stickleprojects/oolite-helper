@@ -85,7 +85,7 @@ def read_manifest(root):
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ValueError("name must be lower case letters, digits and -, up to 40")
     if name in COMPONENTS or name == web.HOST:
-        raise ValueError(f"{name!r} is the name of a built-in component")
+        raise ValueError(f"{name!r} is the name of one of the helper's components")
     if data.get("api") != API:
         raise ValueError(f"needs api {data.get('api')!r}; this helper has api {API}")
     if not isinstance(data.get("version"), str):
@@ -139,11 +139,11 @@ def discover(folder=DIR):
     return found, broken
 
 
-def builtin_manifest(components, names, widget=None):
-    """A Manifest for a widget of built-in components: its generated page, and
+def page_manifest(components, names, widget=None):
+    """A Manifest for a widget of the helper's components: its generated page, and
     only those components' topics and actions (and its named widget's, widget)."""
     page = web.page(components, names, widget)
-    return BuiltinManifest(
+    return PageManifest(
         name=web.HOST,
         root=web.DIR,
         version="1",
@@ -158,7 +158,7 @@ def builtin_manifest(components, names, widget=None):
 
 
 @dataclass(frozen=True)
-class BuiltinManifest(Manifest):
+class PageManifest(Manifest):
     page: str = ""  # the generated widget.html
 
 
@@ -170,9 +170,9 @@ class WebWidgets:
     """
 
     def __init__(
-        self, model, manifests, broken=(), monitors=(), host=None, builtin=None, fallback=None
+        self, model, manifests, broken=(), monitors=(), host=None, components=None, fallback=None
     ):
-        """builtin: the built-in components ({name: web.WebComponent}); each
+        """components: the helper's components ({name: web.WebComponent}); each
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
         before it was ever ready, to show them with Tk."""
@@ -184,20 +184,20 @@ class WebWidgets:
         self.manifests = manifests
         self.widgets = {}  # widget id -> manifest; placement comes from the layout topic
         self.sizes = {}  # widget id -> (w, h): the manifest's, or what the page asked for
-        self.builtin = {}  # widget id -> its built-in components
+        self.pages = {}  # widget id -> its components, for the pages the helper generates
         self.hidden = set()  # widget ids whose page said it has nothing to show
         self.fallback = fallback
         self.ever_ready = False
         for widget in model.topic("layout"):
             wid, name = widget.id, widget.spec.components[0]
             if name in COMPONENTS or name == web.HOST:
-                if builtin is None:
+                if components is None:
                     continue  # a Tk widget
                 named = WIDGETS.get(widget.spec.widget)
-                manifest = builtin_manifest(builtin, widget.spec.components, named)
+                manifest = page_manifest(components, widget.spec.components, named)
                 self.widgets[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
-                self.builtin[wid] = widget.spec.components
+                self.pages[wid] = widget.spec.components
                 self.hidden.add(wid)  # until the page has drawn
             elif name in manifests:
                 manifest = manifests[name]
@@ -240,7 +240,7 @@ class WebWidgets:
             shown = widget.open and not empty
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
-            if wid in self.builtin:
+            if wid in self.pages:
                 script = web.widget_config(
                     spec.components, spec.widget, manifest.topics, spec.width
                 )
@@ -283,7 +283,7 @@ class WebWidgets:
             del self.problems[wid]
         elif kind in ("unavailable", "host_exited"):
             self.problems["host"] = event.get("message") or "the plugin web host stopped"
-            if not self.ever_ready and self.builtin and self.fallback is not None:
+            if not self.ever_ready and self.pages and self.fallback is not None:
                 self.fall_back()
         elif kind == "ready":
             self.ever_ready = True
@@ -293,17 +293,17 @@ class WebWidgets:
         return True
 
     def fall_back(self):
-        """Hand the built-in components to Tk: the web host never started."""
-        ids = list(self.builtin)
+        """Hand the components to Tk: the web host never started."""
+        ids = list(self.pages)
         for wid in ids:
-            del self.widgets[wid], self.sizes[wid], self.builtin[wid]
+            del self.widgets[wid], self.sizes[wid], self.pages[wid]
             self.hidden.discard(wid)
         fallback, self.fallback = self.fallback, None
         fallback(ids)
 
     def dispatch(self, wid, action):
         """Apply a page's UI action if its manifest (a plugin's, or the one made
-        for a page of built-in components) allows it and it checks out."""
+        for a page of the helper's components) allows it and it checks out."""
         manifest = self.widgets[wid]
         name = manifest.name
         checked = check_action(action, manifest.actions)

@@ -1,6 +1,6 @@
 "use strict";
 
-// Testing for web components: just enough DOM for the built-in components
+// Testing for web components: just enough DOM for the components
 // (they build nodes through lib/dom.js), so their behaviour can be tested
 // under Node, beside each component (components/<name>/<name>.test.js):
 // what they render for a state, and what clicking does.

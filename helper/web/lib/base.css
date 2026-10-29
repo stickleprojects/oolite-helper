@@ -1,4 +1,4 @@
-/* Shared look for the built-in components (#82): the laptop window's. */
+/* Shared look for the components (#82): the laptop window's. */
 /* The window can be taller than the components (the host's 16 px minimum, or a
    width/height set in config.toml): centre them. */
 body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
