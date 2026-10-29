@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.5";
+this.version = "0.6";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -174,10 +174,12 @@ var NO_MASS_LOCK = ["CLASS_PLAYER", "CLASS_BUOY", "CLASS_ROCK", "CLASS_CARGO", "
 this._watchFlight = function (on) {
 	if (on && !this._flightTimer) {
 		this._lastBlocker = this._lastMassLock = null;
+		this._radarShown = false;
 		this._flightTimer = new Timer(this, this._checkFlight, 1, 1);
 	} else if (!on && this._flightTimer) {
 		this._flightTimer.stop();
 		this._flightTimer = null;
+		this._emitRadar([]);  // docked or dead: nothing on the scanner
 	}
 };
 
@@ -207,6 +209,50 @@ this._checkFlight = function () {
 		this._lastMassLock = lock;
 		this._emit("mass_lock", { by: lock });
 	}
+
+	var range = ship.scannerRange || SCANNER_RANGE;
+	this._emitRadar(nearby.filter(function (entity) {
+		return entity.scanClass !== "CLASS_NO_DRAW" && !entity.isCloaked &&
+			ship.position.squaredDistanceTo(entity.position) <= range * range;
+	}));
+};
+
+// What's on the scanner, nearest first, sent every second while there's
+// anything, then once empty when it clears. The scanner draws every entity in
+// range except the player, cloaked ships and CLASS_NO_DRAW; the zoom only
+// changes what's drawn, so it's ignored here (HeadUpDisplay drawScanner,
+// 1.92.1). "hostile" is the scanner's test: a hostile target that is the
+// player. Jamming ships are sent either way: without a military scanner filter
+// the scanner draws them clear, and the helper leaves them out
+// (ShipEntity scannerDisplayColorForShip, 1.92.1).
+this._emitRadar = function (blips) {
+	if (!blips.length && !this._radarShown) {
+		return;
+	}
+	this._radarShown = blips.length > 0;
+	var ship = player.ship;
+	this._emit("radar", {
+		filter: blips.length > 0 && ship.hasEquipmentProviding("EQ_MILITARY_SCANNER_FILTER"),
+		blips: blips.map(function (entity) {
+			var target = entity.target;
+			var colours = [entity.scannerDisplayColor1, entity.scannerDisplayColor2,
+				entity.scannerHostileDisplayColor1, entity.scannerHostileDisplayColor2];
+			var scripted = colours.some(function (colour) { return colour; });
+			return {
+				name: entity.displayName,
+				scanClass: entity.scanClass,
+				role: entity.primaryRole,
+				distance: Math.round(Math.sqrt(ship.position.squaredDistanceTo(entity.position)) / 10) * 10,
+				hostile: Boolean(entity.hasHostileTarget && target === ship),
+				attacking: Boolean(entity.hasHostileTarget),
+				target: target ? (target === ship ? "you" : target.displayName) : null,
+				fleeing: Boolean(entity.isFleeing),
+				bounty: entity.bounty || 0,
+				jamming: Boolean(entity.isJamming),
+				colours: scripted ? colours.map(function (colour) { return colour || null; }) : null
+			};
+		})
+	});
 };
 
 // What locks the torus drive: a ship's name, "planet", "sun", or null.
