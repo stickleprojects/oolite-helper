@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.6";
+this.version = "0.7";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -210,6 +210,10 @@ this._checkFlight = function () {
 		this._emit("mass_lock", { by: lock });
 	}
 
+	if (this._holdKey() !== this._lastHoldKey) {
+		this._emitHold("lost");  // destroyed by damage: no event says so
+	}
+
 	var range = ship.scannerRange || SCANNER_RANGE;
 	this._emitRadar(nearby.filter(function (entity) {
 		return entity.scanClass !== "CLASS_NO_DRAW" && !entity.isCloaked &&
@@ -318,6 +322,69 @@ this._countEquipment = function (list, extra) {
 	return items;
 };
 
+/* The hold (#95) */
+
+// Everything aboard: the manifest (one entry per commodity, contract cargo
+// included), passengers, parcels and cargo contracts (OOJSShip.m, built by
+// PlayerEntity contractsListForScriptingFromArray:forCargo:, 1.92.1), and the
+// space used. "cause" says what changed it. Cargo destroyed by damage fires no
+// event (PlayerEntity takeInternalDamage), so the flight check compares
+// _holdKey() each second and sends cause "lost" when it changes.
+var CONTRACT_FIELDS = ["name", "commodity", "quantity", "description", "start", "startName",
+	"destination", "destinationName", "eta", "etaDescription", "fee", "premium", "risk"];
+
+this._contractList = function (list) {
+	return (list || []).map(function (contract) {
+		var entry = {};
+		CONTRACT_FIELDS.forEach(function (field) {
+			if (contract[field] !== undefined) entry[field] = contract[field];
+		});
+		return entry;
+	});
+};
+
+this._holdKey = function () {
+	var ship = player.ship;
+	var goods = (ship.manifest.list || []).map(function (item) {
+		return item.commodity + ":" + item.quantity;
+	});
+	return [goods.join(","), (ship.passengers || []).length, (ship.parcels || []).length,
+		(ship.contracts || []).length].join("|");
+};
+
+this._emitHold = function (cause) {
+	var ship = player.ship;
+	this._lastHoldKey = this._holdKey();
+	this._emit("hold", {
+		cause: cause,
+		goods: (ship.manifest.list || []).map(function (item) {
+			return { commodity: item.commodity, quantity: item.quantity, unit: item.unit,
+				name: item.displayName };
+		}),
+		passengers: this._contractList(ship.passengers),
+		parcels: this._contractList(ship.parcels),
+		contracts: this._contractList(ship.contracts),
+		space: { used: ship.cargoSpaceUsed, capacity: ship.cargoSpaceCapacity },
+		gameClock: clock.seconds
+	});
+};
+
+this.shipDumpedCargo = function (cargo) {
+	this._emitHold("dumped");
+};
+
+this.shipScoopedOther = function (item) {
+	this._emitHold("scooped");
+};
+
+this.playerEnteredContract = function (type, info) {
+	this._emitHold("contract");
+};
+
+this.playerCompletedContract = function (type, result, fee, info) {
+	this._emitHold("contract_done");
+};
+
 /* Startup */
 
 this.startUp = function () {
@@ -340,6 +407,7 @@ this.startUpComplete = function () {
 	this._emitSystems();
 	this._emitChartTarget();
 	this._emitEquipment();
+	this._emitHold("start");
 };
 
 /* Screens and views */
@@ -364,6 +432,7 @@ this.shipDockedWithStation = function (station) {
 	this._emit("docked", { station: station.displayName });
 	this._emitMarket(station);
 	this._emitSystems();
+	this._emitHold("docked");
 };
 
 this.shipWillLaunchFromStation = function (station) {
@@ -373,6 +442,7 @@ this.shipWillLaunchFromStation = function (station) {
 this.shipLaunchedFromStation = function (station) {
 	this._emitAegis(station);  // launching leaves you inside the aegis
 	this._watchFlight(true);
+	this._emitHold("launched");
 };
 
 this.shipEnteredStationAegis = function (station) {
@@ -410,6 +480,7 @@ this.playerBoughtCargo = function (commodity, units, price) {
 	data.price = price;
 	this._emit("bought", data);
 	this._emitMarket(); // credits, stock and hold have changed
+	this._emitHold("bought");
 };
 
 this.playerSoldCargo = function (commodity, units, price) {
@@ -419,6 +490,7 @@ this.playerSoldCargo = function (commodity, units, price) {
 	data.price = price;
 	this._emit("sold", data);
 	this._emitMarket(); // credits, stock and hold have changed
+	this._emitHold("sold");
 };
 
 this.playerStartedAutoPilot = function (station) {
