@@ -23,6 +23,7 @@ PATH = (
 )
 MAX_TRADE_EVENTS = 500
 MAX_MARKET_EVENTS = 500
+MAX_HOLD_EVENTS = 500
 
 
 class MarketStore:
@@ -47,6 +48,7 @@ class MarketStore:
             }.values()
         )
         self.data["trade_events"] = self.data.get("trade_events", [])[-MAX_TRADE_EVENTS:]
+        self.data["hold_events"] = self.data.get("hold_events", [])[-MAX_HOLD_EVENTS:]
         if self.path.exists() and (
             previous_markets != self.data["markets"]
             or previous_market_events != self.data["market_events"]
@@ -69,7 +71,7 @@ class MarketStore:
             return empty
         except (OSError, ValueError) as exc:
             return self._set_aside(empty, exc)
-        list_keys = ("markets", "market_events", "trade_events")
+        list_keys = ("markets", "market_events", "trade_events", "hold_events")
         if (
             not isinstance(data, dict)
             or not isinstance(data.get("cost_basis", {}), dict)
@@ -239,18 +241,32 @@ class MarketStore:
 
     def _record_hold(self, message):
         """A hold message (#95): the goods aboard, less the cargo that belongs
-        to contracts (it's in the manifest too, but wasn't bought)."""
+        to contracts (it's in the manifest too, but wasn't bought).
+
+        Each is applied once: the helper reads Latest.log from the start when it
+        starts, and replaying an old hold against today's lots would use up the
+        wrong ones (as trades, which _trade_identity keeps from repeating)."""
         goods = self._held(message.get("goods"))
         if goods is None:
             return
+        event_key = json.dumps(
+            [message.get(key) for key in ("cause", "gameClock", "goods", "contracts")],
+            separators=(",", ":"),
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        if event_key in self.data["hold_events"]:
+            return
+        self.data["hold_events"].append(event_key)
+        self.data["hold_events"] = self.data["hold_events"][-MAX_HOLD_EVENTS:]
         for contract in message.get("contracts") or ():
             commodity = contract.get("commodity") if isinstance(contract, dict) else None
             if commodity in goods and self._valid_number(contract.get("quantity")):
                 goods[commodity] = max(0, goods[commodity] - contract["quantity"])
         manifest = [{"commodity": c, "quantity": q} for c, q in goods.items() if q > 0]
         origin = "scooped" if message.get("cause") == "scooped" else "unknown"
-        if self._reconcile_manifest(manifest, add=origin):
-            self._save()
+        self._reconcile_manifest(manifest, add=origin)
+        self._save()
 
     def _now_text(self):
         return self.now().astimezone(UTC).isoformat()
