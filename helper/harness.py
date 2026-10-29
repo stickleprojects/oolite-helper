@@ -57,6 +57,7 @@ COMPONENT_VIEWS = {
     "drive": (640, 40, "compact"),
     "clearance": (640, 40, "compact"),
     "trade_here": (560, 480, "compact"),
+    "radar": (620, 600, "compact"),
     "heading": (1600, 140, "large"),
     "tip": (1600, 100, "large"),
     "status": (1600, 40, "large"),

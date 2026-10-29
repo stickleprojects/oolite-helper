@@ -78,6 +78,7 @@ Plain JSON. **Constants for logic, text for showing:** anything meant to be read
 | `details` | short notes: [{"kind": "countdown", "galactic": false, "seconds": 9, "text": "Jump in 9s"}, {"kind": "docking_computer", "text": "Docking computer on"}, {"kind": "jump_failed", "reason": ..., "text": ...}, {"kind": "destroyed", "by": ..., "cause": ..., "text": ...}] |
 | `drive` | while flying: {"torus": {"ok": bool, "by": ...}, "jump": {"ok": bool, "by": ...}}, else null; by is what blocks it (a ship's name, or "planet" or "sun"), or null |
 | `mass_lock` | what locks the torus drive: a ship's name, or "planet" or "sun"; null if nothing |
+| `radar` | what's on the scanner while flying, nearest first: [{"name": "Krait", "kind": "ship" (or "police", "military", "thargoid", "missile", "station", "buoy", "rock", "cargo", "mine"), "role": e.g. "pirate", "distance_km": 4.2, "bounty": credits, "doing": "attacking you", "attacking <name>", "fleeing" or null, "hostile": bool (targeting you), "colour": "#ff4000" its scanner colour, "flash": the colour it flashes to every 0.25 s, or null}]; [] when nothing is there |
 | `jump_blocker` | {"by": the ship or station in the way, "clear_at": metres away it stops blocking}, or null |
 | `clearance` | near a station: {"status": "none", "requested", "granted", "timing_out", "not_required" or "refused", "text": "Cleared to dock", "colour": "green", "amber" or "red", "flashes": bool}, else null |
 | `tip` | the tip lines under the tabs: ["Waiting for clearance. ...", ...] |

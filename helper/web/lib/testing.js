@@ -18,6 +18,8 @@ class FakeNode {
     this.children = [];
     this.listeners = {};
     this.text = "";
+    const values = {};
+    this.style = { values, setProperty: (name, value) => (values[name] = value) };
   }
 
   append(...nodes) {

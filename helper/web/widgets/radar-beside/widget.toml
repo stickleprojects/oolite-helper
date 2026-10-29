@@ -1,0 +1,11 @@
+description = "Every blip on the scanner, left of the game window while flying"
+components = ["radar"]
+dock = "game:left"
+width = 620
+
+[states]
+"quiet" = {radar = "quiet"}
+"pirate attacking you" = {radar = "pirate attacking you"}
+"police attacking you" = {radar = "police attacking you"}
+"missile incoming" = {radar = "missile incoming"}
+"many blips" = {radar = "many blips"}
