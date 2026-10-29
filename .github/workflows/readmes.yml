@@ -1,4 +1,4 @@
-# Refreshes each web component's and widget preset's generated README.md and the pictures of its
+# Refreshes each web component's and widget folder's generated README.md and the pictures of its
 # named states (python -m helper.harness --readmes) on pull requests, and
 # commits them to the PR branch. CI makes the pictures so they're the same
 # whoever changes a component: fonts and rendering differ between machines.
@@ -12,7 +12,7 @@ on:
       - "helper/plugin_api.py"
       - "helper/plugins.py"
       - "helper/tk/components/style.py"
-      - "helper/widgets.py" # reads the presets
+      - "helper/widgets.py" # reads the widget folders
 
 permissions:
   contents: write # commit the refreshed READMEs to the PR branch

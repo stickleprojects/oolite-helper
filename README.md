@@ -45,7 +45,7 @@ Any add-on can write `[ctxkeys]` lines to the log, so a misbehaving add-on could
 What the helper shows is built from two kinds of piece:
 
 - A **component** draws one part of the game's state: the key list, the docking clearance badge, the TORUS/JUMP lamps, the trade table. It has no window of its own. Each one lives in a folder under [helper/web/components/](helper/web/components/README.md), with a README showing a picture of it in each of its named states.
-- A **widget** is a window that hosts one or more components, docked beside the game window or placed on a monitor. You set widgets up in `config.toml`, either by listing components or by naming a **preset**, a ready-made widget. The presets live in [helper/web/widgets/](helper/web/widgets/README.md), each with a README showing pictures of the whole widget.
+- A **widget** is a window that hosts one or more components, docked beside the game window or placed on a monitor. You set widgets up in `config.toml`, either by listing components or by naming a widget that's already defined. Those live in [helper/web/widgets/](helper/web/widgets/README.md), each with a README showing pictures of the whole widget.
 
 [Widgets beside the game](#widgets-beside-the-game) below shows how to set them up. [docs/architecture.md](docs/architecture.md) has the full terms and how to write a component.
 
@@ -186,7 +186,7 @@ dock = "game:right"
 width = 560
 ```
 
-Those two also come ready-made as **presets**: `widget = "top-strip"` and `widget = "trade-beside"`. You can change any of a preset's settings in the same table, e.g. `dock = "game:bottom"`. Each component and preset has a README with pictures of it in its named states. Browse them in [helper/web/components/](helper/web/components/) and [helper/web/widgets/](helper/web/widgets/).
+Those two are also defined as widgets you can name: `widget = "top-strip"` and `widget = "trade-beside"`. You can change any of the widget's settings in the same table, e.g. `dock = "game:bottom"`. Each component and named widget has a README with pictures of it in its named states. Browse them in [helper/web/components/](helper/web/components/) and [helper/web/widgets/](helper/web/widgets/).
 
 Docked widgets sit just outside the game window (it must be windowed), follow it when it moves, and show only while the game is the active window. A widget with nothing to show hides itself. All the settings are in [config.example.toml](config.example.toml). Widgets are opaque: without a compositor, X11 windows can't be see-through.
 
@@ -232,8 +232,8 @@ On some systems, notably Ubuntu 26.04, whose default Rust coreutils link against
 | `helper/keys.py`, `helper/plist.py` | Reads Oolite's key config and descriptions |
 | `helper/screen.py`, `helper/config.py` | Window placement and the config file |
 | `helper/web/components/` | The components, one folder each, with generated READMEs and pictures |
-| `helper/web/widgets/` | Widget presets, one folder each, with generated READMEs and pictures |
-| `helper/widgets.py` | Widgets: reads `[[widgets]]` and the presets, places docked widgets |
+| `helper/web/widgets/` | Widgets, one folder each, with generated READMEs and pictures |
+| `helper/widgets.py` | Widgets: reads `[[widgets]]` and the widget folders, places docked widgets |
 | `helper/harness.py` | Try components and widgets with fake game data; makes the READMEs |
 | `scripts/launch-oolite.sh` | Game launcher that fixes the data folders and starts the helper |
 
@@ -247,7 +247,7 @@ Issues and pull requests are welcome. `main` is protected, so every change, incl
 
 Every pull request runs CI (pytest on Python 3.11–3.13, ruff, the add-on tests on Node 20 and 22, and shellcheck), and the checks must pass before merging. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run them locally.
 
-A pull request that changes a component or a widget preset also gets its READMEs and pictures remade by CI, which commits them to your branch. Only the ones your change affects are remade. See [helper/web/components/](helper/web/components/README.md) and [helper/web/widgets/](helper/web/widgets/README.md).
+A pull request that changes a component or a widget folder also gets its READMEs and pictures remade by CI, which commits them to your branch. Only the ones your change affects are remade. See [helper/web/components/](helper/web/components/README.md) and [helper/web/widgets/](helper/web/widgets/README.md).
 
 ## License
 

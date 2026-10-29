@@ -20,11 +20,11 @@ files in lib/ and the files of the components the widget lists (and what they
 need), nothing else, and the widget gets only those components' topics and
 may send only their actions.
 
-A widget draws its components side by side, unless it comes from a preset
-that draws itself (helper/widgets.py): then the page also loads the preset's
-own files, after the components', and the widget gets the preset's own
-topics and actions too. The tabs preset, for one, shows its components one
-at a time under a tab row.
+A widget draws its components side by side, unless it's a named widget that
+draws itself (helper/widgets.py): then the page also loads the widget's own
+files, after the components', and gets the widget's own topics and actions
+too. The tabs widget, for one, shows its components one at a time under a
+tab row.
 """
 
 import html
@@ -145,7 +145,7 @@ class Page:
 
 def page(components, names, widget=None):
     """The Page for a widget showing these built-in components. widget: the
-    preset it comes from (widgets.Preset), whose own files load last."""
+    named widget it is, if any (widgets.NamedWidget), whose own files load last."""
     parts = loaded(components, names)
     files = [file for part in parts for file in part.files]
     files += widget.files if widget else ()

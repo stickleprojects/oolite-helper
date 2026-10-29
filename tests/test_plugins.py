@@ -421,7 +421,7 @@ def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(built
     assert "trade_here" not in page and "keys" not in page
 
 
-def test_a_widget_page_names_its_preset():
+def test_a_widget_page_names_its_widget():
     specs = [WidgetSpec(components=("keys", "all_keys"), dock="game:right", widget="tabs")]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()

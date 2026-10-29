@@ -3,7 +3,7 @@
 //
 // The helper generates each widget's page: it loads this file, the listed
 // components' files, and _oolite/widget.js, which sets
-// OOLITE_WIDGET = {components: [names], widget: preset name or null,
+// OOLITE_WIDGET = {components: [names], widget: its name or null,
 // topics: [...], width: px or null}.
 //
 // A component is
@@ -14,7 +14,7 @@
 // nothing to show; with every component empty the widget hides itself.
 //
 // A widget draws its components side by side (a column when it has a fixed
-// size), unless its preset draws it (helper/web/widgets/<name>/):
+// size), unless it's a named widget that draws itself (helper/web/widgets/<name>/):
 //   Oolite.widget("name", {draw(names, state, part, dispatch) { return node or null; }});
 // where part(name) renders one of its components and dispatch sends an action.
 "use strict";
@@ -31,7 +31,7 @@ const Oolite = (() => {
     return component ? component.render(state, draw) : null;
   }
 
-  // What the widget draws: its preset's drawing, or its components in order.
+  // What the widget draws: its own drawing, or its components in order.
   function drawn(widget) {
     const own = widgets.get(widget.widget);
     if (!own) return widget.components.map(part).filter(Boolean);

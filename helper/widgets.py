@@ -22,13 +22,13 @@ Configured in config.toml as an array of [[widgets]] tables:
     x = 0
     y = 0
 
-    [[widgets]]                      # or a preset (#84), with any setting changed
+    [[widgets]]                      # or a widget by name (#84), with any setting changed
     widget = "top-strip"             # helper/web/widgets/top-strip/widget.toml
     dock = "game:bottom"
 
-A preset is a folder in helper/web/widgets/<name>/: a widget.toml with the
-settings a [[widgets]] table takes, plus a description and named states, each
-naming a state for each of its components:
+A named widget is a folder in helper/web/widgets/<name>/: a widget.toml with
+the settings a [[widgets]] table takes, plus a description and named states,
+each naming a state for each of its components:
 
     [states]
     "leaving the station" = {clearance = "away from stations", drive = "mass locked"}
@@ -37,13 +37,13 @@ and a generated README.md with a picture of it in each state (python -m
 helper.harness --readmes). Its name is the widget's id unless the config gives
 another.
 
-A preset may also draw itself (#89): its own .js registers it with
+A named widget may also draw itself (#89): its own .js registers it with
 Oolite.widget() (helper/web/lib/widget.js) and arranges its components, as the
-tabs preset does. Then widget.toml may say what the widget itself reads and
+tabs widget does. Then widget.toml may say what the widget itself reads and
 sends, beyond its components' (topics, actions), and that every component
 needs a title (titled = true: its tab label). Its own named states are in
 <name>.states.json, over its own topics, and a [states] entry then names one
-of them too, keyed by the preset's name.
+of them too, keyed by the widget's name.
 
 Docked widgets sit outside the game window (above its title bar, below it, or
 beside it), follow it when it moves, and show only while it's the active
@@ -81,7 +81,7 @@ TK_COMPONENTS = {
 DOCKS = ("game:top", "game:bottom", "game:left", "game:right")
 SHOW = ("with_game", "always")
 WIDGET_ID = re.compile(r"[A-Za-z0-9_.:-]{1,60}")
-WIDGETS_DIR = os.path.join(web.DIR, "widgets")  # the presets
+WIDGETS_DIR = os.path.join(web.DIR, "widgets")  # the named widgets
 
 
 @dataclass(frozen=True)
@@ -98,7 +98,7 @@ class WidgetSpec:
     show: str | None = None  # SHOW; default with_game when docked, always when free
     hide_empty: bool = True  # hide while its components have nothing to show
     id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
-    widget: str | None = None  # the preset it came from, if any
+    widget: str | None = None  # the named widget it came from, if any
 
     @property
     def shown(self):
@@ -126,11 +126,11 @@ def _spec(path, n, entry, plugins=()):
     if not isinstance(entry, dict):
         raise SystemExit(f"{where} must be a table")
     if "widget" in entry:
-        preset = PRESETS.get(entry["widget"])
-        if preset is None:
-            raise SystemExit(f"{where}: widget must be one of {', '.join(PRESETS)}")
-        entry = {"id": preset.name, **preset.settings, **entry}
-        if preset.titled:
+        named = WIDGETS.get(entry["widget"])
+        if named is None:
+            raise SystemExit(f"{where}: widget must be one of {', '.join(WIDGETS)}")
+        entry = {"id": named.name, **named.settings, **entry}
+        if named.titled:
             _check_titled(where, entry.get("components"))
     known = set(WidgetSpec.__dataclass_fields__)
     unknown = set(entry) - known
@@ -193,8 +193,8 @@ def _check_titled(where, components):
 
 
 @dataclass(frozen=True)
-class Preset:
-    """A built-in widget (#84): helper/web/widgets/<name>/widget.toml."""
+class NamedWidget:
+    """A widget a config entry can name (#84): helper/web/widgets/<name>/widget.toml."""
 
     name: str
     description: str
@@ -208,8 +208,8 @@ class Preset:
     own_states: tuple = ()  # ((name, {topic: value}), ...) from <name>.states.json
 
 
-def read_preset(folder):
-    """The Preset in folder/widget.toml; raises ValueError saying what's wrong."""
+def read_widget(folder):
+    """The NamedWidget in folder/widget.toml; raises ValueError saying what's wrong."""
     name = os.path.basename(os.path.normpath(folder))
     path = os.path.join(folder, "widget.toml")
     with open(path, "rb") as f:
@@ -219,7 +219,9 @@ def read_preset(folder):
     topics, actions = settings.pop("topics", []), settings.pop("actions", [])
     titled = settings.pop("titled", False)
     if "id" in settings or "widget" in settings:
-        raise ValueError(f"{path}: a preset's id is its folder name, and it can't use a preset")
+        raise ValueError(
+            f"{path}: a named widget's id is its folder name, and it can't name another"
+        )
     if not all(topic in TOPICS for topic in topics):
         raise ValueError(f"{path}: topics must be from plugin_api.TOPICS")
     if not all(action in ACTIONS for action in actions):
@@ -247,7 +249,7 @@ def read_preset(folder):
         for file in os.listdir(folder)
         if file.endswith((".css", ".js")) and not file.endswith(".test.js")
     )
-    return Preset(
+    return NamedWidget(
         name,
         description,
         settings,
@@ -262,7 +264,7 @@ def read_preset(folder):
 
 
 def _own_states(folder, name, topics):
-    """A preset's own named states, {name: {topic: value}}, from <name>.states.json."""
+    """A named widget's own named states, {name: {topic: value}}, from <name>.states.json."""
     path = os.path.join(folder, f"{name}.states.json")
     if not os.path.exists(path):
         return {}
@@ -274,18 +276,18 @@ def _own_states(folder, name, topics):
     return named
 
 
-def discover_presets(folder=WIDGETS_DIR):
-    """{name: Preset} for every built-in widget. A broken one is a bug: it raises."""
+def discover_widgets(folder=WIDGETS_DIR):
+    """{name: NamedWidget} for every widget folder. A broken one is a bug: it raises."""
     if not os.path.isdir(folder):
         return {}
     return {
-        name: read_preset(os.path.join(folder, name))
+        name: read_widget(os.path.join(folder, name))
         for name in sorted(os.listdir(folder))
         if os.path.isfile(os.path.join(folder, name, "widget.toml"))
     }
 
 
-PRESETS = discover_presets()
+WIDGETS = discover_widgets()
 
 
 def place(spec, game_window, size, monitors=()):

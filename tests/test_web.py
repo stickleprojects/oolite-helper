@@ -2,7 +2,7 @@ import pytest
 
 from helper import web
 from helper.plugin_api import ACTIONS, TOPICS
-from helper.widgets import PRESETS
+from helper.widgets import WIDGETS
 
 
 def test_every_built_in_component_is_valid_and_has_files():
@@ -69,23 +69,23 @@ def test_a_state_may_only_set_its_components_topics(tmp_path):
         web.discover(tmp_path)
 
 
-def test_a_presets_topics_and_actions_reach_the_page():
-    page = web.page(web.discover(), ["keys", "all_keys"], PRESETS["tabs"])
+def test_a_named_widgets_topics_and_actions_reach_the_page():
+    page = web.page(web.discover(), ["keys", "all_keys"], WIDGETS["tabs"])
     assert "tabs" in page.topics and "ui/choose_tab" in page.actions
 
 
-def test_a_page_without_a_preset_has_only_its_components_topics():
+def test_a_page_without_a_named_widget_has_only_its_components_topics():
     page = web.page(web.discover(), ["tip", "keys"])
     assert "tabs" not in page.topics and "ui/choose_tab" not in page.actions
 
 
-def test_a_presets_files_load_after_its_components():
-    page = web.page(web.discover(), ["keys", "all_keys"], PRESETS["tabs"])
+def test_a_named_widgets_files_load_after_its_components():
+    page = web.page(web.discover(), ["keys", "all_keys"], WIDGETS["tabs"])
     scripts = [line for line in page.html.splitlines() if line.startswith("<script")]
     assert scripts[-1] == '<script src="../widgets/tabs/tabs.js"></script>'
 
 
-def test_the_page_config_names_the_preset():
+def test_the_page_config_names_the_widget():
     script = web.widget_config(("keys", "all_keys"), "tabs", ("tabs",), None)
     assert '"components": ["keys", "all_keys"], "widget": "tabs"' in script
 

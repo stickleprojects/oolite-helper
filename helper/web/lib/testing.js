@@ -121,9 +121,9 @@ function loadComponents(...names) {
   return load(names, null);
 }
 
-// The same, with the preset's own files (helper/web/widgets/<preset>/)
+// The same, with a named widget's own files (helper/web/widgets/<widget>/)
 // loaded after the components', as the helper's page loads them.
-function load(names, preset) {
+function load(names, widgetName) {
   const root = new FakeNode("div");
   const sent = [];
   const loaded = [];
@@ -151,7 +151,7 @@ function load(names, preset) {
   context.globalThis = context;
   vm.createContext(context);
   const files = [...LIB, ...withNeeds(names).flatMap((name) => scripts(path.join("components", name)))];
-  if (preset) files.push(...scripts(path.join("widgets", preset)));
+  if (widgetName) files.push(...scripts(path.join("widgets", widgetName)));
   for (const file of files) {
     vm.runInContext(fs.readFileSync(path.join(WEB, file), "utf8"), context, { filename: file });
   }
@@ -164,10 +164,10 @@ function load(names, preset) {
 }
 
 // A widget's page drawn for a state: {root, sent}. components are its
-// names, e.g. ["tip", "keys"]; preset, if given, draws it, e.g. "tabs".
-function widget(components, state, preset = null) {
-  const page = load(components, preset);
-  page.start({ components, widget: preset, topics: Object.keys(state), width: null }, state);
+// names, e.g. ["tip", "keys"]; name, if given, is the named widget, e.g. "tabs".
+function widget(components, state, name = null) {
+  const page = load(components, name);
+  page.start({ components, widget: name, topics: Object.keys(state), width: null }, state);
   return { root: page.root, sent: page.sent };
 }
 

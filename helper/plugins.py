@@ -46,7 +46,7 @@ from .plugin_api import (
     topic_value,
 )
 from .webhost import WebHost, WebWindow
-from .widgets import COMPONENTS, PRESETS, place
+from .widgets import COMPONENTS, WIDGETS, place
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
@@ -141,7 +141,7 @@ def discover(folder=DIR):
 
 def builtin_manifest(components, names, widget=None):
     """A Manifest for a widget of built-in components: its generated page, and
-    only those components' topics and actions (and its preset's, widget)."""
+    only those components' topics and actions (and its named widget's, widget)."""
     page = web.page(components, names, widget)
     return BuiltinManifest(
         name=web.HOST,
@@ -193,8 +193,8 @@ class WebWidgets:
             if name in COMPONENTS or name == web.HOST:
                 if builtin is None:
                     continue  # a Tk widget
-                preset = PRESETS.get(widget.spec.widget)
-                manifest = builtin_manifest(builtin, widget.spec.components, preset)
+                named = WIDGETS.get(widget.spec.widget)
+                manifest = builtin_manifest(builtin, widget.spec.components, named)
                 self.widgets[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
                 self.builtin[wid] = widget.spec.components

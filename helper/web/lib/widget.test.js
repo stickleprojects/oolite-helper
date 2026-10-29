@@ -1,7 +1,7 @@
 "use strict";
 
 // The shared files: every component and widget folder registers itself, and
-// the widget page draws its components, or lets its preset draw them. One
+// the widget page draws its components, or lets the widget draw itself. One
 // state or one action per test.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -33,7 +33,7 @@ test("a widget without its own drawing draws its components in order", () => {
   assert.deepEqual(root.children.map((node) => node.className.split(" ")[0]), ["tip", "status"]);
 });
 
-test("a widget whose preset draws it is drawn by the preset", () => {
+test("a named widget with its own drawing draws itself", () => {
   const { root } = widget(["keys", "all_keys"], { ...states("keys")["near a station"], tabs: {} }, "tabs");
   assert.equal(root.children[0].className, "tabs");
 });
