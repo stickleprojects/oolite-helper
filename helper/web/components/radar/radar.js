@@ -65,7 +65,9 @@ Oolite.component("radar", {
         el("td", "km", row.bounty > 0 ? `${row.bounty} ₢` : "")));
     }
     const more = all.length - RADAR_LIMIT;
+    const count = `${all.length} ${all.length === 1 ? "blip" : "blips"}`;
     return el("section", "panel radar",
+      el("h2", "", `Radar · ${count}`),
       el("table", "", el("thead", "", header), body),
       more > 0 ? el("p", "dim more", `+${more} more`) : null);
   },

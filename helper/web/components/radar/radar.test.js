@@ -15,6 +15,14 @@ test("draws nothing with nothing on the scanner", () => {
   assert.equal(render("radar", STATES["nothing on the scanner"]).node, null);
 });
 
+test("is headed Radar with the number of blips", () => {
+  assert.equal(render("radar", STATES.quiet).node.all("h2")[0].textContent, "Radar · 3 blips");
+});
+
+test("says one blip, not one blips", () => {
+  assert.equal(render("radar", STATES.thargoid).node.all("h2")[0].textContent, "Radar · 1 blip");
+});
+
 test("draws a row per blip", () => {
   assert.equal(rows(render("radar", STATES.quiet).node).length, 3);
 });
