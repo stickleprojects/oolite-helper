@@ -70,6 +70,7 @@ Write in plain, short English. Name the files and functions to change. Keep it a
 
 ## 7. Update the issue
 - Replace the body with `gh api -X PATCH repos/stickleprojects/oolite-helper/issues/N -F body=@<file>`. `gh issue edit --body-file` can fail on this repo with the "Projects (classic)" error.
-- Remove `needs refinement` and add `refined`. If questions are still open, keep `needs refinement` and list them under "To check".
+- Remove `needs refinement`. There's no `refined` label: an open issue without `needs refinement` counts as refined, so only the exceptions are tagged. If questions are still open, keep `needs refinement` and list them under "To check".
+- If a refined issue's spec later needs reworking (a big edit, or new open questions), add `needs refinement` back.
 - If the issue is really several features, propose a split and ask before creating the new issues.
 - Give Kieron the link and a 2-line summary.
