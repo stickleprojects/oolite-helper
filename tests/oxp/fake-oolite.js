@@ -95,13 +95,33 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			return (this.x - other.x) ** 2;
 		},
 	});
-	const station = strictObject("station", {
+	// What the radar reads of a ship on the scanner (OOJSShip.m, OOJSEntity.m):
+	// target is an entity or null, the scanner colours an [r, g, b, a] array or
+	// null when not set.
+	const SHIP = {
 		isShip: true,
-		scanClass: "CLASS_STATION",
+		scanClass: "CLASS_NEUTRAL",
 		isCloaked: false,
-		mass: 455223200, // a Coriolis station: blocks jumps within about 6.7 km
+		mass: 100000,
 		position: vector(0),
+		displayName: "Ship",
+		primaryRole: "trader",
+		target: null,
+		hasHostileTarget: false,
+		isFleeing: false,
+		bounty: 0,
+		isJamming: false,
+		scannerDisplayColor1: null,
+		scannerDisplayColor2: null,
+		scannerHostileDisplayColor1: null,
+		scannerHostileDisplayColor2: null,
+	};
+	const ship = (properties) => strictObject("ship", { ...SHIP, ...properties });
+	const station = ship({
+		scanClass: "CLASS_STATION",
+		mass: 455223200, // a Coriolis station: blocks jumps within about 6.7 km
 		displayName: "Test Station",
+		primaryRole: "coriolis",
 		requiresDockingClearance: true,
 		market,
 	});
@@ -186,6 +206,11 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			isShip: true,
 			mass: 100000,
 			position: vector(5000),
+			scannerRange: 25600,
+			filter: false, // for the fake: hasEquipmentProviding the military scanner filter
+			hasEquipmentProviding(key) {
+				return key === "EQ_MILITARY_SCANNER_FILTER" && this.filter;
+			},
 		}),
 	});
 	const system = strictObject("system", {
@@ -265,6 +290,8 @@ function createFakeOolite({ debugConsole = false } = {}) {
 		system,
 		equipmentInfo,
 		damaged,
+		ship,
+		vector,
 		logCalls,
 		debugMessages,
 		timers,

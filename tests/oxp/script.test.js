@@ -10,7 +10,7 @@ const scenarios = [
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.5","type":"hello"}'],
+		expected: ['{"version":"0.6","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
@@ -382,7 +382,8 @@ for (const useDebugConsole of [false, true]) {
 		timer.tick(); // 20 km above the planet: locked by it
 		fake.world.shipDockedWithStation(fake.system.mainStation);
 		assert.equal(timer.stopped, true);
-		assert.deepEqual(fake.messages().slice(0, 6), [
+		const notRadar = fake.messages().filter((message) => JSON.parse(message).type !== "radar");
+		assert.deepEqual(notRadar.slice(0, 6), [
 			'{"by":"Test Station","clearAt":6747,"type":"jump_blocker"}',
 			'{"by":"Test Station","type":"mass_lock"}',
 			'{"by":null,"clearAt":null,"type":"jump_blocker"}',
@@ -390,6 +391,102 @@ for (const useDebugConsole of [false, true]) {
 			'{"by":"planet","type":"mass_lock"}',
 			'{"station":"Test Station","type":"docked"}',
 		]);
+	});
+
+	// The radar: what's on the scanner each second in flight (#100).
+	const flying = () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.shipLaunchedFromStation(fake.system.mainStation);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkFlight);
+		fake.logCalls.length = fake.debugMessages.length = 0;
+		const radar = () =>
+			fake.messages().map((m) => JSON.parse(m)).filter((m) => m.type === "radar");
+		return { fake, timer, radar };
+	};
+
+	test(`the radar lists what's on the scanner, nearest first, through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		fake.system.entities.push(fake.ship({ displayName: "Python", position: fake.vector(5500) }));
+		timer.tick();
+		assert.deepEqual(radar()[0].blips.map((b) => [b.name, b.distance]), [["Python", 500], ["Test Station", 5000]]);
+	});
+
+	test(`the radar sends a blip's fields through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		timer.tick();
+		assert.deepEqual(radar()[0], {
+			type: "radar",
+			filter: false,
+			blips: [{
+				name: "Test Station", scanClass: "CLASS_STATION", role: "coriolis", distance: 5000,
+				hostile: false, attacking: false, target: null, fleeing: false, bounty: 0,
+				jamming: false, colours: null,
+			}],
+		});
+	});
+
+	test(`the radar leaves out cloaked ships through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		fake.system.entities.push(fake.ship({ isCloaked: true, position: fake.vector(5100) }));
+		timer.tick();
+		assert.deepEqual(radar()[0].blips.map((b) => b.name), ["Test Station"]);
+	});
+
+	test(`the radar leaves out what's past the scanner's range through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		fake.player.ship.scannerRange = 4000;
+		timer.tick();
+		assert.equal(radar().length, 0);
+	});
+
+	test(`a ship attacking the player is hostile, its target "you", through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		const pirate = fake.ship({ displayName: "Krait", position: fake.vector(6000), hasHostileTarget: true });
+		pirate.target = fake.player.ship;
+		fake.system.entities.push(pirate);
+		timer.tick();
+		const blip = radar()[0].blips.find((b) => b.name === "Krait");
+		assert.deepEqual([blip.hostile, blip.attacking, blip.target], [true, true, "you"]);
+	});
+
+	test(`a ship attacking another ship isn't hostile to the player through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		const viper = fake.ship({ displayName: "Viper", position: fake.vector(6000), hasHostileTarget: true });
+		viper.target = fake.ship({ displayName: "Krait" });
+		fake.system.entities.push(viper);
+		timer.tick();
+		const blip = radar()[0].blips.find((b) => b.name === "Viper");
+		assert.deepEqual([blip.hostile, blip.attacking, blip.target], [false, true, "Krait"]);
+	});
+
+	test(`scripted scanner colours are sent, unset ones as null, through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		fake.system.mainStation.scannerDisplayColor1 = [1, 0, 0, 1];
+		timer.tick();
+		assert.deepEqual(radar()[0].blips[0].colours, [[1, 0, 0, 1], null, null, null]);
+	});
+
+	test(`the radar says whether the player has a military scanner filter through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		fake.player.ship.filter = true;
+		timer.tick();
+		assert.equal(radar()[0].filter, true);
+	});
+
+	test(`the radar sends one empty message when the scanner clears through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		timer.tick();
+		fake.player.ship.position = fake.vector(40000);
+		timer.tick();
+		timer.tick();
+		assert.deepEqual(radar().map((m) => m.blips.length), [1, 0]);
+	});
+
+	test(`docking clears the radar through ${transport}`, () => {
+		const { fake, timer, radar } = flying();
+		timer.tick();
+		fake.world.shipDockedWithStation(fake.system.mainStation);
+		assert.deepEqual(radar().map((m) => m.blips.length), [1, 0]);
 	});
 
 	test(`clearance checks stop when the ship dies through ${transport}`, () => {
