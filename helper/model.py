@@ -218,7 +218,7 @@ def _markets(model):
     store = model.markets
     if store is None:
         return [], {}, None
-    return store.data["markets"], store.data.get("cost_basis") or {}, store.now()
+    return store.data["markets"], store.cost_basis, store.now()
 
 
 def _trade_rows(model):
