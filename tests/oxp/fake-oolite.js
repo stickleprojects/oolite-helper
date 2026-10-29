@@ -190,6 +190,11 @@ function createFakeOolite({ debugConsole = false } = {}) {
 			fuel: 7,
 			cargoSpaceAvailable: 18,
 			cargoSpaceCapacity: 35,
+			cargoSpaceUsed: 17,
+			// Contracts aboard (OOJSShip.m): passengers, parcels and cargo.
+			passengers: [],
+			parcels: [],
+			contracts: [],
 			manifest: strictObject("manifest", {
 				list: [
 					{ commodity: "food", unit: "t", quantity: 2, displayName: "Food" },

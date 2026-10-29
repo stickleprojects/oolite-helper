@@ -4,13 +4,17 @@ const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const { createFakeOolite } = require("./fake-oolite.js");
 
+// The hold message (#95) for the fake ship's hold, with what caused it.
+const HOLD = (cause) =>
+	`{"cause":"${cause}","goods":[{"commodity":"food","quantity":2,"unit":"t","name":"Food"}],"passengers":[],"parcels":[],"contracts":[],"space":{"used":17,"capacity":35},"gameClock":123456,"type":"hold"}`;
+
 const scenarios = [
 	{
 		name: "startup",
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.6","type":"hello"}'],
+		expected: ['{"version":"0.7","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
@@ -26,6 +30,7 @@ const scenarios = [
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
 			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK","provides":[]},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK","provides":[]}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+			HOLD("start"),
 		],
 	},
 	{
@@ -41,6 +46,7 @@ const scenarios = [
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
 			'{"infoSystem":8,"targetSystem":9,"currentSystem":7,"system":{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}},"originMarket":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"chart_target"}',
 			'{"items":[{"key":"EQ_ECM","name":"E.C.M. System","count":1,"description":"Electronic Counter Measures.","status":"EQUIPMENT_OK","provides":[]},{"key":"EQ_HEAT_SHIELD","name":"Heat Shield","count":2,"description":"Two of them.","status":"EQUIPMENT_OK","provides":[]}],"missiles":{"capacity":4,"loaded":[{"key":"EQ_MISSILE","name":"Missile","count":2}]},"type":"equipment"}',
+			HOLD("start"),
 		],
 	},
 	{
@@ -77,6 +83,7 @@ const scenarios = [
 			'{"station":"Test Station","type":"docked"}',
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			HOLD("docked"),
 		],
 	},
 	{
@@ -95,6 +102,7 @@ const scenarios = [
 		},
 		expected: [
 			'{"inside":true,"station":"Test Station","requiresClearance":true,"clearance":"DOCKING_CLEARANCE_STATUS_GRANTED","type":"aegis"}',
+			HOLD("launched"),
 		],
 	},
 	{
@@ -236,14 +244,14 @@ const scenarios = [
 		run({ world }) {
 			world.playerBoughtCargo("food", 2, 42);
 		},
-		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"food","units":2,"price":42,"type":"bought"}', '{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}'],
+		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"food","units":2,"price":42,"type":"bought"}', '{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}', HOLD("bought")],
 	},
 	{
 		name: "selling cargo",
 		run({ world }) {
 			world.playerSoldCargo("computers", 1, 735);
 		},
-		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"computers","units":1,"price":735,"type":"sold"}', '{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}'],
+		expected: ['{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"commodity":"computers","units":1,"price":735,"type":"sold"}', '{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}', HOLD("sold")],
 	},
 	{
 		name: "buying fuel sends the systems now in range and the market",
@@ -363,6 +371,7 @@ for (const useDebugConsole of [false, true]) {
 			'{"station":"Test Station","type":"docked"}',
 			'{"galaxy":0,"systemID":7,"systemName":"Test System","gameClock":123456,"station":"Test Station","market":{"food":{"price":42,"quantity":8,"quantity_unit":0,"legality_export":0,"legality_import":0},"computers":{"price":735,"quantity":3,"quantity_unit":0,"legality_export":1,"legality_import":0}},"credits":1200.5,"cargoSpace":{"available":18,"capacity":35},"fuel":7,"manifest":[{"commodity":"food","unit":"t","quantity":2,"displayName":"Food"}],"type":"market"}',
 			'{"galaxy":0,"fuel":7,"systems":[{"id":8,"name":"Nearby System","distance":6.5,"economy":2,"government":5,"techLevel":6,"samplePrices":{"food":48,"computers":738}}],"type":"systems"}',
+			HOLD("docked"),
 		]);
 	});
 
@@ -391,6 +400,63 @@ for (const useDebugConsole of [false, true]) {
 			'{"by":"planet","type":"mass_lock"}',
 			'{"station":"Test Station","type":"docked"}',
 		]);
+	});
+
+	// The hold: everything aboard, and what changed it (#95).
+	const holdMessages = (fake) =>
+		fake.messages().map((m) => JSON.parse(m)).filter((m) => m.type === "hold");
+
+	for (const [event, cause, args] of [
+		["shipDumpedCargo", "dumped", [{}]],
+		["shipScoopedOther", "scooped", [{}]],
+		["playerEnteredContract", "contract", ["passenger", {}]],
+		["playerCompletedContract", "contract_done", ["passenger", "success", 1200, {}]],
+	]) {
+		test(`${event} sends the hold with cause ${cause} through ${transport}`, () => {
+			const fake = createFakeOolite({ debugConsole: useDebugConsole });
+			fake.world[event](...args);
+			assert.deepEqual(holdMessages(fake).map((m) => m.cause), [cause]);
+		});
+	}
+
+	test(`the hold lists passengers with their destination, time and fee through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.player.ship.passengers.push({
+			name: "Ms Ann Ebo", start: 7, startName: "Test System", destination: 8,
+			destinationName: "Nearby System", eta: 130000, etaDescription: "1 day", fee: 120,
+			premium: 20, risk: 0, internalOnly: "left out",
+		});
+		fake.world.playerEnteredContract("passenger", {});
+		assert.deepEqual(holdMessages(fake)[0].passengers, [{
+			name: "Ms Ann Ebo", start: 7, startName: "Test System", destination: 8,
+			destinationName: "Nearby System", eta: 130000, etaDescription: "1 day", fee: 120,
+			premium: 20, risk: 0,
+		}]);
+	});
+
+	test(`the hold lists cargo contracts with their commodity and quantity through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.player.ship.contracts.push({ commodity: "furs", quantity: 10, destination: 8, fee: 900 });
+		fake.world.playerEnteredContract("cargo", {});
+		assert.deepEqual(holdMessages(fake)[0].contracts, [{ commodity: "furs", quantity: 10, destination: 8, fee: 900 }]);
+	});
+
+	test(`cargo lost in flight sends the hold with cause lost through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.shipLaunchedFromStation(fake.system.mainStation);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkFlight);
+		fake.player.ship.manifest.list = [{ commodity: "food", unit: "t", quantity: 1, displayName: "Food" }];
+		timer.tick();
+		assert.deepEqual(holdMessages(fake).map((m) => m.cause), ["launched", "lost"]);
+	});
+
+	test(`an unchanged hold sends nothing in flight through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.shipLaunchedFromStation(fake.system.mainStation);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkFlight);
+		timer.tick();
+		timer.tick();
+		assert.deepEqual(holdMessages(fake).map((m) => m.cause), ["launched"]);
 	});
 
 	// The radar: what's on the scanner each second in flight (#100).
