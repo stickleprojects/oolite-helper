@@ -61,7 +61,7 @@ def test_bad_manifests_say_whats_wrong(tmp_path, change, message):
 
 
 def test_plugin_names_are_url_safe_and_not_built_in_components(tmp_path):
-    for name, message in (("Lamp", "lower case"), ("drive", "built-in component")):
+    for name, message in (("Lamp", "lower case"), ("drive", "the helper's components")):
         root = make_plugin(tmp_path, name, LAMP.replace('"lamp"', f'"{name}"'))
         with pytest.raises(ValueError, match=message):
             read_manifest(root)
@@ -356,24 +356,24 @@ def test_closed_and_moved_panels_follow_the_layout(widgets):
     assert host.windows["widget1:lamp"].rect is not None
 
 
-# -- built-in components: a page for each widget --------------------------------
+# -- components: a page the helper generates for each widget --------------------
 
 
 @pytest.fixture
-def builtin_widgets():
+def page_widgets():
     specs = [WidgetSpec(components=("clearance", "drive"), dock="game:top")]
     model = Model(layout=widgets_from_specs(specs))
     host, handed = StubHost(), []
-    made = WebWidgets(model, {}, host=host, builtin=COMPONENTS, fallback=handed.append)
+    made = WebWidgets(model, {}, host=host, components=COMPONENTS, fallback=handed.append)
     model.dispatch({**GAME, "active": True})
     model.notify()
     return model, host, made, handed
 
 
-def test_builtin_components_get_a_page_of_their_own_and_hide_until_it_draws(builtin_widgets):
-    model, host, made, _ = builtin_widgets
+def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets):
+    model, host, made, _ = page_widgets
     window = host.windows["widget1:clearance"]
-    assert (window.plugin, window.rect) == ("builtin", None)
+    assert (window.plugin, window.rect) == ("helper", None)
     extras = dict(window.extras)
     assert extras["widget.js"] == (
         'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
@@ -393,8 +393,8 @@ def test_builtin_components_get_a_page_of_their_own_and_hide_until_it_draws(buil
     assert host.windows["widget1:clearance"].rect is None
 
 
-def test_builtin_components_fall_back_to_tk_if_the_host_never_starts(builtin_widgets):
-    model, host, made, handed = builtin_widgets
+def test_components_fall_back_to_tk_if_the_host_never_starts(page_widgets):
+    model, host, made, handed = page_widgets
     host.events = [{"ev": "unavailable", "message": "plugins can't start: no gi"}]
     made.tick()
     model.notify()
@@ -405,15 +405,15 @@ def test_builtin_components_fall_back_to_tk_if_the_host_never_starts(builtin_wid
     assert len(handed) == 1  # only once
 
 
-def test_no_fallback_once_the_host_has_worked(builtin_widgets):
-    _, host, made, handed = builtin_widgets
+def test_no_fallback_once_the_host_has_worked(page_widgets):
+    _, host, made, handed = page_widgets
     host.events = [{"ev": "ready"}, {"ev": "host_exited", "code": 1}]
     made.tick()
     assert handed == []
 
 
-def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(builtin_widgets):
-    _, host, made, _ = builtin_widgets
+def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(page_widgets):
+    _, host, made, _ = page_widgets
     manifest = made.widgets["widget1:clearance"]
     assert (manifest.topics, manifest.actions) == (("clearance", "drive"), ())
     page = dict(host.windows["widget1:clearance"].extras)["widget.html"]
@@ -425,7 +425,7 @@ def test_a_widget_page_names_its_widget():
     specs = [WidgetSpec(components=("keys", "all_keys"), dock="game:right", widget="tabs")]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    WebWidgets(model, {}, host=host, builtin=COMPONENTS)
+    WebWidgets(model, {}, host=host, components=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     model.notify()
     script = dict(host.windows["widget1:keys"].extras)["widget.js"]
@@ -436,7 +436,7 @@ def test_hide_empty_false_keeps_an_empty_page_shown():
     specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=False)]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    made = WebWidgets(model, {}, host=host, builtin=COMPONENTS)
+    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
     model.notify()

@@ -1,4 +1,4 @@
-"""The built-in web components (#82), and the page for each widget.
+"""The web components (#82), and the page for each widget.
 
 Each component is a folder in helper/web/components/<name>/ holding a
 component.toml and its files:
@@ -37,7 +37,7 @@ from ..plugin_api import ACTIONS, TOPICS
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS_DIR = os.path.join(DIR, "components")
-HOST = "builtin"  # the pages' address: plugin://builtin/
+HOST = "helper"  # the pages' address: plugin://helper/
 LIB_CSS = ("lib/base.css",)
 LIB_JS = ("lib/dom.js", "lib/format.js", "lib/widget.js")
 
@@ -94,7 +94,7 @@ def read_component(folder):
 
 
 def discover(folder=COMPONENTS_DIR):
-    """{name: WebComponent} for every built-in component. A broken one is a bug: it raises."""
+    """{name: WebComponent} for every component. A broken one is a bug: it raises."""
     found = {
         name: read_component(os.path.join(folder, name))
         for name in sorted(os.listdir(folder))
@@ -144,13 +144,13 @@ class Page:
 
 
 def page(components, names, widget=None):
-    """The Page for a widget showing these built-in components. widget: the
+    """The Page for a widget showing these components. widget: the
     named widget it is, if any (widgets.NamedWidget), whose own files load last."""
     parts = loaded(components, names)
     files = [file for part in parts for file in part.files]
     files += widget.files if widget else ()
     # Relative to the page, _oolite/widget.html, so it works wherever it's
-    # served: plugin://builtin/ in the web host, or under the harness's paths.
+    # served: plugin://helper/ in the web host, or under the harness's paths.
     css = ["theme.css", *(f"../{f}" for f in (*LIB_CSS, *files) if f.endswith(".css"))]
     js = ["dev.js", "widget.js", *(f"../{f}" for f in (*LIB_JS, *files) if f.endswith(".js"))]
     lines = [

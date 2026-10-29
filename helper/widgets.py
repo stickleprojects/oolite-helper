@@ -7,7 +7,7 @@ layout (layout.py) places every widget, in a dock or free on a monitor.
 Configured in config.toml as an array of [[widgets]] tables:
 
     [[widgets]]
-    components = ["clearance", "drive"]  # built-in components (helper/web) or one plugin
+    components = ["clearance", "drive"]  # components (helper/web) or one plugin
     dock = "game:top"                # game:top / game:bottom / game:left / game:right
 
     [[widgets]]
@@ -50,7 +50,7 @@ beside it), follow it when it moves, and show only while it's the active
 window: the #50 spike found topmost widgets would otherwise cover other apps.
 The helper only reads the game window's position; it never moves the game.
 
-Widgets are web views by default: plugins.WebWidgets shows the built-in
+Widgets are web views by default: plugins.WebWidgets shows the
 components as a page built from helper/web. TkWidget below is the fallback,
 for ui = "tk" or when the web host can't start; it shows the components that
 have a Tk version (TK_COMPONENTS) and leaves the others out.
@@ -70,7 +70,7 @@ from .tk.components.chips import ClearanceBadge, DriveChips
 from .tk.components.style import BG, LAYOUTS, Style
 from .tk.components.trade_here import TradeHere
 
-COMPONENTS = web.discover()  # the built-in components: name -> web.WebComponent
+COMPONENTS = web.discover()  # the components: name -> web.WebComponent
 # The ones with a Tk version, for the fallback: name -> factory(model, style,
 # parent frame). Each packs itself into the frame.
 TK_COMPONENTS = {

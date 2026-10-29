@@ -1,6 +1,6 @@
 # Writing a plugin
 
-A plugin is a small web page (HTML, CSS and JavaScript) that the helper shows in a window of its own, docked to the game or anywhere on a monitor, like the built-in widgets. It reads the game's state through a few named **topics**, and can change the helper's shared selections (the tab, the open commodity) with whitelisted **actions**.
+A plugin is a small web page (HTML, CSS and JavaScript) that the helper shows in a window of its own, docked to the game or anywhere on a monitor, like the helper's other widgets. It reads the game's state through a few named **topics**, and can change the helper's shared selections (the tab, the open commodity) with whitelisted **actions**.
 
 Pages run in WebKit's sandbox, in a separate process: no network, no files outside the plugin's folder, no access to the rest of your desktop. See [architecture.md](architecture.md) for how that's enforced.
 
@@ -98,7 +98,7 @@ A key entry is `{"action": "key_roll_left", "bindings": [{"key": "arrowLeft", "s
 
 ## Actions
 
-The same actions the built-in components send. They change the helper's **shared** selections, so its own window follows your plugin's clicks, and the other way round.
+The same actions the helper's components send. They change the helper's **shared** selections, so its own window follows your plugin's clicks, and the other way round.
 
 | Action | Fields |
 |---|---|
@@ -121,7 +121,7 @@ Other fields, other values or actions not in your manifest are refused.
 | `--oo-sans`, `--oo-mono` | fonts |
 | `--oo-scale` | the widget's layout scale (`large` 1, `compact` 0.6, times its `font_scale`) |
 
-The built-in components size text in points times the scale, so `font-size: calc(20pt * var(--oo-scale))` matches their key lists.
+The helper's components size text in points times the scale, so `font-size: calc(20pt * var(--oo-scale))` matches their key lists.
 
 ## Developing
 

@@ -136,17 +136,17 @@ class HelperWindow:
         self.components.append(self.body)
         # Widgets (#50): components in their own windows. Docked ones need the game
         # window's position, polled a few times a second only when there are any.
-        # Widgets are web pages in the web host (#59): plugins, and the built-in
-        # components as the bundled page. Tk shows the built-in components instead with
-        # ui = "tk", or if the web host can't start.
+        # Widgets are web pages in the web host (#59): plugins, and pages the
+        # helper generates for its components. Tk shows the components instead
+        # with ui = "tk", or if the web host can't start.
         self.monitors = monitors
         self.widgets = []
         manifests, broken = plugins
-        builtin = COMPONENTS if ui == "web" else None
+        components = COMPONENTS if ui == "web" else None
         self.plugins = WebWidgets(
-            model, manifests, broken, monitors, builtin=builtin, fallback=self.tk_widgets
+            model, manifests, broken, monitors, components=components, fallback=self.tk_widgets
         )
-        if builtin is None:
+        if components is None:
             self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
         saver = layout_file.LayoutFile(defaults, layout_path)
         model.subscribe("layout", saver.save, initial=False)
@@ -155,7 +155,7 @@ class HelperWindow:
         self.tick()
 
     def tk_widgets(self, ids):
-        """Show these widgets' built-in components in Tk windows (the fallback)."""
+        """Show these widgets' components in Tk windows (the fallback)."""
         self.widgets += [TkWidget(self.root, self.model, wid, self.monitors) for wid in ids]
 
     def tick(self):

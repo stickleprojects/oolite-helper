@@ -48,7 +48,7 @@ ui = "web"
 # and show only while the game is the active window. A widget with nothing to
 # show (e.g. the drive chips while docked) hides itself.
 #
-# components: one or more built-in components: "heading", "tip", "status",
+# components: one or more components: "heading", "tip", "status",
 #             "keys", "all_keys", "trade_table", "trade_here", "drive" (TORUS/
 #             JUMP), "clearance" (see helper/web/components/); or the name of
 #             one plugin from ~/.config/oolite-helper/plugins/, alone (plugins
