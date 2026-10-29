@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.7";
+this.version = "0.8";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -210,9 +210,8 @@ this._checkFlight = function () {
 		this._emit("mass_lock", { by: lock });
 	}
 
-	if (this._holdKey() !== this._lastHoldKey) {
-		this._emitHold("lost");  // destroyed by damage: no event says so
-	}
+	// A dump marked above; otherwise destroyed by damage, which no event reports.
+	this._holdChanged(this._pendingHoldCause || "lost");
 
 	var range = ship.scannerRange || SCANNER_RANGE;
 	this._emitRadar(nearby.filter(function (entity) {
@@ -330,6 +329,8 @@ this._countEquipment = function (list, extra) {
 // space used. "cause" says what changed it. Cargo destroyed by damage fires no
 // event (PlayerEntity takeInternalDamage), so the flight check compares
 // _holdKey() each second and sends cause "lost" when it changes.
+// shipDumpedCargo fires before the canister leaves the hold (ShipEntity
+// dumpCargoItem, 1.92.1), so a dump only marks the next change as "dumped".
 var CONTRACT_FIELDS = ["name", "commodity", "quantity", "description", "start", "startName",
 	"destination", "destinationName", "eta", "etaDescription", "fee", "premium", "risk"];
 
@@ -349,12 +350,21 @@ this._holdKey = function () {
 		return item.commodity + ":" + item.quantity;
 	});
 	return [goods.join(","), (ship.passengers || []).length, (ship.parcels || []).length,
-		(ship.contracts || []).length].join("|");
+		(ship.contracts || []).length, ship.cargoSpaceCapacity].join("|");
+};
+
+// Sends the hold if it changed since the last one sent (startUpComplete sends
+// the first, so nothing is compared before then).
+this._holdChanged = function (cause) {
+	if (this._lastHoldKey !== undefined && this._holdKey() !== this._lastHoldKey) {
+		this._emitHold(cause);
+	}
 };
 
 this._emitHold = function (cause) {
 	var ship = player.ship;
 	this._lastHoldKey = this._holdKey();
+	this._pendingHoldCause = null;
 	this._emit("hold", {
 		cause: cause,
 		goods: (ship.manifest.list || []).map(function (item) {
@@ -370,7 +380,7 @@ this._emitHold = function (cause) {
 };
 
 this.shipDumpedCargo = function (cargo) {
-	this._emitHold("dumped");
+	this._pendingHoldCause = "dumped";
 };
 
 this.shipScoopedOther = function (item) {
@@ -554,10 +564,12 @@ this.playerBoughtEquipment = function (equipmentKey) {
 
 this.equipmentAdded = function (equipmentKey) {
 	this._emitEquipment();
+	this._holdChanged("equipment");  // e.g. a passenger berth takes 5 t of space
 };
 
 this.equipmentRemoved = function (equipmentKey) {
 	this._emitEquipment();
+	this._holdChanged("equipment");  // e.g. a passenger berth takes 5 t of space
 };
 
 this.equipmentDamaged = function (equipmentKey) {

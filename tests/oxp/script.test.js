@@ -14,7 +14,7 @@ const scenarios = [
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.7","type":"hello"}'],
+		expected: ['{"version":"0.8","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
@@ -407,7 +407,6 @@ for (const useDebugConsole of [false, true]) {
 		fake.messages().map((m) => JSON.parse(m)).filter((m) => m.type === "hold");
 
 	for (const [event, cause, args] of [
-		["shipDumpedCargo", "dumped", [{}]],
 		["shipScoopedOther", "scooped", [{}]],
 		["playerEnteredContract", "contract", ["passenger", {}]],
 		["playerCompletedContract", "contract_done", ["passenger", "success", 1200, {}]],
@@ -448,6 +447,31 @@ for (const useDebugConsole of [false, true]) {
 		fake.player.ship.manifest.list = [{ commodity: "food", unit: "t", quantity: 1, displayName: "Food" }];
 		timer.tick();
 		assert.deepEqual(holdMessages(fake).map((m) => m.cause), ["launched", "lost"]);
+	});
+
+	test(`a dump sends the hold as dumped once the canister has left through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.shipLaunchedFromStation(fake.system.mainStation);
+		const [timer] = fake.timers.filter((t) => t.callback === fake.world._checkFlight);
+		fake.world.shipDumpedCargo({}); // fired while the canister is still in the hold
+		fake.player.ship.manifest.list = [{ commodity: "food", unit: "t", quantity: 1, displayName: "Food" }];
+		timer.tick();
+		assert.deepEqual(holdMessages(fake).map((m) => [m.cause, m.goods[0].quantity]), [["launched", 2], ["dumped", 1]]);
+	});
+
+	test(`a change in cargo space from equipment sends the hold through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.startUpComplete();
+		fake.player.ship.cargoSpaceCapacity = 30; // a passenger berth takes 5 t
+		fake.world.equipmentAdded("EQ_PASSENGER_BERTH");
+		assert.deepEqual(holdMessages(fake).map((m) => [m.cause, m.space.capacity]), [["start", 35], ["equipment", 30]]);
+	});
+
+	test(`equipment that doesn't change the hold sends nothing through ${transport}`, () => {
+		const fake = createFakeOolite({ debugConsole: useDebugConsole });
+		fake.world.startUpComplete();
+		fake.world.equipmentAdded("EQ_ECM");
+		assert.deepEqual(holdMessages(fake).map((m) => m.cause), ["start"]);
 	});
 
 	test(`an unchanged hold sends nothing in flight through ${transport}`, () => {
