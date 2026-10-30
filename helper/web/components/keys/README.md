@@ -20,6 +20,6 @@ From `keys.states.json`. *Shows nothing* means it draws nothing in that state; a
 
 | State | Picture |
 |---|---|
-| **no keys** | *shows nothing* |
+| **no keys** | <img src="images/no-keys.png" width="560" alt="no keys"> |
 | **near a station** | <img src="images/near-a-station.png" width="560" alt="near a station"> |
 | **missing and unbound** | <img src="images/missing-and-unbound.png" width="560" alt="missing and unbound"> |

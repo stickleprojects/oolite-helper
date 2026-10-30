@@ -58,8 +58,8 @@ ui = "web"
 # width/height, layout ("compact", the default when docked to the game, or
 # "large", the default otherwise), font_scale,
 # show ("with_game" default when docked: only while the game is the active
-# window; or "always"), hide_empty (true default: hide while the components have
-# nothing to show, e.g. drive lamps while docked; false keeps it up)
+# window; or "always"), hide_empty (false default: always shown, each component
+# saying why it's empty; true hides it while a plugin calls oolite.show(false))
 # id:         optional stable name for the widget (default "widget<n>:<component>").
 #             Moves, resizes and closes made in the helper are saved by id in
 #             layout.toml beside this file; delete it to go back to these.

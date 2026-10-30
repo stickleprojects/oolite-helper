@@ -22,7 +22,7 @@ globalThis.OoliteKeyPanel = keyPanel;
 Oolite.component("keys", {
   render(state) {
     const sections = state.key_sections || [];
-    if (!sections.length) return null;
+    if (!sections.length) return OoliteDom.el("p", "empty", "No keys for this screen");
     return OoliteDom.el("div", "key-grid", ...sections.map((s) => keyPanel(s.title, s.keys)));
   },
 });

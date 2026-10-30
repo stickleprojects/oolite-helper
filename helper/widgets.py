@@ -96,7 +96,7 @@ class WidgetSpec:
     layout: str = "compact"  # from config.toml: compact when docked to the game, else large
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
-    hide_empty: bool = True  # hide while its components have nothing to show
+    hide_empty: bool = False  # true: hide while its components (or plugin) have nothing to show
     id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
     widget: str | None = None  # the named widget it came from, if any
 
@@ -152,7 +152,7 @@ def _spec(path, n, entry, plugins=()):
         value = entry.get(name)
         if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
             raise SystemExit(f"{where}: {name} must be a whole number of pixels")
-    if not isinstance(entry.get("hide_empty", True), bool):
+    if not isinstance(entry.get("hide_empty", False), bool):
         raise SystemExit(f"{where}: hide_empty must be true or false")
     scale = entry.get("font_scale", 1.0)
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or scale <= 0:

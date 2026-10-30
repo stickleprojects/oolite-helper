@@ -3,7 +3,7 @@ components = ["clearance", "drive"]
 dock = "game:top"
 
 [states]
-"docked" = {clearance = "away from stations", drive = "docked"}
+"docked" = {clearance = "docked", drive = "docked"}
 "just launched" = {clearance = "none", drive = "mass locked"}
 "waiting for clearance" = {clearance = "requested", drive = "mass locked"}
 "cleared to dock" = {clearance = "granted", drive = "mass locked"}

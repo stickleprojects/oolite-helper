@@ -20,5 +20,5 @@ From `all_keys.states.json`. *Shows nothing* means it draws nothing in that stat
 
 | State | Picture |
 |---|---|
-| **before the keys are known** | *shows nothing* |
+| **before the keys are known** | <img src="images/before-the-keys-are-known.png" width="560" alt="before the keys are known"> |
 | **two groups** | <img src="images/two-groups.png" width="560" alt="two groups"> |

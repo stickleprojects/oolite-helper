@@ -1,5 +1,7 @@
 {
-  "away from stations": {"clearance": null},
+  "away from stations": {"clearance": null, "context": "flying"},
+  "docked": {"clearance": null, "context": "docked"},
+  "waiting for the game": {"clearance": null, "context": "waiting for game"},
   "none": {"clearance": {"status": "none", "text": "No clearance", "colour": "red", "flashes": false}},
   "requested": {"clearance": {"status": "requested", "text": "Clearance requested", "colour": "amber", "flashes": false}},
   "granted": {"clearance": {"status": "granted", "text": "Cleared to dock", "colour": "green", "flashes": false}},

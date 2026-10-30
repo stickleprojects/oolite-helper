@@ -20,7 +20,7 @@ From `drive.states.json`. *Shows nothing* means it draws nothing in that state; 
 
 | State | Picture |
 |---|---|
-| **docked** | *shows nothing* |
+| **docked** | <img src="images/docked.png" width="640" alt="docked"> |
 | **both ready** | <img src="images/both-ready.png" width="640" alt="both ready"> |
 | **mass locked** | <img src="images/mass-locked.png" width="640" alt="mass locked"> |
 | **jump blocked** | <img src="images/jump-blocked.png" width="640" alt="jump blocked"> |
