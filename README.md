@@ -85,7 +85,7 @@ Notes on the fields:
 - The game interfaces used are [`station.market`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSStation.m), [`System.infoForSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystem.m), [`SystemInfo.samplePrice()` and `distanceToSystem()`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSSystemInfo.m), and the cargo events in [`PlayerEntity.m`](https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Entities/PlayerEntity.m).
 
 What the helper does with the trade data:
-- It saves every market it sees, with the time it saw it, to `~/.local/share/oolite-helper/markets.json` (or `$XDG_DATA_HOME/oolite-helper/markets.json`), and shows the age of the latest remembered prices.
+- It saves every market it sees, with the time it saw it, and what you bought, in one file per commander: `~/.local/share/oolite-helper/markets/<commander>.json` (or under `$XDG_DATA_HOME`). It shows the age of the latest remembered prices. A commander's first file starts as a copy of `markets.json`, which older versions shared between all commanders.
 - Purchases and sales update a weighted-average cost per commodity. A sale reduces the quantity and the remaining cost at that average.
 - On either chart, it shows the selected system's economy, government and tech level, estimates the sale margins for your cargo and the purchase margins here (skipping goods that are out of stock and marking illegal ones), and lists the nearest agricultural and industrial systems in fuel range.
 

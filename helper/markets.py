@@ -7,11 +7,19 @@ hold with no purchase, price None) or "unknown" (held before the helper knew,
 or a version 1 file's average). Selling, dumping or losing cargo uses up the
 oldest lot first. The average price per commodity (cost_basis) comes from the
 priced lots, as version 1 kept it.
+
+Each commander has their own file (#113), markets/<name>.json beside
+markets.json, chosen by the "commander" in the add-on's hello message. A
+commander's first file starts as a copy of markets.json, which is what every
+commander shared before; markets.json itself is no longer written once a
+commander is known. An add-on too old to send the name keeps using markets.json.
 """
 
 import json
 import math
 import os
+import re
+import shutil
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,9 +36,30 @@ MAX_HOLD_EVENTS = 500
 
 class MarketStore:
     def __init__(self, path=PATH, now=None):
-        self.path = Path(path)
+        self.shared_path = self.path = Path(path)
         self.now = now or (lambda: datetime.now(UTC))
         self.load_error = None  # shown in the status line when the saved file was unusable
+        self.commander = None
+        self._open()
+
+    def commander_path(self, commander):
+        """markets/<name>.json, with characters a file name can't hold replaced."""
+        name = re.sub(r"[^\w .-]", "_", commander).strip(" .") or "_"
+        return self.shared_path.with_suffix("") / f"{name}.json"
+
+    def _switch(self, commander):
+        """Use the commander's own file (#113); None (an old add-on) means markets.json."""
+        commander = commander if isinstance(commander, str) and commander else None
+        path = self.commander_path(commander) if commander else self.shared_path
+        if path == self.path:
+            return
+        if commander and not path.exists() and self.shared_path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.shared_path, path)
+        self.commander, self.path = commander, path
+        self._open()
+
+    def _open(self):
         self.data = self._load()
         previous_markets = self.data.get("markets", [])
         previous_market_events = self.data.get("market_events", [])
@@ -150,7 +179,9 @@ class MarketStore:
 
     def apply(self, message):
         kind = message.get("type")
-        if kind == "market" and isinstance(message.get("market"), dict):
+        if kind == "hello":
+            self._switch(message.get("commander"))
+        elif kind == "market" and isinstance(message.get("market"), dict):
             self._record_market(message)
         elif kind in ("bought", "sold"):
             self._record_trade(message)

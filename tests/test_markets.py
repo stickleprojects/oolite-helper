@@ -168,3 +168,55 @@ def test_a_hold_message_read_again_changes_nothing(tmp_path):
     before = lots(store)
     store.apply(start)  # the replay begins again
     assert lots(store) == before
+
+
+def hello(store, commander):
+    store.apply({"type": "hello", "version": "0.9", "commander": commander})
+
+
+def test_each_commander_keeps_their_own_lots(tmp_path):
+    store = MarketStore(tmp_path / "markets.json")
+    hello(store, "Jameson")
+    trade(store, "bought", 3, 40, 1.0)
+    hello(store, "Test")
+    hold(store, {})  # the test commander's empty hold
+    hello(store, "Jameson")
+    assert lots(store) == [(3, 40, "bought")]
+
+
+def test_a_commanders_lots_are_saved_in_their_own_file(tmp_path):
+    store = MarketStore(tmp_path / "markets.json")
+    hello(store, "Jameson")
+    trade(store, "bought", 3, 40, 1.0)
+    saved = json.loads((tmp_path / "markets" / "Jameson.json").read_text())
+    assert [lot["units"] for lot in saved["lots"]["food"]] == [3]
+
+
+def test_a_new_commander_starts_from_the_shared_file(tmp_path):
+    shared = MarketStore(tmp_path / "markets.json")
+    trade(shared, "bought", 3, 40, 1.0)
+    store = MarketStore(tmp_path / "markets.json")
+    hello(store, "Jameson")
+    assert lots(store) == [(3, 40, "bought")]
+
+
+def test_the_shared_file_is_left_alone_once_a_commander_is_known(tmp_path):
+    shared = MarketStore(tmp_path / "markets.json")
+    trade(shared, "bought", 3, 40, 1.0)
+    before = (tmp_path / "markets.json").read_text()
+    store = MarketStore(tmp_path / "markets.json")
+    hello(store, "Test")
+    hold(store, {})
+    assert (tmp_path / "markets.json").read_text() == before
+
+
+def test_a_hello_without_a_commander_uses_the_shared_file(tmp_path):
+    store = MarketStore(tmp_path / "markets.json")
+    store.apply({"type": "hello", "version": "0.8"})
+    trade(store, "bought", 3, 40, 1.0)
+    assert (tmp_path / "markets.json").exists() and not (tmp_path / "markets").exists()
+
+
+def test_a_commander_name_is_made_safe_for_a_file_name(tmp_path):
+    store = MarketStore(tmp_path / "markets.json")
+    assert store.commander_path("../Cmdr: X").name == "_Cmdr_ X.json"
