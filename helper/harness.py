@@ -306,6 +306,13 @@ DEV_JS = """(() => {
     if (latest !== null) post("show", {shown: latest, seq: ++seq});
   });
   if (!location.search.includes("shot")) setInterval(poll, 500);
+  else {
+    // A picture must come out the same every run (#119): animations stop on their first frame.
+    const still = document.createElement("style");
+    still.textContent = "*, *::before, *::after { animation-play-state: paused !important; " +
+      "animation-delay: 0s !important; transition: none !important; }";
+    document.documentElement.append(still);
+  }
 })();
 """.replace("API", str(plugin_api.API))
 

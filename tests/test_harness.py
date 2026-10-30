@@ -407,3 +407,7 @@ def test_a_tabs_named_states_show_that_tab():
     (target,) = harness.targets(None, plugins={}, names=["keys|all_keys"])
     values = next(v for c, _, v in target.states if c == "all_keys")
     assert values["tabs"]["shown"] == "all_keys"
+
+
+def test_pictures_stop_animations_so_they_come_out_the_same_each_run():
+    assert "animation-play-state: paused" in harness.DEV_JS
