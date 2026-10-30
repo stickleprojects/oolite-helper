@@ -84,7 +84,7 @@ def test_a_named_widget_changed_badly_is_explained(tmp_path):
 
 
 def test_an_unknown_named_widget_says_which_there_are(tmp_path):
-    with pytest.raises(SystemExit, match="widget must be one of radar-beside, tabs, top-strip"):
+    with pytest.raises(SystemExit, match="widget must be one of hold-beside, radar-beside, tabs, top-strip"):
         widget_from(tmp_path, 'widget = "sonar"')
 
 

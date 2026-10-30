@@ -1,0 +1,12 @@
+description = "Everything aboard, right of the game window; stays open, saying when the hold is empty"
+components = ["hold"]
+dock = "game:right"
+width = 640
+hide_empty = false
+
+[states]
+"empty" = {hold = "empty"}
+"two lots of food" = {hold = "two lots of food"}
+"scooped" = {hold = "scooped"}
+"passengers and parcels" = {hold = "passengers and parcels"}
+"contract" = {hold = "contract"}
