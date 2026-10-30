@@ -20,8 +20,8 @@ From `status.states.json`. *Shows nothing* means it draws nothing in that state;
 
 | State | Picture |
 |---|---|
-| **all well** | *shows nothing* |
-| **a message only** | *shows nothing* |
+| **all well** | <img src="images/all-well.png" width="700" alt="all well"> |
+| **a message only** | <img src="images/a-message-only.png" width="700" alt="a message only"> |
 | **notice** | <img src="images/notice.png" width="700" alt="notice"> |
 | **warning** | <img src="images/warning.png" width="700" alt="warning"> |
 | **error** | <img src="images/error.png" width="700" alt="error"> |

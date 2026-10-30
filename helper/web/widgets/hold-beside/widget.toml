@@ -2,7 +2,6 @@ description = "Everything aboard, right of the game window; stays open, saying w
 components = ["hold"]
 dock = "game:right"
 width = 640
-hide_empty = false
 
 [states]
 "empty" = {hold = "empty"}

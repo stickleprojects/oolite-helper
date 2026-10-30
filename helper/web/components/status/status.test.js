@@ -11,12 +11,12 @@ const STATES = states("status");
 const line = (name) => render("status", STATES[name]).node;
 
 describe("status", () => {
-  test("shows nothing when all is well", () => {
-    assert.equal(line("all well"), null);
+  test("says there are no problems when all is well", () => {
+    assert.equal(line("all well").textContent, "No problems");
   });
 
   test("doesn't show the game's raw messages (last_message does)", () => {
-    assert.equal(line("a message only"), null);
+    assert.equal(line("a message only").textContent, "No problems");
   });
 
   test("shows a notice", () => {

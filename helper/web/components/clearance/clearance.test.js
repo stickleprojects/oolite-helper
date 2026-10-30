@@ -11,8 +11,8 @@ const STATES = states("clearance");
 const badge = (name) => render("clearance", STATES[name]).node;
 
 describe("clearance", () => {
-  test("shows nothing away from stations", () => {
-    assert.equal(badge("away from stations"), null);
+  test("says away from stations", () => {
+    assert.equal(badge("away from stations").textContent, "Away from stations");
   });
 
   test("shows the badge's text", () => {

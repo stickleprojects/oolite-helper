@@ -20,7 +20,7 @@ From `clearance.states.json`. *Shows nothing* means it draws nothing in that sta
 
 | State | Picture |
 |---|---|
-| **away from stations** | *shows nothing* |
+| **away from stations** | <img src="images/away-from-stations.png" width="640" alt="away from stations"> |
 | **none** | <img src="images/none.png" width="640" alt="none"> |
 | **requested** | <img src="images/requested.png" width="640" alt="requested"> |
 | **granted** | <img src="images/granted.png" width="640" alt="granted"> |

@@ -8,7 +8,7 @@ Oolite.component("all_keys", {
   render(state, refresh) {
     const { el, button } = OoliteDom;
     const groups = state.all_keys || [];
-    if (!groups.length) return null;
+    if (!groups.length) return OoliteDom.el("p", "empty", "No key settings");
     const chips = el("nav", "groups");
     groups.forEach((entry, index) =>
       chips.append(
