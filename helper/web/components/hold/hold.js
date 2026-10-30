@@ -65,6 +65,7 @@ Oolite.component("hold", {
     }
     const space = holdSpace(hold.space);
     const panel = el("section", "panel hold", el("h2", "", space ? `Hold · ${space}` : "Hold"));
+    // filter(Boolean) keeps the truthy items: here, drops the nulls (sections with no rows).
     const sections = [
       hold.goods.length ? holdGoods(hold.goods) : null,
       hold.passengers.length ? holdPeople("Passengers", hold.passengers) : null,
