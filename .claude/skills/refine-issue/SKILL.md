@@ -44,9 +44,13 @@ Collect only the decisions that are his: what to show, where it shows, what matt
 ## 6. Write the spec
 Draft it in the scratchpad, then show Kieron a short summary (the goal, the steps, and anything you recommend) before replacing the body. Keep his original words in the first section. Use the sections that apply, in this order:
 
+- **First refinement:** the old body goes under `## Idea (Kieron)` word for word, but drop its own top heading if it has one (e.g. `## Idea`), so there aren't two Idea headings. Turn its other `##` headings into `###`.
+- **Refining again** (the body already starts with `## Idea (Kieron)`): keep that section as it is, and add Kieron's new words below it, each with its date, plus the decisions taken. Rewrite the other sections in place rather than nesting the old spec. Mark finished steps ✅ and keep them.
+
 ```markdown
 ## Idea (Kieron)
-<the original body, word for word>
+<the original body, word for word, without its own top heading>
+<later: "YYYY-MM-DD, Kieron: ..." quotes and the decisions taken>
 
 ## Goal
 <what the player gets, in 2 or 3 sentences>
