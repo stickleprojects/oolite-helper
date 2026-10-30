@@ -46,6 +46,8 @@ class GameState:
         self.cargo_space = None
         self.fuel = None
         self.manifest = None
+        self.hold = None  # the last hold message: goods, passengers, parcels, contracts (#95)
+        self.game_clock = None  # (clock.seconds, our clock then) from the last message with it
         self.last_trade = None
         self.systems = []
         self.galaxy = None
@@ -63,6 +65,9 @@ class GameState:
 
     def apply(self, msg):
         kind = msg.get("type")
+        game_clock = msg.get("gameClock")
+        if isinstance(game_clock, int | float) and not isinstance(game_clock, bool):
+            self.game_clock = (game_clock, self._clock())
         if kind in ("session", "hello"):  # new log file / game loaded
             self.reset()
         elif kind == "died":
@@ -131,6 +136,8 @@ class GameState:
             self.manifest = msg.get("manifest")
         elif kind in ("bought", "sold"):
             self.last_trade = msg
+        elif kind == "hold":
+            self.hold = msg
         elif kind == "systems":
             self.galaxy = msg.get("galaxy", self.galaxy)
             self.fuel = msg.get("fuel")
@@ -187,6 +194,15 @@ class GameState:
         if destination[0] == self.current_system:
             return self.system_name, True, None
         return self.system_name, False, destination[1]
+
+    @property
+    def game_clock_now(self):
+        """The game's clock.seconds now, or None: the last one sent, plus the
+        time since (it can be behind after a jump until the next message)."""
+        if self.game_clock is None:
+            return None
+        seconds, then = self.game_clock
+        return seconds + max(0, self._clock() - then)
 
     def end_countdown(self):
         self.countdown_kind = None

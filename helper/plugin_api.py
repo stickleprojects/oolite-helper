@@ -309,6 +309,21 @@ TOPICS = {
         'you), "colour": "#ff4000" its scanner colour, "flash": the colour it flashes to '
         "every 0.25 s, or null}]; [] when nothing is there",
     ),
+    "hold": (
+        lambda m: m.topic("hold"),
+        30,
+        'everything aboard, or null before the game says: {"goods": one per lot, oldest '
+        'first: [{"commodity": "food", "name": "Food", "units": 12, "unit": "t", '
+        '"paid_each": decicredits or null (scooped or unknown), "paid", "from": {"galaxy", '
+        '"system": id, "name"}, "scooped" or null (unknown), "worth_each": decicredits at '
+        'the last market seen or null if it doesn\'t list it, "worth", "profit": worth - '
+        'paid or null}], "passengers" and "parcels": [{"name", "destination": system id, '
+        '"destinationName", "fee": credits, "risk", "time_left": seconds (below 0 = late) '
+        'or null, "time_left_text": "2d 3h", "late": bool}], "contracts": [{"commodity", '
+        '"name", "quantity", "destination", "destinationName", "fee", "time_left", '
+        '"time_left_text", "late"}], "space": {"used": t, "capacity": t}, "worth_at": '
+        '{"system", "station", "age": "5m ago"} or null}',
+    ),
     "jump_blocker": (
         _jump_blocker,
         None,

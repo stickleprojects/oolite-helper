@@ -24,7 +24,7 @@ bucket ends, for topics that depend on the clock).
 import time
 from dataclasses import dataclass, replace
 
-from . import radar
+from . import hold, radar
 from .browser import buy_limit, commodity_offers, commodity_rows, held, market_advice, trade_steps
 from .contexts import ACTION_NOTES, clearance_badge, indicators, missing, sections, tip
 from .keys import commodity_fallback
@@ -263,6 +263,16 @@ def _trade_detail(model):
     return (commodity, row, offers, offer, limit, quantity, tuple(steps))
 
 
+def _hold(model):
+    store = model.markets
+    lots, market, now = {}, None, None
+    if store is not None:
+        lots, now = store.data["lots"], store.now()
+        market = max(store.data["markets"], key=lambda m: m.get("seen_at") or "", default=None)
+    state = model.state
+    return hold.hold(state.hold, state.game_clock_now, lots, market, now, model.commodity_name)
+
+
 def _sections(model):
     """The Keys tab's (title, actions), without missing equipment's keys if set to hide."""
     hide = model.missing_equipment == "hide" and model.topic("missing")
@@ -285,6 +295,7 @@ TOPICS = {
     "tip": (lambda m: tip(m.state, m.keymap), None),
     "mass_lock": (lambda m: m.state.mass_lock, None),
     "radar": (lambda m: radar.blips(m.state.radar), None),
+    "hold": (_hold, 30),  # contracts' time left counts down
     "jump_blocker": (lambda m: dict(m.state.jump_blocker or {}) or None, None),
     "indicators": (lambda m: tuple(indicators(m.state)), None),
     "clearance": (lambda m: clearance_badge(m.state, m.keymap), None),

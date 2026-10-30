@@ -1,0 +1,2 @@
+description = "Everything aboard: each lot of goods with where it was bought, what you paid and what it's worth at the last market; passengers, parcels and contracts with their time left (red when late); says when the hold is empty"
+topics = ["hold"]

@@ -1,0 +1,8 @@
+.hold { margin: calc(8px * var(--oo-scale)) calc(12px * var(--oo-scale)); }
+.hold h3 { margin: calc(8px * var(--oo-scale)) 0 calc(2px * var(--oo-scale)); color: var(--oo-accent); font-size: calc(16pt * var(--oo-scale)); }
+.hold table { border-collapse: collapse; white-space: nowrap; }
+.hold th, .hold td { padding: 0 calc(10px * var(--oo-scale)); text-align: left; font-size: calc(16pt * var(--oo-scale)); }
+.hold th { color: var(--oo-dim); font: bold calc(14pt * var(--oo-scale)) var(--oo-sans); }
+.hold .num { font-family: var(--oo-mono); text-align: right; }
+.hold .late td:first-child { color: var(--oo-red); }
+.hold .worth-at { margin: calc(6px * var(--oo-scale)) 0 0; font-size: calc(14pt * var(--oo-scale)); }

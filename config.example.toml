@@ -50,7 +50,7 @@ ui = "web"
 #
 # components: one or more components: "heading", "tip", "status",
 #             "keys", "all_keys", "trade_table", "trade_here", "drive" (TORUS/
-#             JUMP), "clearance", "radar" (see helper/web/components/); or the name of
+#             JUMP), "clearance", "radar", "hold" (see helper/web/components/); or the name of
 #             one plugin from ~/.config/oolite-helper/plugins/, alone (plugins
 #             are web pages in their own window; see #59)
 # dock:       "game:top", "game:bottom", "game:left" or "game:right"
@@ -66,7 +66,8 @@ ui = "web"
 # widget:     a widget by name, from helper/web/widgets/, instead of listing
 #             everything: "top-strip" (clearance and drive above the game),
 #             "trade-beside" (trade_here to its right), "radar-beside" (every
-#             scanner blip, left of the game while flying) or "tabs" (a tab row over
+#             scanner blip, left of the game while flying), "hold-beside" (everything
+#             aboard, right of the game) or "tabs" (a tab row over
 #             one of "keys", "all_keys" and "trade_table" at a time; the choice
 #             is shared, and an emergency shows Keys). Any setting above
 #             changes that widget's. Its id is the widget's name.
