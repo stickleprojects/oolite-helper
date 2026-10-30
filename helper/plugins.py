@@ -46,7 +46,7 @@ from .plugin_api import (
     topic_value,
 )
 from .webhost import WebHost, WebWindow
-from .widgets import COMPONENTS, WIDGETS, place
+from .widgets import COMPONENTS, WIDGETS, along, place, stack_offset
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
@@ -232,14 +232,27 @@ class WebWidgets:
 
     def windows(self, model):
         game_window = model.topic("game_window")
-        layout = {widget.id: widget for widget in model.topic("layout")}
+        widgets = model.topic("layout")
+        layout = {widget.id: widget for widget in widgets}
+
+        def shown(widget):
+            wid, spec = widget.id, widget.spec
+            empty = wid in self.undrawn or (wid in self.hidden and spec.hide_empty)
+            return wid in self.widgets and widget.open and not empty
+
+        def size_along(widget):  # for the widgets stacked in a dock (#80)
+            return along(widget.spec, self.sizes[widget.id]) if shown(widget) else None
+
         windows = {}
         for wid, manifest in self.widgets.items():
             widget = layout[wid]
             spec = widget.spec
-            empty = wid in self.undrawn or (wid in self.hidden and spec.hide_empty)
-            shown = widget.open and not empty
-            rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
+            offset = stack_offset(widgets, wid, size_along)
+            rect = (
+                place(spec, game_window, self.sizes[wid], self.monitors, offset)
+                if shown(widget)
+                else None
+            )
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.pages:
                 script = web.widget_config(
