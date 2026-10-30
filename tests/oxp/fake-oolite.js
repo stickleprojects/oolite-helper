@@ -37,7 +37,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	// player.ship.docked, player.ship.viewDirection, player.ship.dockedStation,
 	// player.ship.infoSystem, and player.ship.targetSystem:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayerShip.m
-	// player.credits:
+	// player.name and player.credits:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSPlayer.m
 	// player.ship.withinStationAegis, fuel, cargo space, and station.displayName:
 	//   https://github.com/OoliteProject/oolite/blob/1.92.1/src/Core/Scripting/OOJSShip.m
@@ -179,6 +179,7 @@ function createFakeOolite({ debugConsole = false } = {}) {
 	const missiles = [missile, missile];
 	const damaged = new Set();
 	const player = strictObject("player", {
+		name: "Jameson",
 		alertCondition: 1,
 		dockingClearanceStatus: "DOCKING_CLEARANCE_STATUS_NONE",
 		credits: 1200.5,

@@ -2,7 +2,7 @@
 
 this.name = "ctxkeys";
 this.author = "Kieron";
-this.version = "0.8";
+this.version = "0.9";
 this.description = "Logs game context changes for the external Oolite key helper.";
 
 // All messages leave the game through here, as JSON with a "type" field.
@@ -397,9 +397,11 @@ this.playerCompletedContract = function (type, result, fee, info) {
 
 /* Startup */
 
+// The commander's name keeps each save's market memory apart (#113): startUp
+// runs after the save is loaded (PlayerEntity loadPlayerFromFile:, 1.92.1).
 this.startUp = function () {
 	this._lastReachableSystems = null;
-	this._emit("hello", { version: this.version });
+	this._emit("hello", { version: this.version, commander: player.name });
 };
 
 this.startUpComplete = function () {

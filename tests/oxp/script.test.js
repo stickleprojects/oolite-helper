@@ -14,7 +14,7 @@ const scenarios = [
 		run({ world }) {
 			world.startUp();
 		},
-		expected: ['{"version":"0.8","type":"hello"}'],
+		expected: ['{"version":"0.9","commander":"Jameson","type":"hello"}'],
 	},
 	{
 		name: "startup complete while docked",
