@@ -377,7 +377,7 @@ def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets
     extras = dict(window.extras)
     assert extras["widget.js"] == (
         'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
-        '"topics": ["clearance", "drive"], "width": null};\n'
+        '"topics": ["clearance", "context", "drive"], "width": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
@@ -409,7 +409,7 @@ def test_no_fallback_once_the_host_has_worked(page_widgets):
 def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(page_widgets):
     _, host, made, _ = page_widgets
     manifest = made.widgets["widget1:clearance"]
-    assert (manifest.topics, manifest.actions) == (("clearance", "drive"), ())
+    assert (manifest.topics, manifest.actions) == (("clearance", "context", "drive"), ())
     page = dict(host.windows["widget1:clearance"].extras)["widget.html"]
     assert '<script src="../components/drive/drive.js">' in page
     assert "trade_here" not in page and "keys" not in page

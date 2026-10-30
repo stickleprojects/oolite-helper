@@ -15,6 +15,14 @@ describe("clearance", () => {
     assert.equal(badge("away from stations").textContent, "Away from stations");
   });
 
+  test("says docked while docked", () => {
+    assert.equal(badge("docked").textContent, "Docked");
+  });
+
+  test("says it's waiting for the game before it starts", () => {
+    assert.equal(badge("waiting for the game").textContent, "Waiting for the game");
+  });
+
   test("shows the badge's text", () => {
     assert.equal(badge("granted").textContent.trim(), "Cleared to dock");
   });

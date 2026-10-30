@@ -56,7 +56,7 @@ def test_the_configs_widgets_come_after_the_components(tmp_path):
 
 def test_a_widget_target_reads_only_its_components_topics(tmp_path):
     found = harness.targets(config_with_a_strip(tmp_path), plugins={})
-    assert found[-1].manifest.topics == ("clearance", "drive")
+    assert found[-1].manifest.topics == ("clearance", "context", "drive")
 
 
 @pytest.fixture
@@ -249,7 +249,7 @@ def test_a_readme_starts_with_the_components_description():
 
 
 def test_a_readme_lists_what_the_component_reads():
-    assert "| **Reads** | `clearance` |" in clearance_readme()
+    assert "| **Reads** | `clearance`, `context` |" in clearance_readme()
 
 
 def test_a_readme_links_what_a_component_needs():
