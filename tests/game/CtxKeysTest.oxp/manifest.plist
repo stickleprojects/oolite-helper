@@ -1,0 +1,10 @@
+{
+	identifier = "oolite.oxp.kieron.ctxkeys-test";
+	title = "Context Keys test setup";
+	version = "0.1";
+	required_oolite_version = "1.90";
+	author = "Kieron";
+	license = "MIT";
+	category = "Miscellaneous";
+	description = "Gives the commander named Test a passenger, a parcel and a cargo contract, for testing the helper. Does nothing for anyone else.";
+}
