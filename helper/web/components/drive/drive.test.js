@@ -12,8 +12,12 @@ const texts = (nodes) => nodes.map((node) => node.textContent);
 const lamps = (name) => render("drive", STATES[name]).node.all(".chip");
 
 describe("drive", () => {
-  test("says not flying while docked", () => {
-    assert.equal(render("drive", STATES.docked).node.textContent, "Not flying");
+  test("shows both lamps grey while docked", () => {
+    const off = lamps("docked");
+    assert.deepEqual(
+      [texts(off), off.every((lamp) => lamp.hasClass("off"))],
+      [["  TORUS  ", "  JUMP  "], true],
+    );
   });
 
   test("shows a lamp each for TORUS and JUMP, saying what blocks them", () => {

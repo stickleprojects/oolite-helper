@@ -1,15 +1,19 @@
 "use strict";
 
+// TORUS and JUMP lamps while flying; both grey (off) when not flying.
 Oolite.component("drive", {
   render(state) {
-    if (!state.drive) return OoliteDom.el("span", "empty", "Not flying");
-    const chips = OoliteDom.el("div", "chips");
+    const { el } = OoliteDom;
+    if (!state.drive) {
+      return el("div", "chips", el("span", "chip off", "  TORUS  "), el("span", "chip off", "  JUMP  "));
+    }
+    const chips = el("div", "chips");
     for (const name of ["torus", "jump"]) {
       const lamp = state.drive[name];
       if (!lamp) continue;
       const text = OoliteFormat.chipText(name.toUpperCase(), lamp);
-      chips.append(OoliteDom.el("span", `chip ${lamp.ok ? "good" : "bad"}`, text));
+      chips.append(el("span", `chip ${lamp.ok ? "good" : "bad"}`, text));
     }
-    return chips.childElementCount ? chips : OoliteDom.el("span", "empty", "Not flying");
+    return chips;
   },
 });
