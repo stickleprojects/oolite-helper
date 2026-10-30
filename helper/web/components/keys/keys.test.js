@@ -12,8 +12,8 @@ const texts = (nodes) => nodes.map((node) => node.textContent);
 const keys = (name) => render("keys", STATES[name]).node;
 
 describe("keys", () => {
-  test("shows nothing when there are no keys for the context", () => {
-    assert.equal(keys("no keys"), null);
+  test("says there are no keys for this screen", () => {
+    assert.equal(keys("no keys").textContent, "No keys for this screen");
   });
 
   test("shows a panel per section, titled", () => {

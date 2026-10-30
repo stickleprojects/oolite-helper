@@ -2,7 +2,6 @@ description = "Every blip on the scanner, left of the game window; stays open, s
 components = ["radar"]
 dock = "game:left"
 width = 620
-hide_empty = false
 
 [states]
 "nothing on the scanner" = {radar = "nothing on the scanner"}

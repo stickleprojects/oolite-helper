@@ -377,7 +377,7 @@ def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets
     extras = dict(window.extras)
     assert extras["widget.js"] == (
         'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
-        '"topics": ["clearance", "drive"], "width": null};\n'
+        '"topics": ["clearance", "context", "drive"], "width": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
@@ -385,12 +385,6 @@ def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets
     made.tick()
     model.notify()
     assert host.windows["widget1:clearance"].rect is not None
-    host.events = [
-        {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": False}}
-    ]
-    made.tick()
-    model.notify()
-    assert host.windows["widget1:clearance"].rect is None
 
 
 def test_components_fall_back_to_tk_if_the_host_never_starts(page_widgets):
@@ -415,7 +409,7 @@ def test_no_fallback_once_the_host_has_worked(page_widgets):
 def test_a_widget_page_loads_reads_and_sends_only_what_its_components_need(page_widgets):
     _, host, made, _ = page_widgets
     manifest = made.widgets["widget1:clearance"]
-    assert (manifest.topics, manifest.actions) == (("clearance", "drive"), ())
+    assert (manifest.topics, manifest.actions) == (("clearance", "context", "drive"), ())
     page = dict(host.windows["widget1:clearance"].extras)["widget.html"]
     assert '<script src="../components/drive/drive.js">' in page
     assert "trade_here" not in page and "keys" not in page
@@ -432,8 +426,19 @@ def test_a_widget_page_names_its_widget():
     assert '"components": ["keys", "all_keys"], "widget": "tabs"' in script
 
 
-def test_hide_empty_false_keeps_an_empty_page_shown():
-    specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=False)]
+def test_hide_empty_hides_a_page_with_nothing_to_show():
+    specs = [WidgetSpec(components=("drive",), dock="game:top", hide_empty=True)]
+    model = Model(layout=widgets_from_specs(specs))
+    host = StubHost()
+    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
+    model.dispatch({**GAME, "active": True})
+    made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
+    model.notify()
+    assert host.windows["widget1:drive"].rect is None
+
+
+def test_an_empty_page_stays_shown_by_default():
+    specs = [WidgetSpec(components=("drive",), dock="game:top")]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
     made = WebWidgets(model, {}, host=host, components=COMPONENTS)

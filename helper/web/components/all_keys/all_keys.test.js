@@ -12,8 +12,8 @@ const texts = (nodes) => nodes.map((node) => node.textContent);
 const allKeys = (name = "two groups") => render("all_keys", STATES[name]);
 
 describe("all_keys", () => {
-  test("shows nothing before the keys are known", () => {
-    assert.equal(allKeys("before the keys are known").node, null);
+  test("says there are no key settings before the keys are known", () => {
+    assert.equal(allKeys("before the keys are known").node.textContent, "No key settings");
   });
 
   test("shows a button for each group", () => {

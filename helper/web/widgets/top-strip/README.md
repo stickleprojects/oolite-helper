@@ -27,7 +27,7 @@ From `[states]` in `widget.toml`: each names a state of each of its components. 
 
 | State | Picture |
 |---|---|
-| **docked** | *shows nothing* |
+| **docked** | <img src="images/docked.png" width="700" alt="docked"> |
 | **just launched** | <img src="images/just-launched.png" width="700" alt="just launched"> |
 | **waiting for clearance** | <img src="images/waiting-for-clearance.png" width="700" alt="waiting for clearance"> |
 | **cleared to dock** | <img src="images/cleared-to-dock.png" width="700" alt="cleared to dock"> |

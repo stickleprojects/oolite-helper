@@ -7,3 +7,4 @@
 }
 .chip.good { background: var(--oo-green); }
 .chip.bad { background: var(--oo-red); }
+.chip.off { background: var(--oo-panel); color: var(--oo-dim); }

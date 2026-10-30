@@ -186,6 +186,7 @@ class WebWidgets:
         self.sizes = {}  # widget id -> (w, h): the manifest's, or what the page asked for
         self.pages = {}  # widget id -> its components, for the pages the helper generates
         self.hidden = set()  # widget ids whose page said it has nothing to show
+        self.undrawn = set()  # the helper's pages not drawn yet: hidden whatever hide_empty says
         self.fallback = fallback
         self.ever_ready = False
         for widget in model.topic("layout"):
@@ -198,7 +199,7 @@ class WebWidgets:
                 self.widgets[wid] = manifest
                 self.sizes[wid] = (manifest.width, manifest.height)
                 self.pages[wid] = widget.spec.components
-                self.hidden.add(wid)  # until the page has drawn
+                self.undrawn.add(wid)
             elif name in manifests:
                 manifest = manifests[name]
                 self.widgets[wid] = manifest
@@ -236,7 +237,7 @@ class WebWidgets:
         for wid, manifest in self.widgets.items():
             widget = layout[wid]
             spec = widget.spec
-            empty = wid in self.hidden and spec.hide_empty
+            empty = wid in self.undrawn or (wid in self.hidden and spec.hide_empty)
             shown = widget.open and not empty
             rect = place(spec, game_window, self.sizes[wid], self.monitors) if shown else None
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
@@ -270,6 +271,7 @@ class WebWidgets:
             if msg["type"] == "resize":
                 self.sizes[wid] = (msg["width"], msg["height"])  # placed on the next pass
             elif msg["type"] == "show":
+                self.undrawn.discard(wid)
                 (self.hidden.discard if msg["shown"] else self.hidden.add)(wid)
             elif msg["type"] == "log":
                 print(f"oolite-helper: plugin {name}: {msg['text']}", file=sys.stderr)
@@ -298,6 +300,7 @@ class WebWidgets:
         for wid in ids:
             del self.widgets[wid], self.sizes[wid], self.pages[wid]
             self.hidden.discard(wid)
+            self.undrawn.discard(wid)
         fallback, self.fallback = self.fallback, None
         fallback(ids)
 

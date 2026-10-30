@@ -6,7 +6,7 @@ Docking clearance near a station; flashes while it's timing out
 
 | | |
 |---|---|
-| **Reads** | `clearance` |
+| **Reads** | `clearance`, `context` |
 | **Sends** | nothing |
 | **Needs** | nothing |
 | **Files** | `clearance.css`, `clearance.js` |
@@ -20,7 +20,9 @@ From `clearance.states.json`. *Shows nothing* means it draws nothing in that sta
 
 | State | Picture |
 |---|---|
-| **away from stations** | *shows nothing* |
+| **away from stations** | <img src="images/away-from-stations.png" width="640" alt="away from stations"> |
+| **docked** | <img src="images/docked.png" width="640" alt="docked"> |
+| **waiting for the game** | <img src="images/waiting-for-the-game.png" width="640" alt="waiting for the game"> |
 | **none** | <img src="images/none.png" width="640" alt="none"> |
 | **requested** | <img src="images/requested.png" width="640" alt="requested"> |
 | **granted** | <img src="images/granted.png" width="640" alt="granted"> |
