@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from helper import harness
-from helper.widgets import COMPONENTS
+from helper.settings import COMPONENTS
 
 SHOTS = os.environ.get("OOLITE_HELPER_SHOTS")
 CHROME = harness.find_chrome()

@@ -22,31 +22,26 @@ Widgetwindows (#124) are kept the same way, by their ids, in the model's
 
 config.toml stays the player's hand-written defaults. Changes made in the
 helper are saved to layout.toml beside it, as differences from those
-defaults; delete it to go back to config.toml. See docs/architecture.md,
+defaults; delete it to go back to config.toml. settings.load_layout reads it
+back, checked by the settings models (#135). See docs/architecture.md,
 "Layouts and the admin panel".
 """
 
 import json
 import os
-import re
-import sys
-import tomllib
 from dataclasses import dataclass, replace
 
-from . import config
+from . import paths
 
-PATH = os.path.join(os.path.dirname(config.PATH), "layout.toml")
 SAVED = ("x", "y", "width", "height", "open", "dock", "screen")  # what layout.toml may change
 NONE = "none"  # layout.toml's word for an unset dock, screen or size (TOML has no null)
 MOVED = ("x", "y", "dock", "screen", "width", "height")  # what layout/move_widget may set
-PERCENT = re.compile(r"\d+(\.\d+)?%")
-PLACE = re.compile(r"game:(top|bottom|left|right)|screen:[^:]+:(top|bottom|left|right)")
 
 
 @dataclass(frozen=True)
 class Widget:
     id: str
-    spec: object  # widgets.WidgetSpec, or widgets.WindowSpec for a widgetwindow
+    spec: object  # settings.WidgetSpec, or settings.WindowSpec for a widgetwindow
     open: bool = True
 
     def setting(self, name):
@@ -59,7 +54,7 @@ def widgets_from_specs(specs):
     for n, spec in enumerate(specs, start=1):
         wid = spec.id or f"widget{n}:{spec.components[0]}"
         if any(widget.id == wid for widget in widgets):
-            raise SystemExit(f"{config.PATH}: two widgets have the id {wid!r}")
+            raise SystemExit(f"{paths.CONFIG}: two widgets have the id {wid!r}")
         widgets.append(Widget(wid, spec))
     return tuple(widgets)
 
@@ -69,7 +64,7 @@ def windows_from_specs(specs, widgets=()):
     taken = {widget.id for widget in widgets}
     for spec in specs:
         if spec.id in taken:
-            raise SystemExit(f"{config.PATH}: a widget and a widgetwindow have the id {spec.id!r}")
+            raise SystemExit(f"{paths.CONFIG}: a widget and a widgetwindow have the id {spec.id!r}")
         taken.add(spec.id)
     return tuple(Widget(spec.id, spec) for spec in specs)
 
@@ -90,55 +85,15 @@ def reduce_layout(widgets, action):
             return widget
         if kind == "layout/move_widget":
             moved = {name: action[name] for name in MOVED if name in action}
-            return replace(widget, spec=replace(widget.spec, **moved))
+            return replace(widget, spec=widget.spec.changed(**moved))
         if kind == "layout/resize_widget":
             size = {name: action[name] for name in ("width", "height") if name in action}
-            return replace(widget, spec=replace(widget.spec, **size))
+            return replace(widget, spec=widget.spec.changed(**size))
         if kind in ("layout/close_widget", "layout/open_widget"):
             return replace(widget, open=kind == "layout/open_widget")
         raise ValueError(f"unknown layout action {kind!r}")
 
     return tuple(change(widget) for widget in widgets)
-
-
-def _valid(name, value):
-    if name == "open":
-        return isinstance(value, bool)
-    if name == "dock":
-        return value is None or (isinstance(value, str) and PLACE.fullmatch(value) is not None)
-    if name == "screen":
-        return value is None or isinstance(value, str)
-    if name in ("width", "height"):
-        if value is None or (isinstance(value, str) and PERCENT.fullmatch(value)):
-            return True
-        return isinstance(value, int) and not isinstance(value, bool) and value > 0
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
-def load(widgets, path=PATH):
-    """The widgets with layout.toml's saved changes applied.
-
-    The file is the helper's own, so a bad one is reported and skipped rather
-    than stopping the helper. Widgets no longer in config.toml are ignored.
-    """
-    if not os.path.exists(path):
-        return widgets
-    try:
-        with open(path, "rb") as f:
-            saved = tomllib.load(f).get("widgets", {})
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        print(f"oolite-helper: ignoring {path}: {exc}", file=sys.stderr)
-        return widgets
-    changed = []
-    for widget in widgets:
-        values = saved.get(widget.id)
-        if isinstance(values, dict):
-            values = {k: (None if v == NONE else v) for k, v in values.items()}
-            good = {k: v for k, v in values.items() if k in SAVED and _valid(k, v)}
-            is_open = good.pop("open", widget.open)
-            widget = replace(widget, spec=replace(widget.spec, **good), open=is_open)
-        changed.append(widget)
-    return tuple(changed)
 
 
 def differences(defaults, widgets):
@@ -169,7 +124,7 @@ def _toml(value):
 class LayoutFile:
     """Saves the layout's differences from config.toml to layout.toml."""
 
-    def __init__(self, defaults, path=PATH, window_defaults=(), widgets=(), windows=()):
+    def __init__(self, defaults, path=paths.LAYOUT, window_defaults=(), widgets=(), windows=()):
         """widgets and windows: the layout as it is now (loaded), kept when only
         the other changes."""
         self.defaults = tuple(defaults) + tuple(window_defaults)

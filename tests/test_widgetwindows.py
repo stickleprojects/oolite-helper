@@ -1,18 +1,14 @@
 """Widgetwindows: a title bar over widgets stacked top to bottom, docked to the game (#124)."""
 
-from dataclasses import replace
-
 import pytest
 
 from helper.layout import widgets_from_specs
 from helper.screen import Monitor
+from helper.settings import WindowSpec
 from helper.widgets import (
     MIN_SIZE,
-    WindowSpec,
     dropped,
     landing,
-    load_widgets,
-    load_widgetwindows,
     move_to,
     places,
     resize_edges,
@@ -21,6 +17,7 @@ from helper.widgets import (
     title_height,
     window_rect,
 )
+from tests.configs import load_widgets, load_widgetwindows
 
 GAME = ((1282, 204, 1280, 720), (2, 2, 24, 2), True)  # geometry, frame, active
 NO_GAME = (None, (0, 0, 0, 0), False)
@@ -67,27 +64,27 @@ def test_height_star_marks_the_widget_that_fills(tmp_path):
 
 
 def test_beside_the_game_it_is_as_tall_as_the_game_window_and_its_title_bar():
-    window = WindowSpec("w", "W", "game:right", width=640)
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640)
     assert window_rect(window, GAME) == (RIGHT, 204 - 24, 640, 24 + 720 + 2)
 
 
 def test_on_the_left_it_ends_at_the_games_border():
-    window = WindowSpec("w", "W", "game:left", width=300)
+    window = WindowSpec(id="w", title="W", dock="game:left", width=300)
     assert window_rect(window, GAME)[0] == 1282 - 2 - 300
 
 
 def test_above_the_game_it_is_as_wide_as_the_game_window_and_its_borders():
-    window = WindowSpec("w", "W", "game:top", height=60)
+    window = WindowSpec(id="w", title="W", dock="game:top", height=60)
     assert window_rect(window, GAME) == (1282 - 2, 204 - 24 - 60, 2 + 1280 + 2, 60)
 
 
 def test_it_hides_while_the_game_isnt_active():
-    window = WindowSpec("w", "W", "game:right", width=640)
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640)
     assert window_rect(window, (GAME[0], GAME[1], False)) is None
 
 
 def test_shown_always_it_stays_while_the_game_isnt_active():
-    window = WindowSpec("w", "W", "game:right", width=640, show="always")
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640, show="always")
     assert window_rect(window, (GAME[0], GAME[1], False)) is not None
 
 
@@ -112,8 +109,10 @@ def test_with_the_filler_hidden_the_last_shown_widget_fills():
 
 
 def test_the_title_bar_follows_the_layouts_text_size():
-    big = WindowSpec("w", "W", "game:right", width=640, layout="large")
-    assert title_height(big) > title_height(WindowSpec("w", "W", "game:right", width=640))
+    big = WindowSpec(id="w", title="W", dock="game:right", width=640, layout="large")
+    assert title_height(big) > title_height(
+        WindowSpec(id="w", title="W", dock="game:right", width=640)
+    )
 
 
 def test_a_named_widget_in_a_widgetwindow_keeps_its_name_as_its_id(tmp_path):
@@ -125,15 +124,15 @@ def test_a_named_widget_in_a_widgetwindow_keeps_its_name_as_its_id(tmp_path):
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        (("height = 310", "height = 310, y = 10"), "widgetwindow places it, so it can't set y"),
+        (("height = 310", "height = 310, y = 10"), "widgetwindow places it: can't set y"),
         (("height = 310", "height = 310, width = 10"), "can't set width"),
         (("width = 640\n", ""), "width must be a whole number of pixels"),
         (("width = 640", "width = 640\nheight = 300"), "its other size is the game's"),
         (('dock = "game:right"', 'dock = "game:middle"'), "dock must be one of"),
-        (('title = "Trading"\n', ""), "title must be some text"),
-        (('id = "trading"\n', ""), "id must be letters"),
+        (('title = "Trading"\n', ""), "title is missing"),
+        (('id = "trading"\n', ""), "widgetwindow 1: id is missing$"),
         (("height = 310", 'height = "*"'), 'only one widget can have height = "\\*"'),
-        (("width = 640", "width = 640\ngap = 1"), "unknown settings: gap"),
+        (("width = 640", "width = 640\ngap = 1"), "unknown setting gap"),
         (("width = 640", 'width = 640\nscreen = "eDP-1"'), "docked, it can't set screen"),
         (('dock = "game:right"', 'dock = "screen:eDP-1:middle"'), "dock must be one of"),
         (('dock = "game:right"\n', ""), "floating, it needs a screen"),
@@ -149,50 +148,47 @@ def test_two_widgetwindows_cant_share_an_id(tmp_path):
         load_widgets(config(tmp_path, TRADING + TRADING.replace("trade_here", "drive")))
 
 
-def test_the_old_docks_table_says_what_replaced_it(tmp_path):
-    with pytest.raises(SystemExit, match=r"\[\[docks\]\] is now \[\[widgetwindows\]\]"):
-        load_widgets(config(tmp_path, '[[docks]]\ndock = "game:right"\n'))
-
-
 def test_a_config_widget_cant_say_which_widgetwindow_its_in(tmp_path):
     path = config(tmp_path, '[[widgets]]\ncomponents = ["drive"]\nwindow = "trading"\n')
-    with pytest.raises(SystemExit, match="unknown settings: window"):
+    with pytest.raises(SystemExit, match="unknown setting window"):
         load_widgets(path)
 
 
 def test_on_a_monitors_right_edge_it_is_the_monitors_height():
-    window = WindowSpec("w", "W", "screen:eDP-1:right", width=600)
+    window = WindowSpec(id="w", title="W", dock="screen:eDP-1:right", width=600)
     assert window_rect(window, NO_GAME, [LAPTOP]) == (960 + 1920 - 600, 1080, 600, 1080)
 
 
 def test_on_a_monitors_bottom_edge_it_is_the_monitors_width():
-    window = WindowSpec("w", "W", "screen:eDP-1:bottom", height="25%")
+    window = WindowSpec(id="w", title="W", dock="screen:eDP-1:bottom", height="25%")
     assert window_rect(window, NO_GAME, [LAPTOP]) == (960, 1080 + 810, 1920, 270)
 
 
 def test_floating_at_100_percent_it_fills_its_monitor():
-    window = WindowSpec("w", "W", screen="eDP-1", width="100%", height="100%")
+    window = WindowSpec(id="w", title="W", screen="eDP-1", width="100%", height="100%")
     assert window_rect(window, NO_GAME, [LAPTOP]) == (960, 1080, 1920, 1080)
 
 
 def test_floating_it_sits_at_its_place_on_the_monitor():
-    window = WindowSpec("w", "W", screen="eDP-1", x=10, y=20, width=500, height=400)
+    window = WindowSpec(id="w", title="W", screen="eDP-1", x=10, y=20, width=500, height=400)
     assert window_rect(window, NO_GAME, [LAPTOP]) == (970, 1100, 500, 400)
 
 
 def test_off_the_game_it_shows_whether_or_not_the_game_is_active():
-    window = WindowSpec("w", "W", "screen:eDP-1:left", width=600)
+    window = WindowSpec(id="w", title="W", dock="screen:eDP-1:left", width=600)
     assert window_rect(window, NO_GAME, [LAPTOP]) is not None
 
 
 def test_on_a_monitor_that_isnt_there_it_hides():
-    window = WindowSpec("w", "W", screen="HDMI-9", width=500, height=400)
+    window = WindowSpec(id="w", title="W", screen="HDMI-9", width=500, height=400)
     assert window_rect(window, NO_GAME, [LAPTOP]) is None
 
 
 def test_off_the_game_its_text_is_compact_too():
-    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
-    assert title_height(window) == title_height(WindowSpec("w", "W", "game:right", width=640))
+    window = WindowSpec(id="w", title="W", screen="eDP-1", width=500, height=400)
+    assert title_height(window) == title_height(
+        WindowSpec(id="w", title="W", dock="game:right", width=640)
+    )
 
 
 FLOATING = """
@@ -230,16 +226,18 @@ def test_a_floating_widgetwindow_set_up_badly_is_explained(tmp_path, change, mes
 
 
 def test_on_a_monitors_right_edge_its_inner_edge_resizes_it():
-    assert resize_edges(WindowSpec("w", "W", "screen:eDP-1:right", width=600)) == ("left",)
+    assert resize_edges(WindowSpec(id="w", title="W", dock="screen:eDP-1:right", width=600)) == (
+        "left",
+    )
 
 
 def test_floating_every_edge_resizes_it():
-    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
+    window = WindowSpec(id="w", title="W", screen="eDP-1", width=500, height=400)
     assert resize_edges(window) == ("left", "right", "top", "bottom")
 
 
 def test_a_resized_floating_widgetwindow_moves_and_resizes_on_its_monitor():
-    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
+    window = WindowSpec(id="w", title="W", screen="eDP-1", width=500, height=400)
     assert resized(window, (1000, 1100, 600, 300), [LAPTOP]) == [
         {"type": "layout/move_widget", "id": "w", "x": 40, "y": 20},
         {"type": "layout/resize_widget", "id": "w", "width": 600, "height": 300},
@@ -247,18 +245,18 @@ def test_a_resized_floating_widgetwindow_moves_and_resizes_on_its_monitor():
 
 
 def test_a_resized_widgetwindow_beside_the_game_changes_only_its_width():
-    window = WindowSpec("w", "W", "game:right", width=640)
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640)
     assert resized(window, (0, 0, 700, 999), []) == [
         {"type": "layout/resize_widget", "id": "w", "width": 700}
     ]
 
 
 def test_a_widgetwindow_cant_be_resized_too_small():
-    window = WindowSpec("w", "W", "game:top", height=60)
+    window = WindowSpec(id="w", title="W", dock="game:top", height=60)
     assert resized(window, (0, 0, 999, 5), [])[0]["height"] == MIN_SIZE
 
 
-ON_GAME_RIGHT = WindowSpec("w", "W", "game:right", width=640)
+ON_GAME_RIGHT = WindowSpec(id="w", title="W", dock="game:right", width=640)
 OUTER = (1282 - 2, 204 - 24, 2 + 1280 + 2, 24 + 720 + 2)  # the game window, frame included
 MAIN = Monitor("DP-2", True, 3840, 1080, 0, 0)
 SCREENS = [MAIN, LAPTOP]
@@ -354,5 +352,5 @@ def test_floated_off_a_side_dock_it_is_half_the_screens_height():
 
 def test_its_text_size_stays_the_same_wherever_it_is_moved(tmp_path):
     (window,) = load_widgetwindows(config(tmp_path))
-    floating = replace(window, dock=None, screen="eDP-1", width=500, height=400)
+    floating = window.changed(dock=None, screen="eDP-1", width=500, height=400)
     assert floating.layout == window.layout == "compact"

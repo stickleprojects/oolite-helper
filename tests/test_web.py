@@ -2,7 +2,7 @@ import pytest
 
 from helper import web
 from helper.plugin_api import ACTIONS, TOPICS
-from helper.widgets import WIDGETS
+from helper.settings import WIDGETS
 
 
 def test_every_built_in_component_is_valid_and_has_files():

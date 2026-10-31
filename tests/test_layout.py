@@ -1,16 +1,15 @@
 import pytest
 
-from helper import layout
 from helper.layout import (
     LayoutFile,
-    Widget,
     differences,
     reduce_layout,
     widgets_from_specs,
     windows_from_specs,
 )
 from helper.model import Model
-from helper.widgets import WidgetSpec, WindowSpec, load_widgets
+from helper.settings import WidgetSpec, WindowSpec, load_layout
+from tests.configs import load_widgets
 
 SPECS = [
     WidgetSpec(components=("drive",), dock="game:top"),
@@ -77,25 +76,20 @@ def test_changes_are_saved_as_differences_and_loaded_back(tmp_path):
     assert differences(defaults, widgets) == {"widget1:drive": {"open": False}, "trade": {"x": 4}}
     LayoutFile(defaults, path).save(widgets)
     assert '[widgets."trade"]\nx = 4\n' in path.read_text()
-    assert layout.load(defaults, path) == widgets
+    assert load_layout(defaults, (), path)[0] == widgets
     LayoutFile(defaults, path).save(defaults)  # back to config.toml: no file needed
     assert not path.exists()
 
 
-def test_a_bad_layout_file_is_skipped_not_fatal(tmp_path, capsys):
+def test_a_layout_file_that_isnt_toml_is_ignored_with_a_warning(tmp_path):
     path = tmp_path / "layout.toml"
     defaults = widgets_from_specs(SPECS)
     path.write_text("this isn't toml")
-    assert layout.load(defaults, path) == defaults
-    assert "ignoring" in capsys.readouterr().err
-    path.write_text(
-        '[widgets.trade]\nx = "far"\nwidth = -1\ny = 7\nopen = false\n[widgets.gone]\nx=1\n'
-    )
-    trade = layout.load(defaults, path)[1]
-    assert trade == Widget("trade", WidgetSpec(**{**vars(SPECS[1]), "y": 7}), open=False)
+    widgets, _, warnings = load_layout(defaults, (), path)
+    assert (widgets, "ignored" in warnings[0]) == (defaults, True)
 
 
-TRADING = WindowSpec("trading", "Trading", "game:right", width=640)
+TRADING = WindowSpec(id="trading", title="Trading", dock="game:right", width=640)
 
 
 def test_a_resize_can_change_just_the_width():
@@ -115,7 +109,8 @@ def test_layout_actions_with_a_widgetwindows_id_change_the_windows_topic():
 def test_a_widgetwindow_cant_share_a_widgets_id():
     with pytest.raises(SystemExit, match="a widget and a widgetwindow have the id 'trade'"):
         windows_from_specs(
-            [WindowSpec("trade", "T", "game:right", width=1)], widgets_from_specs(SPECS)
+            [WindowSpec(id="trade", title="T", dock="game:right", width=1)],
+            widgets_from_specs(SPECS),
         )
 
 
@@ -124,7 +119,7 @@ def test_a_widgetwindows_new_size_is_saved_and_loaded_back(tmp_path):
     widgets, windows = widgets_from_specs(SPECS), windows_from_specs([TRADING])
     wider = reduce_layout(windows, {"type": "layout/resize_widget", "id": "trading", "width": 700})
     LayoutFile(widgets, path, windows, widgets, windows).save_windows(wider)
-    assert layout.load(windows, path) == wider
+    assert load_layout((), windows, path)[1] == wider
 
 
 def test_saving_widgets_keeps_the_widgetwindows_changes(tmp_path):
@@ -133,7 +128,7 @@ def test_saving_widgets_keeps_the_widgetwindows_changes(tmp_path):
     wider = reduce_layout(windows, {"type": "layout/resize_widget", "id": "trading", "width": 700})
     saver = LayoutFile(widgets, path, windows, widgets, wider)
     saver.save(reduce_layout(widgets, {"type": "layout/close_widget", "id": "trade"}))
-    assert layout.load(windows, path) == wider
+    assert load_layout((), windows, path)[1] == wider
 
 
 def test_a_whole_new_placement_is_saved_and_loaded_back(tmp_path):
@@ -143,4 +138,4 @@ def test_a_whole_new_placement_is_saved_and_loaded_back(tmp_path):
     moved = reduce_layout(windows, {"type": "layout/move_widget", "id": "trading", **floating})
     LayoutFile(widgets, path, windows, widgets, windows).save_windows(moved)
     assert 'dock = "none"' in path.read_text()
-    assert layout.load(windows, path) == moved
+    assert load_layout((), windows, path)[1] == moved

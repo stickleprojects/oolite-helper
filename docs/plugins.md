@@ -36,7 +36,12 @@ actions = ["ui/choose_tab"]      # optional: what it may send (below)
 width = 900                      # default size, until the page calls oolite.resize()
 height = 600
 entry = "index.html"             # optional
+
+[settings]                       # optional: settings a widget showing it may set (#135)
+bar_colour = "colour"            # colour, text, number, whole, true/false or size
 ```
+
+A `[[widgets]]` table showing the plugin may then set `bar_colour = "#00cc00"`; the helper checks it's a colour. Any setting that neither the helper nor the plugin declares is a mistake in `config.toml`. (Handing the values to the page comes later.)
 
 ## The page
 

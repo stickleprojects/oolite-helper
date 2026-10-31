@@ -1,8 +1,11 @@
 import pytest
 
+from helper import settings
 from helper.model import Model
 from helper.screen import Monitor
-from helper.widgets import WIDGETS, WidgetSpec, load_widgets, place, read_widget
+from helper.settings import WIDGETS, WidgetSpec, read_widget
+from helper.widgets import place
+from tests.configs import load_widgets
 
 GAME = ((1282, 204, 1280, 720), (2, 2, 24, 2), True)  # geometry, frame, active
 
@@ -34,7 +37,7 @@ def test_free_widgets_go_on_a_monitor_and_show_always_by_default():
 
 def test_load_widgets_reads_the_config_and_explains_mistakes(tmp_path):
     path = tmp_path / "config.toml"
-    assert load_widgets(path) == []
+    assert load_widgets(path) == ()
     path.write_text(
         '[window]\nlayout = "compact"\n\n'
         '[[widgets]]\ncomponents = ["clearance", "drive"]\ndock = "game:top"\n\n'
@@ -44,11 +47,10 @@ def test_load_widgets_reads_the_config_and_explains_mistakes(tmp_path):
     assert first == WidgetSpec(components=("clearance", "drive"), dock="game:top")
     assert (second.components, second.width, second.shown) == (("trade_here",), 520, "with_game")
     for bad, message in (
-        ('components = ["sonar"]', "components must be one or more of"),
         ('components = "drive"\ndock = "game:middle"', "dock must be one of"),
         ('components = "drive"\nwidth = "wide"', "width must be a whole number"),
         ('components = "drive"\nfont_scale = 0', "font_scale must be a positive number"),
-        ('components = "drive"\ncolour = "red"', "unknown settings: colour"),
+        ('components = "drive"\ncolour = "red"', "unknown setting colour"),
     ):
         path.write_text(f"[[widgets]]\n{bad}\n")
         with pytest.raises(SystemExit, match=message):
@@ -83,15 +85,16 @@ def test_a_named_widget_changed_badly_is_explained(tmp_path):
         widget_from(tmp_path, 'widget = "top-strip"\ndock = "game:middle"')
 
 
-def test_an_unknown_named_widget_says_which_there_are(tmp_path):
-    names = "hold-beside, radar-beside, tabs, top-strip"
-    with pytest.raises(SystemExit, match=f"widget must be one of {names}"):
-        widget_from(tmp_path, 'widget = "sonar"')
+def test_an_unknown_named_widget_is_left_out_saying_which_there_are(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[[widgets]]\nwidget = "sonar"\n')
+    _, warnings = settings.load(path)
+    assert "(there are hold-beside, radar-beside, tabs, top-strip, trade-beside)" in warnings[0]
 
 
 def test_a_named_widgets_settings_are_checked_like_a_config_widgets(tmp_path):
     (tmp_path / "widget.toml").write_text('components = ["drive"]\ncolour = "red"\n')
-    with pytest.raises(ValueError, match="unknown settings: colour"):
+    with pytest.raises(ValueError, match="unknown setting colour"):
         read_widget(tmp_path)
 
 

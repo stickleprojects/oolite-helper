@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from helper import harness
-from helper.widgets import COMPONENTS, WIDGETS
+from helper.settings import COMPONENTS, WIDGETS
 
 SCENARIOS = Path(__file__).parent.parent / "scenarios"
 

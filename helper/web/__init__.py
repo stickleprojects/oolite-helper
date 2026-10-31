@@ -31,9 +31,9 @@ import html
 import json
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from ..plugin_api import ACTIONS, TOPICS
+from ..plugin_api import ACTIONS, TOPICS, declared_settings
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 COMPONENTS_DIR = os.path.join(DIR, "components")
@@ -52,6 +52,7 @@ class WebComponent:
     needs: tuple = ()
     files: tuple = ()  # its .css and .js files, relative to DIR
     states: tuple = ()  # ((name, {topic: value}), ...) from <name>.states.json
+    settings: dict = field(default_factory=dict)  # {name: type} a widget may set for it (#135)
 
 
 def read_component(folder):
@@ -59,7 +60,7 @@ def read_component(folder):
     name = os.path.basename(os.path.normpath(folder))
     with open(os.path.join(folder, "component.toml"), "rb") as f:
         data = tomllib.load(f)
-    unknown = set(data) - {"description", "title", "topics", "actions", "needs"}
+    unknown = set(data) - {"description", "title", "topics", "actions", "needs", "settings"}
     if unknown:
         raise ValueError(f"component {name}: unknown settings: {', '.join(sorted(unknown))}")
     topics, actions = data.get("topics", []), data.get("actions", [])
@@ -90,6 +91,7 @@ def read_component(folder):
         tuple(data.get("needs", [])),
         tuple(files),
         states,
+        declared_settings(f"component {name}", data.get("settings", {})),
     )
 
 

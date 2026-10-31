@@ -114,8 +114,9 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/web/`: the web components (`components/<name>/`), the shared page files (`lib/`), and discovery and page building (`__init__.py`) (#82).
 - `helper/tk/components/`: the Tk fallback: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
-- `helper/widgets.py`, `gamewindow.py`: components in their own windows, docked to the game (#50).
-- `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and the saved `layout.toml`.
+- `helper/settings.py`: every setting (#135): `config.toml` and `layout.toml` read and checked through one pydantic model (`Settings`, `WindowSettings`, `Theme`, `WidgetSpec`, `WindowSpec`, named widgets), with the rules in it (sizes, docks, `height = "*"`, `"system"` colours, declared settings). `oolite-helper --check-config` lists every problem.
+- `helper/widgets.py`, `gamewindow.py`: placing widgets and widgetwindows, docked to the game or a monitor (#50, #124), and the Tk fallback.
+- `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and saving `layout.toml`.
 - `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, of the helper's components or a plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).

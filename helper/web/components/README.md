@@ -8,7 +8,7 @@ Each folder here is one component. Open its `README.md` to see what it reads and
 
 | File | What | Written by |
 |---|---|---|
-| `component.toml` | Description, tab `title`, the `topics` it reads, the `actions` it may send, other components it `needs` | you |
+| `component.toml` | Description, tab `title`, the `topics` it reads, the `actions` it may send, other components it `needs`, and `[settings]` a widget may set for it (`name = "colour"`, see `plugin_api.SETTING_TYPES`) | you |
 | `<name>.js`, `<name>.css` | The component: `Oolite.component(name, {render(state, refresh)})` | you |
 | `<name>.states.json` | Named example states, `{state: {topic: value}}`, for the harness, the tests and the README | you |
 | `<name>.test.js` | Its tests (`node --test`) | you |

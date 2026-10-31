@@ -226,6 +226,15 @@ Each setting has a matching command-line option that overrides the file: `--scre
 .venv/bin/oolite-helper --screen DP-1 --width 40% --anchor right
 ```
 
+#### Checking your settings
+
+A mistake in `config.toml` stops the helper with a message for each one, naming the table and setting. A widget whose component, plugin or named widget isn't installed is left out with a warning instead. `layout.toml` is the helper's own file (what you moved, resized or closed): if any of it is wrong, none of it is used, with a warning for each problem. To check both while you edit them, without starting the helper:
+
+```bash
+.venv/bin/oolite-helper --check-config        # lists every problem; exit code 0 when fine
+.venv/bin/oolite-helper --check-config --config my.toml --layout-file my-layout.toml
+```
+
 ### Why the launcher?
 
 On some systems, notably Ubuntu 26.04, whose default Rust coreutils link against `libsystemd`, the 1.92.1 AppImage's own start-up script fails: its bundled, older `libsystemd` breaks the host's `mkdir` and `mktemp`. Reported upstream as [OoliteProject/oolite#769](https://github.com/OoliteProject/oolite/issues/769). Oolite then logs to stdout (no `Latest.log`) and puts its settings in `~/GNUstep`. The launcher works around this. It runs the AppImage in "legacy" mode, sets Oolite's `OO_*` folder variables, and writes a GNUstep config, so everything (log, add-ons, saves, settings) lives in `GameData/` next to the AppImage.
@@ -241,7 +250,7 @@ On some systems, notably Ubuntu 26.04, whose default Rust coreutils link against
 | `helper/markets.py` | Persists observed markets and commodity cost basis |
 | `helper/contexts.py` | Which actions to show per context, and tips |
 | `helper/keys.py`, `helper/plist.py` | Reads Oolite's key config and descriptions |
-| `helper/screen.py`, `helper/config.py` | Window placement and the config file |
+| `helper/screen.py`, `helper/settings.py` | Window placement; every setting in config.toml and layout.toml, read and checked (`--check-config`) |
 | `helper/web/components/` | The components, one folder each, with generated READMEs and pictures |
 | `helper/web/widgets/` | Widgets, one folder each, with generated READMEs and pictures |
 | `helper/widgets.py` | Widgets: reads `[[widgets]]` and the widget folders, places docked widgets |

@@ -9,7 +9,9 @@ from helper.layout import widgets_from_specs, windows_from_specs
 from helper.model import Model
 from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
 from helper.screen import Monitor
-from helper.widgets import COMPONENTS, WidgetSpec, WindowSpec, load_widgets, title_height
+from helper.settings import COMPONENTS, WidgetSpec, WindowSpec
+from helper.widgets import title_height
+from tests.configs import load_widgets
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
 LAMP = """\
@@ -83,8 +85,7 @@ def test_widgets_can_name_a_plugin_but_only_on_its_own(tmp_path):
     path.write_text('[[widgets]]\ncomponents = ["lamp"]\ndock = "game:top"\n')
     (spec,) = load_widgets(path, plugins={"lamp"})
     assert spec.components == ("lamp",)
-    with pytest.raises(SystemExit, match="components must be one or more of"):
-        load_widgets(path)  # no such plugin
+    assert load_widgets(path) == ()  # no such plugin: left out, with a warning
     path.write_text('[[widgets]]\ncomponents = ["lamp", "drive"]\n')
     with pytest.raises(SystemExit, match="must be the only component"):
         load_widgets(path, plugins={"lamp"})
@@ -424,7 +425,7 @@ def test_a_widget_page_names_its_widget():
     WebWidgets(model, {}, host=host, components=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     model.notify()
-    script = dict(host.windows["widget1:keys"].extras)["widget.js"]
+    script = dict(host.windows["tabs"].extras)["widget.js"]  # a named widget's id is its name
     assert '"components": ["keys", "all_keys"], "widget": "tabs"' in script
 
 
@@ -450,7 +451,7 @@ def test_an_empty_page_stays_shown_by_default():
     assert host.windows["widget1:drive"].rect is not None
 
 
-TRADING = WindowSpec("trading", "Trading", "game:right", width=640)
+TRADING = WindowSpec(id="trading", title="Trading", dock="game:right", width=640)
 
 
 def trading_window():
