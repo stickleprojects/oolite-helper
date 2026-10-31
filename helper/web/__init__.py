@@ -169,7 +169,13 @@ def page(components, names, widget=None):
     )
 
 
-def widget_config(names, widget, topics, width):
+def widget_config(names, widget, topics, width, height=None):
     """The page's OOLITE_WIDGET, as the script that sets it (_oolite/widget.js)."""
-    config = {"components": list(names), "widget": widget, "topics": list(topics), "width": width}
+    config = {
+        "components": list(names),
+        "widget": widget,
+        "topics": list(topics),
+        "width": width,
+        "height": height,
+    }
     return f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"

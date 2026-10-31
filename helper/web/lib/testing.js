@@ -116,9 +116,10 @@ function scripts(folder) {
 }
 
 // A fresh page with the shared files and these components' .js files (and
-// what they need) loaded. Returns {Oolite, root, sent, start}: sent collects
-// what oolite.dispatch() was given, and start(widget, state) starts the page
-// as the widget OOLITE_WIDGET = widget, its topics having the values in state.
+// what they need) loaded. Returns {Oolite, root, sent, start, classes}: sent
+// collects what oolite.dispatch() was given, classes the page's <html> classes,
+// and start(widget, state) starts the page as the widget OOLITE_WIDGET = widget,
+// its topics having the values in state.
 function loadComponents(...names) {
   return load(names, null);
 }
@@ -130,12 +131,13 @@ function load(names, widgetName) {
   const sent = [];
   const loaded = [];
   const handlers = [];
+  const classes = [];
   const context = {
     document: {
       createElement: (tag) => new FakeNode(tag),
       getElementById: () => root,
       addEventListener: (type, listener) => loaded.push(listener),
-      documentElement: { classList: { add: () => {} } },
+      documentElement: { classList: { add: (name) => classes.push(name) } },
     },
     oolite: {
       // Copied: the components run in their own context, so their objects
@@ -162,7 +164,7 @@ function load(names, widgetName) {
     for (const listener of loaded) listener();
     for (const [topic, handler] of handlers) if (topic in state) handler(state[topic]);
   };
-  return { Oolite: context.Oolite, root, sent, start };
+  return { Oolite: context.Oolite, root, sent, start, classes };
 }
 
 // A widget's page drawn for a state: {root, sent}. components are its

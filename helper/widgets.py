@@ -26,6 +26,11 @@ Configured in config.toml as an array of [[widgets]] tables:
     widget = "top-strip"             # helper/web/widgets/top-strip/widget.toml
     dock = "game:bottom"
 
+    [[docks]]                        # or stacked in a dock, all one width (#80)
+    dock = "game:right"              # down the side; game:top/bottom go left to right
+    width = 640                      # height for game:top/bottom
+    widgets = [{widget = "trade-beside", height = 400}, {widget = "hold-beside", height = 310}]
+
 A named widget is a folder in helper/web/widgets/<name>/: a widget.toml with
 the settings a [[widgets]] table takes, plus a description and named states,
 each naming a state for each of its components:
@@ -99,6 +104,8 @@ class WidgetSpec:
     hide_empty: bool = False  # true: hide while its components (or plugin) have nothing to show
     id: str | None = None  # stable widget id (layout.toml); default "widget<n>:<first component>"
     widget: str | None = None  # the named widget it came from, if any
+    stack: int | None = None  # which [[docks]] table it's stacked in (1, 2, ...); not a setting
+    gap: int = 0  # stacked: px before the next widget in its dock
 
     @property
     def shown(self):
@@ -115,14 +122,57 @@ def load_widgets(path=config.PATH, plugins=()):
     if not os.path.exists(path):
         return []
     with open(path, "rb") as f:
-        entries = tomllib.load(f).get("widgets", [])
+        data = tomllib.load(f)
+    entries = data.get("widgets", [])
     if not isinstance(entries, list):
         raise SystemExit(f"{path}: widgets must be an array of [[widgets]] tables")
-    return [_spec(path, n, entry, plugins) for n, entry in enumerate(entries, start=1)]
+    specs = [_spec(path, n, entry, plugins) for n, entry in enumerate(entries, start=1)]
+    return specs + _docks(path, data.get("docks", []), plugins)
 
 
-def _spec(path, n, entry, plugins=()):
-    where = f"{path}: widget {n}"
+def _docks(path, docks, plugins):
+    """The widgets of the [[docks]] tables (#80), in order. A dock beside the game
+    stacks its widgets along its side: down for left and right, across for top
+    and bottom. Each takes the dock's width (left, right) or height (top, bottom)."""
+    if not isinstance(docks, list):
+        raise SystemExit(f"{path}: docks must be an array of [[docks]] tables")
+    specs, seen = [], set()
+    for d, dock in enumerate(docks, start=1):
+        where = f"{path}: dock {d}"
+        if not isinstance(dock, dict):
+            raise SystemExit(f"{where} must be a table")
+        side = dock.get("dock")
+        if side not in DOCKS:
+            raise SystemExit(f"{where}: dock must be one of {', '.join(DOCKS)}")
+        if side in seen:
+            raise SystemExit(f"{where}: {side} already has a [[docks]] table")
+        seen.add(side)
+        across = "width" if side in ("game:left", "game:right") else "height"
+        unknown = set(dock) - {"dock", across, "gap", "widgets"}
+        if unknown:
+            raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
+        size, gap = dock.get(across), dock.get("gap", 0)
+        if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+            raise SystemExit(f"{where}: {across} must be a whole number of pixels")
+        if not isinstance(gap, int) or isinstance(gap, bool) or gap < 0:
+            raise SystemExit(f"{where}: gap must be a whole number of pixels")
+        entries = dock.get("widgets")
+        if not isinstance(entries, list) or not entries:
+            raise SystemExit(f"{where}: widgets must be a list of widget tables")
+        for n, entry in enumerate(entries, start=1):
+            at = f"{where}, widget {n}"
+            placed = sorted({"dock", "screen", "x", "y", across} & set(entry or ()))
+            if not isinstance(entry, dict):
+                raise SystemExit(f"{at} must be a table")
+            if placed:
+                raise SystemExit(f"{at}: the dock places it, so it can't set {', '.join(placed)}")
+            spec = _spec(path, n, {**entry, "dock": side, across: size}, plugins, where=at)
+            specs.append(replace(spec, stack=d, gap=gap))
+    return specs
+
+
+def _spec(path, n, entry, plugins=(), where=None):
+    where = where or f"{path}: widget {n}"
     if not isinstance(entry, dict):
         raise SystemExit(f"{where} must be a table")
     if "widget" in entry:
@@ -132,7 +182,7 @@ def _spec(path, n, entry, plugins=()):
         entry = {"id": named.name, **named.settings, **entry}
         if named.titled:
             _check_titled(where, entry.get("components"))
-    known = set(WidgetSpec.__dataclass_fields__)
+    known = set(WidgetSpec.__dataclass_fields__) - {"stack", "gap"}
     unknown = set(entry) - known
     if unknown:
         raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
@@ -290,11 +340,38 @@ def discover_widgets(folder=WIDGETS_DIR):
 WIDGETS = discover_widgets()
 
 
-def place(spec, game_window, size, monitors=()):
+def along(spec, size):
+    """A docked widget's size along its side of the game: its height on the left
+    or right, its width on top or below. size is what the components ask for."""
+    if spec.dock in ("game:left", "game:right"):
+        return spec.height or size[1]
+    return spec.width or size[0]
+
+
+def stack_offset(widgets, wid, size_along):
+    """Where a stacked widget starts along its dock (#80), in px: after the shown
+    widgets before it in the same [[docks]] table, and their gaps. size_along(widget)
+    is a widget's size along the dock, or None when it isn't shown, so the ones
+    after it move up."""
+    stack = find(widgets, wid).spec.stack
+    offset = 0
+    for widget in widgets:
+        if widget.id == wid or stack is None:
+            break
+        if widget.spec.stack == stack:
+            size = size_along(widget)
+            if size is not None:
+                offset += size + widget.spec.gap
+    return offset
+
+
+def place(spec, game_window, size, monitors=(), offset=0):
     """(x, y, width, height) for a widget, or None when it should be hidden.
 
     game_window is the model's (geometry, frame, active); size is what the
-    components ask for, (width, height).
+    components ask for, (width, height); offset is a stacked widget's place
+    along its dock (stack_offset). A stacked widget is only as long as it says,
+    not the game's whole side.
     """
     geometry, frame, active = game_window
     if spec.shown == "with_game" and not (geometry and active):
@@ -308,13 +385,20 @@ def place(spec, game_window, size, monitors=()):
     gx, gy, gw, gh = geometry
     left, right, top, bottom = frame
     side = spec.dock.split(":")[1]
+    stacked = spec.stack is not None
     if side in ("top", "bottom"):
-        w, h = spec.width or gw, spec.height or want_h
+        w, h = spec.width or (want_w if stacked else gw), spec.height or want_h
         y = gy - top - h if side == "top" else gy + gh + bottom
-        return (gx + spec.x, y + spec.y, w, h)
-    w, h = spec.width or want_w, spec.height or gh
+        return (gx + spec.x + offset, y + spec.y, w, h)
+    w, h = spec.width or want_w, spec.height or (want_h if stacked else gh)
     x = gx - left - w if side == "left" else gx + gw + right
-    return (x + spec.x, gy + spec.y, w, h)
+    return (x + spec.x, gy + spec.y + offset, w, h)
+
+
+def _configured_along(widget):
+    """The Tk fallback stacks by the sizes set in config.toml: an open widget's
+    configured size along its dock (0 if none), or None if it's closed."""
+    return along(widget.spec, (0, 0)) if widget.open else None
 
 
 class TkWidget:
@@ -353,6 +437,7 @@ class TkWidget:
                 self.requested_size(),
                 self.empty(),
                 find(m.topic("layout"), wid),
+                stack_offset(m.topic("layout"), wid, _configured_along),
             ),
             self.follow,
         )
@@ -364,9 +449,9 @@ class TkWidget:
         return (self.window.winfo_reqwidth(), self.window.winfo_reqheight())
 
     def follow(self, value):
-        game_window, size, empty, widget = value
+        game_window, size, empty, widget, offset = value
         hidden = widget is None or not widget.open or (empty and widget.spec.hide_empty)
-        placed = None if hidden else place(widget.spec, game_window, size, self.monitors)
+        placed = None if hidden else place(widget.spec, game_window, size, self.monitors, offset)
         if placed == self.placed:
             return
         self.placed = placed

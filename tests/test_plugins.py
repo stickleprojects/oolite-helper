@@ -377,7 +377,7 @@ def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets
     extras = dict(window.extras)
     assert extras["widget.js"] == (
         'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
-        '"topics": ["clearance", "context", "drive"], "width": null};\n'
+        '"topics": ["clearance", "context", "drive"], "width": null, "height": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}
@@ -446,3 +446,20 @@ def test_an_empty_page_stays_shown_by_default():
     made.handle({"ev": "page", "id": "widget1:drive", "msg": {"type": "show", "shown": False}})
     model.notify()
     assert host.windows["widget1:drive"].rect is not None
+
+
+def test_web_widgets_in_a_dock_stack_below_each_other():
+    stacked = {"dock": "game:right", "width": 640, "stack": 1}
+    specs = [
+        WidgetSpec(components=("trade_here",), height=400, **stacked),
+        WidgetSpec(components=("hold",), height=310, **stacked),
+    ]
+    model = Model(layout=widgets_from_specs(specs))
+    host = StubHost()
+    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
+    model.dispatch({**GAME, "active": True})
+    for wid in ("widget1:trade_here", "widget2:hold"):
+        made.handle({"ev": "page", "id": wid, "msg": {"type": "show", "shown": True}})
+    model.notify()
+    first, second = (host.windows[wid].rect for wid in ("widget1:trade_here", "widget2:hold"))
+    assert (second[1] - first[1], first[2], second[2]) == (400, 640, 640)

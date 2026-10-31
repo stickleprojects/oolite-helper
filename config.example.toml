@@ -45,8 +45,8 @@ ui = "web"
 # Widgets: small windows hosting one or more components, docked to the game window or
 # placed on a monitor. Optional; with none, the helper looks as before.
 # Docked widgets sit just outside the game window, follow it when it moves,
-# and show only while the game is the active window. A widget with nothing to
-# show (e.g. the drive chips while docked) hides itself.
+# and show only while the game is the active window. A component with nothing
+# to show says why (e.g. "Away from stations").
 #
 # components: one or more components: "heading", "tip", "status",
 #             "keys", "all_keys", "trade_table", "trade_here", "drive" (TORUS/
@@ -89,3 +89,19 @@ ui = "web"
 # screen = "eDP-1"
 # width = 1920
 # height = 1080
+
+# Docks (#80): widgets stacked on one side of the game window, all the same
+# width, with no positions to work out. Down the side for game:left and
+# game:right (give the dock a width, and each widget a height); left to right
+# for game:top and game:bottom (give the dock a height, and each widget a
+# width). A widget without one is as big as its components need. Each entry
+# takes the [[widgets]] settings except dock, screen, x and y. A closed widget
+# leaves no gap. gap: px between widgets (default 0). One dock per side.
+#
+# [[docks]]
+# dock = "game:right"
+# width = 640
+# widgets = [
+#   { widget = "trade-beside", height = 400 },
+#   { widget = "hold-beside", height = 310 },
+# ]
