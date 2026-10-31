@@ -2,6 +2,11 @@
 # named states (python -m helper.harness --readmes) on pull requests, and
 # commits them to the PR branch. CI makes the pictures so they're the same
 # whoever changes a component: fonts and rendering differ between machines.
+#
+# It pushes with the README_PUSH_TOKEN secret (a fine-grained token limited to
+# this repo, Contents: read and write), so the push starts the PR's own CI
+# like any other and needs no approval (#127). Without the secret it pushes
+# with the built-in token and starts CI itself, whose runs wait for approval.
 name: Component READMEs
 
 on:
@@ -16,7 +21,7 @@ on:
 
 permissions:
   contents: write # commit the refreshed READMEs to the PR branch
-  actions: write # start CI on that commit
+  actions: write # start CI on that commit, without README_PUSH_TOKEN
 
 concurrency:
   group: readmes-${{ github.head_ref }}
@@ -33,19 +38,35 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0 # the base branch too, to see what changed
+          # git push uses this token. Fork PRs never get the secret.
+          token: ${{ secrets.README_PUSH_TOKEN || github.token }}
+      # A push with README_PUSH_TOKEN counts as the token owner's, so the
+      # actor check above doesn't catch it: look at the commit instead.
+      - name: Skip the bot's own commit
+        id: own
+        run: |
+          if [ "$(git log -1 --format=%an)" = "github-actions[bot]" ]; then
+            echo "The last commit is the refreshed READMEs already."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-python@v5
+        if: steps.own.outputs.skip != 'true'
         with:
           python-version: "3.12"
       - name: Install
+        if: steps.own.outputs.skip != 'true'
         run: python -m pip install -e ".[dev]"
       # Only the components changed on this branch (and those that need them);
       # all of them if a shared file changed.
       - name: Make the READMEs and pictures
+        if: steps.own.outputs.skip != 'true'
         run: python -m helper.harness --readmes --since "origin/${{ github.base_ref }}" --config /dev/null
       - name: Commit them, and run CI on that commit
+        if: steps.own.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          HAS_PUSH_TOKEN: ${{ secrets.README_PUSH_TOKEN != '' }}
         run: |
           git add helper/web/components helper/web/widgets
           if git diff --cached --quiet; then
@@ -61,6 +82,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Refresh component READMEs and pictures"
           git push
-          # A push with this token doesn't start workflows, so start CI here:
-          # its checks are required on the new commit.
+          if [ "$HAS_PUSH_TOKEN" = "true" ]; then
+            exit 0 # the push starts the PR's CI
+          fi
+          # A push with the built-in token doesn't start workflows, so start
+          # CI here: its checks are required on the new commit.
           gh workflow run ci.yml --ref "${{ github.head_ref }}"
