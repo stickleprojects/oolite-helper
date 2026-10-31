@@ -995,9 +995,9 @@ def main():
         import tests.fakegame  # noqa: F401
     except ImportError:
         parser.error("run this from the oolite-helper repository (it needs tests/fakegame.py)")
-    paths = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
+    scenarios = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
     if args.readmes:
-        paths = []  # READMEs show the named states, over the blank snapshot
+        scenarios = []  # READMEs show the named states, over the blank snapshot
     if args.since:
         try:
             args.targets = affected(changed_since(args.since))
@@ -1013,7 +1013,7 @@ def main():
         keymap = None  # no game here: keys show as unbound
     with tempfile.TemporaryDirectory(prefix="oolite-harness-") as folder:
         try:
-            snaps = snapshots(paths, keymap, folder)
+            snaps = snapshots(scenarios, keymap, folder)
             found = targets(args.config, names=args.targets)
         except (OSError, ValueError) as error:
             parser.error(str(error))
