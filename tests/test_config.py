@@ -71,3 +71,27 @@ def test_missing_equipment_is_grey_or_hide(tmp_path):
     path.write_text('[window]\nmissing_equipment = "invisible"\n')
     with pytest.raises(SystemExit, match="missing_equipment"):
         config.load_window_settings(path)
+
+
+def test_title_bars_take_the_system_colours_by_default(tmp_path):
+    assert config.load_theme(tmp_path / "missing.toml") == config.THEME_DEFAULTS
+
+
+def test_a_title_bar_colour_can_be_set(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[theme]\ntitle_background = "#CC0000"\n', encoding="utf-8")
+    assert config.load_theme(path) == {"title_background": "#CC0000", "title_text": "system"}
+
+
+def test_a_title_bar_colour_must_be_system_or_rrggbb(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[theme]\ntitle_text = "red"\n', encoding="utf-8")
+    with pytest.raises(SystemExit, match='title_text must be "system" or a colour'):
+        config.load_theme(path)
+
+
+def test_unknown_theme_keys_are_rejected(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[theme]\naccent = "#ffffff"\n', encoding="utf-8")
+    with pytest.raises(SystemExit, match="unknown \\[theme\\] settings: accent"):
+        config.load_theme(path)

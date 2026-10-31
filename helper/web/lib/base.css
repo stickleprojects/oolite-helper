@@ -30,8 +30,8 @@ body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
 .panel > h2:first-child {
   margin: calc(-12px * var(--oo-scale)) calc(-18px * var(--oo-scale)) calc(8px * var(--oo-scale));
   padding: calc(4px * var(--oo-scale)) calc(18px * var(--oo-scale));
-  background: var(--oo-edge);
-  color: var(--oo-fg);
+  background: var(--oo-title);
+  color: var(--oo-title-fg);
 }
 .tab {
   border: 0;

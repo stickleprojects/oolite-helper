@@ -43,6 +43,7 @@ from .plugin_api import (
     check_action,
     key_info,
     theme_css,
+    title_colours,
     topic_value,
 )
 from .webhost import WebHost, WebWindow
@@ -170,15 +171,24 @@ class WebWidgets:
     """
 
     def __init__(
-        self, model, manifests, broken=(), monitors=(), host=None, components=None, fallback=None
+        self,
+        model,
+        manifests,
+        broken=(),
+        monitors=(),
+        host=None,
+        components=None,
+        fallback=None,
+        theme=None,
     ):
         """components: the helper's components ({name: web.WebComponent}); each
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
-        before it was ever ready, to show them with Tk."""
+        before it was ever ready, to show them with Tk. theme: config's [theme]."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
+        self.title = title_colours(theme)
         # widget id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
@@ -253,7 +263,8 @@ class WebWidgets:
                 if shown(widget)
                 else None
             )
-            extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
+            css = theme_css(spec.layout, spec.font_scale, self.title)
+            extras = (("theme.css", css), ("dev.js", DEV_JS))
             if wid in self.pages:
                 script = web.widget_config(
                     spec.components, spec.widget, manifest.topics, spec.width, spec.height

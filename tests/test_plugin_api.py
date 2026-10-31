@@ -8,7 +8,7 @@ from helper.keys import Keymap
 from helper.layout import widgets_from_specs
 from helper.markets import MarketStore
 from helper.model import Model
-from helper.plugin_api import TOPICS, check_action, theme_css, topic_value
+from helper.plugin_api import TOPICS, check_action, theme_css, title_colours, topic_value
 from helper.plugins import WebWidgets, discover
 from helper.widgets import WidgetSpec
 from tests.fakegame import load_scenario
@@ -259,3 +259,24 @@ def test_equipment_gives_ok_instead_of_the_games_status_string():
         "items": [{**ecm, "ok": False}, {**shield, "ok": True}],
         "missiles": {"pylons": 4, "loaded": [missile]},
     }
+
+
+def test_title_bars_take_the_desktops_colours(monkeypatch):
+    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    assert "--oo-title: #0055aa;\n  --oo-title-fg: #ffffff;" in theme_css()
+
+
+def test_title_bars_fall_back_to_the_edge_colour(monkeypatch):
+    monkeypatch.setattr("helper.desktop.title_colours", lambda: None)
+    assert "--oo-title: #3c4650;\n  --oo-title-fg: #e6e6e6;" in theme_css()
+
+
+def test_set_title_bar_colours_replace_the_desktops(monkeypatch):
+    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    theme = {"title_background": "#CC0000", "title_text": "#FFFFFF"}
+    assert title_colours(theme) == ("#cc0000", "#ffffff")
+
+
+def test_system_text_stays_readable_on_a_set_background(monkeypatch):
+    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    assert title_colours({"title_background": "#eeeeee", "title_text": "system"})[1] == "#000000"
