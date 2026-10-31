@@ -107,7 +107,12 @@ title_text = "system"
 # components need; the one with height = "*" (else the last) takes what the
 # others leave. Each entry takes the [[widgets]] settings except dock, screen,
 # x, y and width. A closed widget leaves no gap. Also: layout and font_scale
-# (the title's size), show ("with_game" default, or "always").
+# (the title's size), show ("with_game" default on the game, else "always").
+#
+# Or on a monitor's edge, its height (left/right) or width (top/bottom):
+#   dock = "screen:eDP-1:right" with width = 600 (or "30%").
+# Or floating on a monitor: leave dock out and give screen, x, y (default 0),
+# width and height, in pixels or "%" of the monitor; "100%" fills it.
 #
 # [[widgetwindows]]
 # id = "trading"
@@ -118,3 +123,11 @@ title_text = "system"
 #   { widget = "trade-beside", height = "*" },
 #   { widget = "hold-beside", height = 310 },
 # ]
+#
+# [[widgetwindows]]
+# id = "laptop"
+# title = "Laptop"
+# screen = "eDP-1"
+# width = "100%"
+# height = "100%"
+# widgets = [{ components = ["trade_table"], height = "*" }]

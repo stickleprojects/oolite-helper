@@ -46,7 +46,7 @@ What the helper shows is built from two kinds of piece:
 
 - A **component** draws one part of the game's state: the key list, the docking clearance badge, the TORUS/JUMP lamps, the trade table. It has no window of its own. Each one lives in a folder under [helper/web/components/](helper/web/components/README.md), with a README showing a picture of it in each of its named states.
 - A **widget** is a window that hosts one or more components, docked beside the game window or placed on a monitor. You set widgets up in `config.toml`, either by listing components or by naming a widget that's already defined. Those live in [helper/web/widgets/](helper/web/widgets/README.md), each with a README showing pictures of the whole widget.
-- A **widgetwindow** is a window with its own title bar that holds one or more widgets, stacked top to bottom (`[[widgetwindows]]` in `config.toml`). Docked beside the game it's the game window's height.
+- A **widgetwindow** is a window with its own title bar that holds one or more widgets, stacked top to bottom (`[[widgetwindows]]` in `config.toml`). Docked beside the game it's the game window's height; it can also sit on a monitor's edge, or float on a monitor at any size (`"100%"` fills it).
 
 [Widgets beside the game](#widgets-beside-the-game) below shows how to set them up. [docs/architecture.md](docs/architecture.md) has the full terms and how to write a component.
 

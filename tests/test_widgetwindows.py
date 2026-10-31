@@ -3,6 +3,7 @@
 import pytest
 
 from helper.layout import widgets_from_specs
+from helper.screen import Monitor
 from helper.widgets import (
     WindowSpec,
     load_widgets,
@@ -13,6 +14,8 @@ from helper.widgets import (
 )
 
 GAME = ((1282, 204, 1280, 720), (2, 2, 24, 2), True)  # geometry, frame, active
+NO_GAME = (None, (0, 0, 0, 0), False)
+LAPTOP = Monitor("eDP-1", False, 1920, 1080, 960, 1080)
 RIGHT = 1282 + 1280 + 2  # just past the game window's right border
 
 TRADING = """
@@ -121,7 +124,10 @@ def test_a_named_widget_in_a_widgetwindow_keeps_its_name_as_its_id(tmp_path):
         (('title = "Trading"\n', ""), "title must be some text"),
         (('id = "trading"\n', ""), "id must be letters"),
         (("height = 310", 'height = "*"'), 'only one widget can have height = "\\*"'),
-        (("width = 640", "width = 640\nscreen = 1"), "unknown settings: screen"),
+        (("width = 640", "width = 640\ngap = 1"), "unknown settings: gap"),
+        (("width = 640", 'width = 640\nscreen = "eDP-1"'), "docked, it can't set screen"),
+        (('dock = "game:right"', 'dock = "screen:eDP-1:middle"'), "dock must be one of"),
+        (('dock = "game:right"\n', ""), "floating, it needs a screen"),
     ],
 )
 def test_a_widgetwindow_set_up_badly_is_explained(tmp_path, change, message):
@@ -143,3 +149,77 @@ def test_a_config_widget_cant_say_which_widgetwindow_its_in(tmp_path):
     path = config(tmp_path, '[[widgets]]\ncomponents = ["drive"]\nwindow = "trading"\n')
     with pytest.raises(SystemExit, match="unknown settings: window"):
         load_widgets(path)
+
+
+def test_on_a_monitors_right_edge_it_is_the_monitors_height():
+    window = WindowSpec("w", "W", "screen:eDP-1:right", width=600)
+    assert window_rect(window, NO_GAME, [LAPTOP]) == (960 + 1920 - 600, 1080, 600, 1080)
+
+
+def test_on_a_monitors_bottom_edge_it_is_the_monitors_width():
+    window = WindowSpec("w", "W", "screen:eDP-1:bottom", height="25%")
+    assert window_rect(window, NO_GAME, [LAPTOP]) == (960, 1080 + 810, 1920, 270)
+
+
+def test_floating_at_100_percent_it_fills_its_monitor():
+    window = WindowSpec("w", "W", screen="eDP-1", width="100%", height="100%")
+    assert window_rect(window, NO_GAME, [LAPTOP]) == (960, 1080, 1920, 1080)
+
+
+def test_floating_it_sits_at_its_place_on_the_monitor():
+    window = WindowSpec("w", "W", screen="eDP-1", x=10, y=20, width=500, height=400)
+    assert window_rect(window, NO_GAME, [LAPTOP]) == (970, 1100, 500, 400)
+
+
+def test_off_the_game_it_shows_whether_or_not_the_game_is_active():
+    window = WindowSpec("w", "W", "screen:eDP-1:left", width=600)
+    assert window_rect(window, NO_GAME, [LAPTOP]) is not None
+
+
+def test_on_a_monitor_that_isnt_there_it_hides():
+    window = WindowSpec("w", "W", screen="HDMI-9", width=500, height=400)
+    assert window_rect(window, NO_GAME, [LAPTOP]) is None
+
+
+def test_off_the_game_its_title_bar_is_large_text():
+    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
+    assert title_height(window) == 40
+
+
+FLOATING = """
+[[widgetwindows]]
+id = "laptop"
+title = "Laptop"
+screen = "eDP-1"
+width = "100%"
+height = "100%"
+widgets = [{ components = ["trade_here"] }]
+"""
+
+
+def test_a_floating_widgetwindow_reads_its_screen_and_sizes(tmp_path):
+    (window,) = load_widgetwindows(config(tmp_path, FLOATING))
+    assert (window.dock, window.screen, window.width, window.height) == (
+        None,
+        "eDP-1",
+        "100%",
+        "100%",
+    )
+
+
+def test_widgets_off_the_game_are_large_text(tmp_path):
+    (spec,) = load_widgets(config(tmp_path, FLOATING))
+    assert (spec.dock, spec.layout) == (None, "large")
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (('width = "100%"', 'width = "big"'), "width must be pixels or a percentage"),
+        (('screen = "eDP-1"\n', ""), "floating, it needs a screen"),
+        (('screen = "eDP-1"', 'screen = "eDP-1"\nx = 1.5'), "x must be a whole number"),
+    ],
+)
+def test_a_floating_widgetwindow_set_up_badly_is_explained(tmp_path, change, message):
+    with pytest.raises(SystemExit, match=message):
+        load_widgets(config(tmp_path, FLOATING.replace(*change)))
