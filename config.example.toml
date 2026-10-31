@@ -42,6 +42,16 @@ ui = "web"
 #   anchor = "right"
 #   font_scale = 0.9
 
+[theme]
+# Widgets' title bars: "system" takes the colours of the desktop's focused
+# title bars (from the window manager's theme), or set your own, e.g. white on red.
+# "system" only works with Marco or Metacity themes (MATE, GNOME Flashback) that
+# give plain colours; anywhere else it falls back to the helper's grey.
+# title_background = "#cc0000"
+# title_text = "#ffffff"
+title_background = "system"
+title_text = "system"
+
 # Widgets: small windows hosting one or more components, docked to the game window or
 # placed on a monitor. Optional; with none, the helper looks as before.
 # Docked widgets sit just outside the game window, follow it when it moves,

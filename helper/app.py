@@ -56,6 +56,7 @@ class HelperWindow:
         plugins=({}, {}),
         layout_path=layout_file.PATH,
         ui="web",
+        theme=None,
     ):
         self.root = root
         self.source = source
@@ -149,7 +150,13 @@ class HelperWindow:
         manifests, broken = plugins
         components = COMPONENTS if ui == "web" else None
         self.plugins = WebWidgets(
-            model, manifests, broken, monitors, components=components, fallback=self.tk_widgets
+            model,
+            manifests,
+            broken,
+            monitors,
+            components=components,
+            fallback=self.tk_widgets,
+            theme=theme,
         )
         if components is None:
             self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
@@ -269,6 +276,7 @@ def main():
             "geometry": args.geometry,
         }
     )
+    theme = config.load_theme()
     window_geometry = settings["geometry"]
     if not window_geometry:
         monitor = choose_monitor(monitors, settings["screen"])
@@ -300,6 +308,7 @@ def main():
         monitors=monitors,
         plugins=plugins,
         ui=settings["ui"],
+        theme=theme,
     )
     try:
         root.mainloop()

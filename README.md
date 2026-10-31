@@ -104,7 +104,7 @@ A later version may receive the same messages over Oolite's debug console connec
 
 ## Requirements
 
-- Linux with X11 (developed on MATE)
+- Linux with X11 (developed on MATE). It doesn't run on Wayland, macOS or Windows: it finds and follows the game window with X11 tools (`xdotool`, `xrandr`, `xprop`)
 - Oolite 1.92.1 Linux AppImage
 - Python 3.11+ with Tkinter (`sudo apt install python3-tk` on Debian/Ubuntu)
 - A second screen, or room for the window somewhere
@@ -189,6 +189,16 @@ width = 560
 Those two are also defined as widgets you can name: `widget = "top-strip"` and `widget = "trade-beside"`. You can change any of the widget's settings in the same table, e.g. `dock = "game:bottom"`. Each component and named widget has a README with pictures of it in its named states. Browse them in [helper/web/components/](helper/web/components/) and [helper/web/widgets/](helper/web/widgets/).
 
 Docked widgets sit just outside the game window (it must be windowed), follow it when it moves, and show only while the game is the active window. A widget with nothing to show hides itself. All the settings are in [config.example.toml](config.example.toml). Widgets are opaque: without a compositor, X11 windows can't be see-through.
+
+Each widget has a thin edge, and a panel's heading is its title bar. Title bars take the colours of your desktop's focused title bars, or your own:
+
+```toml
+[theme]
+title_background = "#cc0000"   # default "system"
+title_text = "#ffffff"         # default "system"
+```
+
+`"system"` reads the window manager's theme, and only works with **Marco or Metacity themes** (MATE, and GNOME Flashback) that give plain colours. Themes drawn in GTK colours, and other window managers (GNOME's Mutter, KDE's KWin, Xfce's xfwm4), fall back to the helper's grey; set the colours yourself there.
 
 ### Where the window goes
 

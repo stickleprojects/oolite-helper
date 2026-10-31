@@ -11,6 +11,8 @@ body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
 /* A fixed-size widget: its components fill it, in a column, scrolling if needed. */
 .fixed body { align-items: flex-start; }
 .fixed #root { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+/* Its panels go to the window edge (#122), inside the 1 px edge theme.css draws. */
+.fixed #root { padding: 1px; }
 .fixed-height body { align-items: stretch; }
 .fixed-height #root { height: 100%; overflow: auto; }
 .panel {
@@ -23,6 +25,13 @@ body { display: flex; align-items: center; height: 100vh; line-height: 1.35; }
   color: var(--oo-dim);
   font: bold calc(16pt * var(--oo-scale)) var(--oo-sans);
   text-transform: uppercase;
+}
+/* A panel's heading is its widget's title bar (#122): a strip across the top. */
+.panel > h2:first-child {
+  margin: calc(-12px * var(--oo-scale)) calc(-18px * var(--oo-scale)) calc(8px * var(--oo-scale));
+  padding: calc(4px * var(--oo-scale)) calc(18px * var(--oo-scale));
+  background: var(--oo-title);
+  color: var(--oo-title-fg);
 }
 .tab {
   border: 0;

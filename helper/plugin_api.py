@@ -17,10 +17,11 @@ The topics are enough to rebuild the whole laptop window as a plugin.
 import functools
 import re
 
+from . import desktop
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
 from .tk.components.header import status_line
-from .tk.components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
+from .tk.components.style import ACCENT, BG, DIM, EDGE, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .trade import ECONOMIES, GOVERNMENTS
 
 API = 1
@@ -470,8 +471,22 @@ DEV_JS = (
 )
 
 
-def theme_css(layout="compact", font_scale=1.0):
+def title_colours(theme=None):
+    """(background, text) of widgets' title bars, from config's [theme] (#122):
+    each "system" takes the desktop's, falling back to the edge and text colours."""
+    theme = theme or {}
+    system = desktop.title_colours() or (EDGE, FG)
+    background = theme.get("title_background", "system")
+    background = system[0] if background == "system" else background.lower()
+    text = theme.get("title_text", "system")
+    if text != "system":
+        return background, text.lower()
+    return background, desktop.readable(system[1], background)
+
+
+def theme_css(layout="compact", font_scale=1.0, title=None):
     scale = LAYOUTS[layout][0] * font_scale
+    title, title_fg = title or title_colours()
     return f"""/* The helper's look, for plugins (#59). Use the variables; they follow its theme. */
 :root {{
   --oo-bg: {BG};
@@ -481,6 +496,9 @@ def theme_css(layout="compact", font_scale=1.0):
   --oo-red: {RED};
   --oo-green: {GREEN};
   --oo-dim: {DIM};
+  --oo-edge: {EDGE};
+  --oo-title: {title};
+  --oo-title-fg: {title_fg};
   --oo-sans: "{SANS}", sans-serif;
   --oo-mono: "{MONO}", monospace;
   --oo-scale: {scale:g};
@@ -494,4 +512,13 @@ html, body {{
   font-size: calc(18pt * var(--oo-scale));
 }}
 body {{ overflow: hidden; cursor: default; user-select: none; }}
+/* A window edge, so the widget stands out against whatever is behind it (#122).
+   Drawn over the page, so it takes no room and panels can't cover it. */
+body::after {{
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 1px solid var(--oo-edge);
+  pointer-events: none;
+}}
 """

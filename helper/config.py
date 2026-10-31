@@ -12,6 +12,10 @@ font_scale = 1.0      # multiplies the layout's text size
 missing_equipment = "grey"  # or "hide": keys for equipment you haven't got
 ui = "web"            # widgets as web views; "tk" for the old Tk widgets (the fallback)
 # geometry = "1200x1000+2640+40"   # exact X geometry; overrides the above
+
+[theme]
+title_background = "system"  # widgets' title bars: the desktop's colour, or "#cc0000"
+title_text = "system"        # their text: the desktop's colour, or "#ffffff"
 """
 
 import math
@@ -41,6 +45,8 @@ WINDOW_DEFAULTS = {
 LAYOUTS = ("large", "compact")
 MISSING_EQUIPMENT = ("grey", "hide")
 UIS = ("web", "tk")
+THEME_DEFAULTS = {"title_background": "system", "title_text": "system"}
+_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 _GEOMETRY = re.compile(r"[1-9]\d*x[1-9]\d*[+-]\d+[+-]\d+")
 
 
@@ -82,3 +88,19 @@ def load_window_settings(
     ):
         raise SystemExit(f"font_scale must be a positive number, not {font_scale!r}")
     return settings
+
+
+def load_theme(path: str | os.PathLike[str] = PATH) -> dict[str, str]:
+    """The [theme] table (#122): each colour "system" (the desktop's) or "#rrggbb"."""
+    theme = dict(THEME_DEFAULTS)
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            table = tomllib.load(f).get("theme", {})
+        unknown = set(table) - set(THEME_DEFAULTS)
+        if unknown:
+            raise SystemExit(f"{path}: unknown [theme] settings: {', '.join(sorted(unknown))}")
+        theme.update(table)
+    for key, value in theme.items():
+        if value != "system" and not (isinstance(value, str) and _COLOUR.fullmatch(value)):
+            raise SystemExit(f'{key} must be "system" or a colour like "#cc0000", not {value!r}')
+    return theme
