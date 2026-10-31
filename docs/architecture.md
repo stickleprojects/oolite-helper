@@ -3,7 +3,8 @@
 ## Terms
 - A **component** renders part of the model: `drive`, `clearance`, `trade_here`, the laptop window's heading, tabs and body, or a **plugin** (a component from outside the helper, run as a sandboxed web page).
 - A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`). A widget can also be defined in a folder, `helper/web/widgets/<name>/` (`widget.toml`, optionally its own drawing, and a generated README), and then used by name with `widget = "<name>"`, changing any setting.
-- A **dock** is a place beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) that holds widgets. A `[[docks]]` table stacks several widgets on one side, all the same width (#80): `widgets.stack_offset` places each after the shown ones before it.
+- A **widgetwindow** is a window with its own title that holds one or more widgets, stacked top to bottom (`[[widgetwindows]]` in `config.toml`, #124): component ⊂ widget ⊂ widgetwindow. `widgets.window_rect` places it and `widgets.stacked` places its widgets; in the web host it's one popup (a "frame") with a title bar over their views. In code it's `WindowSpec`, kept apart from OS windows (`WebWindow`, the game window).
+- A **dock** is a place: beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) where a widget or widgetwindow sits.
 - The **layout** places every widget, either in a dock or free on a monitor (`helper/layout.py`, saved in `layout.toml`).
 - A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.
 - A **web view** is WebKit's browser view, which shows web widgets in the web host.

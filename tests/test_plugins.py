@@ -8,7 +8,7 @@ from helper.keys import Keymap, from_override
 from helper.layout import widgets_from_specs
 from helper.model import Model
 from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
-from helper.widgets import COMPONENTS, WidgetSpec, load_widgets
+from helper.widgets import COMPONENTS, WidgetSpec, WindowSpec, load_widgets, title_height
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
 LAMP = """\
@@ -126,9 +126,10 @@ def test_topics_have_documented_shapes():
 class StubHost:
     def __init__(self):
         self.windows, self.published, self.events = {}, [], []
+        self.frames = {}
 
-    def sync(self, windows):
-        self.windows = windows
+    def sync(self, windows, frames=None):
+        self.windows, self.frames = windows, frames or {}
 
     def publish(self, wid, topic, value):
         self.published.append((wid, topic, value))
@@ -448,18 +449,44 @@ def test_an_empty_page_stays_shown_by_default():
     assert host.windows["widget1:drive"].rect is not None
 
 
-def test_web_widgets_in_a_dock_stack_below_each_other():
-    stacked = {"dock": "game:right", "width": 640, "stack": 1}
+TRADING = WindowSpec("trading", "Trading", "game:right", width=640)
+
+
+def trading_window():
+    """Trade here filling a widgetwindow on the game's right, the hold under it,
+    both drawn. Returns the stub host after the game window is placed."""
+    inside = {"dock": "game:right", "width": 640, "window": "trading"}
     specs = [
-        WidgetSpec(components=("trade_here",), height=400, **stacked),
-        WidgetSpec(components=("hold",), height=310, **stacked),
+        WidgetSpec(components=("trade_here",), fill=True, **inside),
+        WidgetSpec(components=("hold",), height=310, **inside),
     ]
     model = Model(layout=widgets_from_specs(specs))
     host = StubHost()
-    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
+    made = WebWidgets(
+        model, {}, host=host, components=COMPONENTS, widgetwindows={"trading": TRADING}
+    )
     model.dispatch({**GAME, "active": True})
     for wid in ("widget1:trade_here", "widget2:hold"):
         made.handle({"ev": "page", "id": wid, "msg": {"type": "show", "shown": True}})
     model.notify()
-    first, second = (host.windows[wid].rect for wid in ("widget1:trade_here", "widget2:hold"))
-    assert (second[1] - first[1], first[2], second[2]) == (400, 640, 640)
+    return host
+
+
+def test_a_widgetwindow_beside_the_game_is_the_game_windows_height():
+    assert trading_window().frames["trading"].rect == (100 + 1280 + 2, 200 - 24, 640, 24 + 720 + 2)
+
+
+def test_a_widgetwindow_has_its_own_title():
+    assert trading_window().frames["trading"].title == "Trading"
+
+
+def test_widgets_in_a_widgetwindow_go_into_its_frame():
+    windows = trading_window().windows
+    assert [windows[wid].frame for wid in ("widget1:trade_here", "widget2:hold")] == ["trading"] * 2
+
+
+def test_the_filling_widget_takes_what_the_others_leave_under_the_title():
+    windows, title = trading_window().windows, title_height(TRADING)
+    top, height = 200 - 24, 24 + 720 + 2  # the game window, title bar and borders included
+    assert windows["widget1:trade_here"].rect == (1382, top + title, 640, height - title - 310)
+    assert windows["widget2:hold"].rect == (1382, top + height - 310, 640, 310)

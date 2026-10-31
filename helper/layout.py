@@ -1,8 +1,9 @@
 """The layout: which widgets there are, where they go and whether they're open (#50).
 
 Terms: a component renders part of the model; a widget hosts one or more
-components; a dock is a place beside the game window that holds widgets; the
-layout places every widget, in a dock or free on a monitor.
+components; a widgetwindow holds one or more widgets under its own title; a
+dock is a place beside the game window; the layout places every widget, in a
+dock or free on a monitor.
 
 Each [[widgets]] table in config.toml is a widget with a stable id: its `id`
 setting, or "widget<n>:<first component>". The model keeps the widgets as its

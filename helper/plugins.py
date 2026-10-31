@@ -46,8 +46,8 @@ from .plugin_api import (
     title_colours,
     topic_value,
 )
-from .webhost import WebHost, WebWindow
-from .widgets import COMPONENTS, WIDGETS, along, place, stack_offset
+from .webhost import WebFrame, WebHost, WebWindow
+from .widgets import COMPONENTS, WIDGETS, place, place_in_window, title_height, window_rect
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
@@ -180,15 +180,18 @@ class WebWidgets:
         components=None,
         fallback=None,
         theme=None,
+        widgetwindows=None,
     ):
         """components: the helper's components ({name: web.WebComponent}); each
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
-        before it was ever ready, to show them with Tk. theme: config's [theme]."""
+        before it was ever ready, to show them with Tk. theme: config's [theme].
+        widgetwindows: {id: widgets.WindowSpec}, the widgetwindows (#124)."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
         self.title = title_colours(theme)
+        self.widgetwindows = dict(widgetwindows or {})
         # widget id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
@@ -250,32 +253,54 @@ class WebWidgets:
             empty = wid in self.undrawn or (wid in self.hidden and spec.hide_empty)
             return wid in self.widgets and widget.open and not empty
 
-        def size_along(widget):  # for the widgets stacked in a dock (#80)
-            return along(widget.spec, self.sizes[widget.id]) if shown(widget) else None
+        def height(widget):  # in a widgetwindow (#124): None when it isn't shown
+            if widget.id not in self.widgets or not shown(widget):
+                return None
+            return widget.spec.height or self.sizes[widget.id][1]
 
         windows = {}
         for wid, manifest in self.widgets.items():
             widget = layout[wid]
             spec = widget.spec
-            offset = stack_offset(widgets, wid, size_along)
-            rect = (
-                place(spec, game_window, self.sizes[wid], self.monitors, offset)
-                if shown(widget)
-                else None
-            )
+            frame = self.widgetwindows.get(spec.window)
+            if not shown(widget):
+                rect = None
+            elif frame is not None:
+                rect = place_in_window(widgets, frame, wid, game_window, height)
+            else:
+                rect = place(spec, game_window, self.sizes[wid], self.monitors)
             css = theme_css(spec.layout, spec.font_scale, self.title)
             extras = (("theme.css", css), ("dev.js", DEV_JS))
             if wid in self.pages:
+                fill = "*" if spec.fill else spec.height  # fills its view's height
                 script = web.widget_config(
-                    spec.components, spec.widget, manifest.topics, spec.width, spec.height
+                    spec.components, spec.widget, manifest.topics, spec.width, fill
                 )
                 extras += (("widget.html", manifest.page), ("widget.js", script))
-            windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
-        return windows
+            index = [w.id for w in widgets].index(wid)
+            windows[wid] = WebWindow(
+                manifest.name,
+                manifest.root,
+                manifest.entry,
+                rect,
+                extras,
+                frame=spec.window if frame is not None else None,
+                index=index,
+            )
+        frames = {
+            fid: WebFrame(
+                window.title,
+                window_rect(window, game_window),
+                self.title,
+                title_height(window),
+            )
+            for fid, window in self.widgetwindows.items()
+        }
+        return windows, frames
 
-    def sync(self, windows):
+    def sync(self, value):
         if self.host is not None:
-            self.host.sync(windows)
+            self.host.sync(*value)
 
     def tick(self):
         if self.host is None:

@@ -5,7 +5,7 @@ import time
 import pytest
 
 from helper import webhost
-from helper.webhost import WebHost, WebWindow, host, sandbox_env, untrusted_cookie
+from helper.webhost import WebFrame, WebHost, WebWindow, host, sandbox_env, untrusted_cookie
 
 FAKE = [sys.executable, os.path.join(os.path.dirname(__file__), "fakewebhost.py")]
 PROBE = os.path.join(os.path.dirname(__file__), "fixtures", "plugins", "probe")
@@ -207,6 +207,25 @@ def test_sync_closes_removed_windows_and_reopens_changed_ones(fake_host):
     assert sorted(sent(events)) == [("close", "a"), ("close", "b"), ("open", "a"), ("place", "a")]
 
 
+FRAME = WebFrame("Trading", (10, 20, 640, 720), ("#0055aa", "#ffffff"), 24)
+
+
+def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):
+    fake_host.sync({"a": WebWindow("probe", PROBE, frame="f", index=1)}, {"f": FRAME})
+    events = run_until(fake_host, lambda ev: len(sent(ev)) == 4)
+    assert sent(events) == [("frame", "f"), ("place", "f"), ("open", "a"), ("place", "a")]
+    opened = [e["cmd"] for e in events if e["ev"] == "got"][2]
+    assert (opened["frame"], opened["index"]) == ("f", 1)
+
+
+def test_a_frame_closes_after_the_views_in_it(fake_host):
+    fake_host.sync({"a": WebWindow("probe", PROBE, frame="f")}, {"f": FRAME})
+    run_until(fake_host, lambda ev: len(sent(ev)) == 4)
+    fake_host.sync({})
+    events = run_until(fake_host, lambda ev: len(sent(ev)) == 2)
+    assert sent(events) == [("close", "a"), ("close", "f")]
+
+
 def test_a_failed_window_stays_closed_until_retried(fake_host):
     fake_host.sync({"a": WebWindow("probe", PROBE)})
     run_until(fake_host, lambda ev: any(e["ev"] == "loaded" for e in ev))
@@ -234,10 +253,10 @@ def test_a_dead_host_is_restarted_and_its_windows_replayed(fake_host):
 
 
 def test_a_host_speaking_another_protocol_is_stopped(monkeypatch):
-    monkeypatch.setenv("FAKE_WEBHOST_PROTOCOL", "2")
+    monkeypatch.setenv("FAKE_WEBHOST_PROTOCOL", "1")
     made = WebHost(command=FAKE, make_env=lambda: dict(os.environ), clock=Clock())
     events = run_until(made, lambda ev: any(e["ev"] == "host_exited" for e in ev))
-    assert "protocol 2" in events[-1]["message"]
+    assert "protocol 1" in events[-1]["message"]
     assert made.process is None
 
 

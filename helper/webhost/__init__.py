@@ -6,6 +6,7 @@ helper drives it over a pipe:
 
     host = WebHost()
     host.sync({"radar": WebWindow("radar", "/path/to/radar", rect=(10, 10, 300, 200))})
+    host.sync(windows, {"trading": WebFrame("Trading", (0, 0, 640, 720), ...)})  # #124
     host.publish("radar", "jump_blocker", {"by": "planet"})
     for event in host.poll():  # call often, e.g. on every tick
         ...
@@ -18,18 +19,26 @@ and the windows and their latest topics are replayed. A window whose page
 fails or crashes is closed and stays closed until retry(id) or a sync() that
 changes it.
 
-PROTOCOL (version 1): JSON objects, one per line.
+A frame is a widgetwindow (#124): one window with a title bar, holding the
+views of the windows opened into it ("frame": its id), top to bottom by
+"index". A framed view's "place" only sets its size (x and y are the frame's
+business); the frame's own "place" moves the whole thing.
+
+PROTOCOL (version 2): JSON objects, one per line.
 
   helper -> host (stdin)
+    {"op": "frame", "id": FID, "title": TEXT, "colours": [BG, FG], "title_height": PX}
+                                                      opens hidden, or updates its title
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
-     "background": "#101418", "extras": {NAME: TEXT}}  opens hidden; extras are
+     "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N}
+                                                      opens hidden; extras are
                                                       served at plugin://NAME/_oolite/
-    {"op": "place", "id": ID, "rect": [x, y, w, h]}   or "rect": null to hide
+    {"op": "place", "id": ID or FID, "rect": [x, y, w, h]}   or "rect": null to hide
     {"op": "topic", "id": ID, "name": TOPIC, "value": JSON}
-    {"op": "close", "id": ID}
+    {"op": "close", "id": ID or FID}                  a frame after its views
     {"op": "quit"}
   host -> helper (stdout)
-    {"ev": "ready", "protocol": 1, "api": 1, "webkit": "2.52.6"}
+    {"ev": "ready", "protocol": 2, "api": 1, "webkit": "2.52.6"}
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
     {"ev": "page", "id": ID, "msg": {"type": "show", "shown": bool}}
@@ -51,7 +60,7 @@ from dataclasses import dataclass
 
 from ..tk.components.style import BG
 
-PROTOCOL = 1
+PROTOCOL = 2
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "host.py")
 # The system Python, which has the GTK and WebKit bindings (python3-gi,
 # gir1.2-webkit2-4.1); the helper's venv doesn't.
@@ -81,9 +90,24 @@ class WebWindow:
     entry: str = "index.html"
     rect: tuple | None = None  # (x, y, w, h), or None to hide
     extras: tuple = ()  # ((name, text), ...): files served at plugin://<plugin>/_oolite/<name>
+    frame: str | None = None  # the WebFrame (widgetwindow) it's in, if any
+    index: int = 0  # its place, top to bottom, in that frame
 
     def page(self):
-        return (self.plugin, self.root, self.entry, self.extras)
+        return (self.plugin, self.root, self.entry, self.extras, self.frame, self.index)
+
+
+@dataclass(frozen=True)
+class WebFrame:
+    """A widgetwindow (#124): a title bar over the WebWindows opened into it."""
+
+    title: str
+    rect: tuple | None = None  # (x, y, w, h), or None to hide
+    colours: tuple = ("#3c4650", "#e6e6e6")  # the title bar's background and text
+    title_height: int = 24
+
+    def bar(self):
+        return (self.title, self.colours, self.title_height)
 
 
 def runtime_dir(environ=os.environ):
@@ -164,6 +188,8 @@ class WebHost:
         self.ready = False
         self.windows = {}  # id -> WebWindow: what should exist
         self.opened = {}  # id -> WebWindow: what the host has (as far as we know)
+        self.frames = {}  # id -> WebFrame: the widgetwindows that should exist
+        self.framed = {}  # id -> WebFrame: what the host has
         self.topics = {}  # id -> {topic: value}: the latest of each, replayed on reopen
         self.failed = {}  # id -> why: closed after an error, until retry() or a change
         self.restarts = 0
@@ -174,8 +200,10 @@ class WebHost:
 
     # -- what the helper calls -------------------------------------------
 
-    def sync(self, windows):
-        """Make the host's windows match windows ({id: WebWindow})."""
+    def sync(self, windows, frames=None):
+        """Make the host's windows match windows ({id: WebWindow}) and frames
+        ({id: WebFrame}, the widgetwindows the windows' frame ids name)."""
+        self.frames = dict(frames or {})
         for wid in set(self.windows) - set(windows):
             self.topics.pop(wid, None)
             self.failed.pop(wid, None)
@@ -245,6 +273,7 @@ class WebHost:
         os.set_blocking(self.process.stdout.fileno(), False)
         self.ready = False
         self.opened = {}
+        self.framed = {}
         self._read = self._write = b""
         return []
 
@@ -252,6 +281,7 @@ class WebHost:
         self.process = None
         self.ready = False
         self.opened = {}
+        self.framed = {}
         self._backoff()
 
     def _backoff(self):
@@ -328,10 +358,25 @@ class WebHost:
             if wid not in wanted or wanted[wid].page() != self.opened[wid].page():
                 self._send(op="close", id=wid)
                 del self.opened[wid]
+        # Frames after the views leaving them close, before the views opening into them.
+        for fid in list(self.framed):
+            if fid not in self.frames:
+                self._send(op="close", id=fid)
+                del self.framed[fid]
+        for fid, frame in self.frames.items():
+            old = self.framed.get(fid)
+            if old is None or old.bar() != frame.bar():
+                title, colours, height = frame.bar()
+                self._send(
+                    op="frame", id=fid, title=title, colours=list(colours), title_height=height
+                )
+            if old is None or old.rect != frame.rect:
+                self._send(op="place", id=fid, rect=list(frame.rect) if frame.rect else None)
+            self.framed[fid] = frame
         for wid, window in wanted.items():
             old = self.opened.get(wid)
             if old is None:
-                plugin, root, entry, extras = window.page()
+                plugin, root, entry, extras, frame, index = window.page()
                 self._send(
                     op="open",
                     id=wid,
@@ -340,6 +385,8 @@ class WebHost:
                     entry=entry,
                     background=BG,
                     extras=dict(extras),
+                    frame=frame,
+                    index=index,
                 )
                 for topic, value in self.topics.get(wid, {}).items():
                     self._send(op="topic", id=wid, name=topic, value=value)
