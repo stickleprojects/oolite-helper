@@ -100,18 +100,21 @@ title_text = "system"
 # width = 1920
 # height = 1080
 
-# Docks (#80): widgets stacked on one side of the game window, all the same
-# width, with no positions to work out. Down the side for game:left and
-# game:right (give the dock a width, and each widget a height); left to right
-# for game:top and game:bottom (give the dock a height, and each widget a
-# width). A widget without one is as big as its components need. Each entry
-# takes the [[widgets]] settings except dock, screen, x and y. A closed widget
-# leaves no gap. gap: px between widgets (default 0). One dock per side.
+# Widgetwindows (#124): a window with its own title bar, holding widgets
+# stacked top to bottom. Docked to game:left or game:right it's the game
+# window's height (give it a width); to game:top or game:bottom, the game's
+# width (give it a height). Each widget is as tall as its height, or its
+# components need; the one with height = "*" (else the last) takes what the
+# others leave. Each entry takes the [[widgets]] settings except dock, screen,
+# x, y and width. A closed widget leaves no gap. Also: layout and font_scale
+# (the title's size), show ("with_game" default, or "always").
 #
-# [[docks]]
+# [[widgetwindows]]
+# id = "trading"
+# title = "Trading"
 # dock = "game:right"
 # width = 640
 # widgets = [
-#   { widget = "trade-beside", height = 400 },
+#   { widget = "trade-beside", height = "*" },
 #   { widget = "hold-beside", height = 310 },
 # ]

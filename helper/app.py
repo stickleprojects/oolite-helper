@@ -24,7 +24,7 @@ from .tk.components.body import Body
 from .tk.components.chips import ClearanceBadge, DriveChips, Tabs
 from .tk.components.header import Details, Heading, Location, Status, Tip
 from .tk.components.style import ACCENT, BG, DIM, FG, MONO, SANS
-from .widgets import COMPONENTS, TkWidget, load_widgets
+from .widgets import COMPONENTS, TkWidget, load_widgets, load_widgetwindows
 
 POLL_MS = 200
 GAME_WINDOW_EVERY = 2  # ticks between game window checks (the #50 spike used 0.5 s)
@@ -57,6 +57,7 @@ class HelperWindow:
         layout_path=layout_file.PATH,
         ui="web",
         theme=None,
+        widgetwindows=(),
     ):
         self.root = root
         self.source = source
@@ -146,6 +147,7 @@ class HelperWindow:
         # helper generates for its components. Tk shows the components instead
         # with ui = "tk", or if the web host can't start.
         self.monitors = monitors
+        self.widgetwindows = {window.id: window for window in widgetwindows}
         self.widgets = []
         manifests, broken = plugins
         components = COMPONENTS if ui == "web" else None
@@ -157,6 +159,7 @@ class HelperWindow:
             components=components,
             fallback=self.tk_widgets,
             theme=theme,
+            widgetwindows=self.widgetwindows,
         )
         if components is None:
             self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
@@ -168,7 +171,9 @@ class HelperWindow:
 
     def tk_widgets(self, ids):
         """Show these widgets' components in Tk windows (the fallback)."""
-        self.widgets += [TkWidget(self.root, self.model, wid, self.monitors) for wid in ids]
+        self.widgets += [
+            TkWidget(self.root, self.model, wid, self.monitors, self.widgetwindows) for wid in ids
+        ]
 
     def tick(self):
         # Any unexpected error is reported and polling carries on: stopping here
@@ -305,6 +310,7 @@ def main():
         layout=settings["layout"],
         missing_equipment=settings["missing_equipment"],
         widgets=load_widgets(plugins=set(plugins[0]) | set(plugins[1])),
+        widgetwindows=load_widgetwindows(plugins=set(plugins[0]) | set(plugins[1])),
         monitors=monitors,
         plugins=plugins,
         ui=settings["ui"],

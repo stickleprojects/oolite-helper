@@ -163,9 +163,10 @@ def clicky(tmp_path):
 class Stub:
     def __init__(self):
         self.windows, self.events = {}, []
+        self.frames = {}
 
-    def sync(self, windows):
-        self.windows = windows
+    def sync(self, windows, frames=None):
+        self.windows, self.frames = windows, frames or {}
 
     def publish(self, *args):
         pass

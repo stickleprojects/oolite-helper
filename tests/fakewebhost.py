@@ -15,7 +15,7 @@ def emit(event, **fields):
     sys.stdout.flush()
 
 
-emit("ready", protocol=int(os.environ.get("FAKE_WEBHOST_PROTOCOL", "1")), api=1, webkit="fake")
+emit("ready", protocol=int(os.environ.get("FAKE_WEBHOST_PROTOCOL", "2")), api=1, webkit="fake")
 for line in sys.stdin:
     cmd = json.loads(line)
     emit("got", cmd=cmd)

@@ -12,6 +12,9 @@ WebKit's sandboxed web process; the helper starts this process with the
 environment from webhost.sandbox_env() so that sandbox can't see the real
 ~/.cache, a trusted X cookie or the sound server.
 
+A frame is a widgetwindow (#124): one popup with a title bar, whose plugin
+views are packed into it top to bottom instead of getting windows of their own.
+
 The pure functions at the top (no GTK) are tested in CI.
 """
 
@@ -21,7 +24,7 @@ import os
 import sys
 import urllib.parse
 
-PROTOCOL = 1
+PROTOCOL = 2
 API = 1  # the version of the page's `oolite` object
 SCHEME = "plugin"
 
@@ -197,8 +200,71 @@ def main():
         sys.stdout.write(json.dumps({"ev": event, **fields}) + "\n")
         sys.stdout.flush()
 
+    def popup():
+        window = Gtk.Window(type=Gtk.WindowType.POPUP)
+        window.set_accept_focus(False)
+        window.set_focus_on_map(False)
+        return window
+
+    def place_window(window, rect):
+        if rect is None:
+            window.hide()
+            return
+        x, y, w, h = rect
+        window.move(x, y)
+        window.resize(w, h)
+        window.show()
+        gdk_window = window.get_window()
+        if gdk_window is not None:
+            gdk_window.raise_()
+
+    class FrameWindow:
+        """A widgetwindow: a title bar over a column of plugin views."""
+
+        def __init__(self, fid):
+            self.id = fid
+            self.window = popup()
+            self.css = Gtk.CssProvider()
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            self.bar = Gtk.Label(xalign=0.5)  # the title, centred
+            self.bar.set_name("title")
+            self.bar.get_style_context().add_provider(
+                self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+            self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            outer.pack_start(self.bar, False, False, 0)
+            outer.pack_start(self.views, True, True, 0)
+            self.window.add(outer)
+            outer.show_all()
+
+        def title(self, text, colours, height):
+            background, text_colour = colours
+            font = max(8, round(height * 0.5))
+            self.css.load_from_data(
+                (
+                    f"#title {{ background: {background}; color: {text_colour}; "
+                    f"font: bold {font}px sans-serif; padding: 0 {font}px; }}"
+                ).encode()
+            )
+            self.bar.set_text(text)
+            self.bar.set_size_request(-1, height)
+
+        def add(self, view, index):
+            """Packs view in index order among the views already here."""
+            view.frame_index = index
+            self.views.pack_start(view, False, False, 0)
+            ordered = sorted(self.views.get_children(), key=lambda v: v.frame_index)
+            for position, child in enumerate(ordered):
+                self.views.reorder_child(child, position)
+
+        def place(self, rect):
+            place_window(self.window, rect)
+
+        def close(self):
+            self.window.destroy()
+
     class PluginWindow:
-        def __init__(self, wid, plugin, root, entry, background, extras):
+        def __init__(self, wid, plugin, root, entry, background, extras, frame=None, index=0):
             self.id = wid
             self.plugin = plugin
             self.root = root
@@ -254,11 +320,15 @@ def main():
             self.view.connect("load-failed", self.on_load_failed)
             self.view.connect("web-process-terminated", self.on_crash)
 
-            self.window = Gtk.Window(type=Gtk.WindowType.POPUP)
-            self.window.set_accept_focus(False)
-            self.window.set_focus_on_map(False)
-            self.window.add(self.view)
-            self.view.show()
+            # In a frame (#124) the view is one of its column; else a window of its own.
+            self.framed = frame is not None
+            if self.framed:
+                frame.add(self.view, index)
+                self.view.hide()  # until placed
+            else:
+                self.window = popup()
+                self.window.add(self.view)
+                self.view.show()
             self.view.load_uri(f"{SCHEME}://{plugin}/{entry}")
 
         def serve(self, request):
@@ -340,28 +410,34 @@ def main():
                 self.run(receive_script(name, value))
 
         def place(self, rect):
-            if rect is None:
-                self.window.hide()
-                return
-            x, y, w, h = rect
-            self.window.move(x, y)
-            self.window.resize(w, h)
-            self.window.show()
-            gdk_window = self.window.get_window()
-            if gdk_window is not None:
-                gdk_window.raise_()
+            if not self.framed:
+                place_window(self.window, rect)
+            elif rect is None:
+                self.view.hide()
+            else:
+                self.view.set_size_request(rect[2], rect[3])  # its frame places it
+                self.view.show()
 
         def close(self):
-            self.window.destroy()
+            (self.view if self.framed else self.window).destroy()
 
     windows = {}
+    frames = {}
 
     def handle(cmd):
         op = cmd.get("op")
         wid = cmd.get("id")
-        if op == "open":
+        if op == "frame":
+            if wid not in frames:
+                frames[wid] = FrameWindow(wid)
+            frames[wid].title(cmd["title"], cmd["colours"], cmd["title_height"])
+        elif op == "open":
             if wid in windows:
                 windows.pop(wid).close()
+            frame = cmd.get("frame")
+            if frame is not None and frame not in frames:
+                emit("error", id=wid, message=f"open: no frame {frame!r}")
+                return
             windows[wid] = PluginWindow(
                 wid,
                 cmd["plugin"],
@@ -369,9 +445,16 @@ def main():
                 cmd.get("entry", "index.html"),
                 cmd["background"],
                 cmd.get("extras") or {},
+                frames.get(frame),
+                cmd.get("index", 0),
             )
         elif op == "quit":
             Gtk.main_quit()
+        elif wid in frames and op in ("place", "close"):
+            if op == "place":
+                frames[wid].place(cmd.get("rect"))
+            else:
+                frames.pop(wid).close()
         elif wid not in windows:
             emit("error", id=wid, message=f"{op}: no window {wid!r}")
         elif op == "place":
