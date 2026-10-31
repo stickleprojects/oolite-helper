@@ -13,7 +13,7 @@ from . import config
 from . import layout as layout_file
 from .gamewindow import GameWindow
 from .keys import load_keymap
-from .layout import widgets_from_specs
+from .layout import widgets_from_specs, windows_from_specs
 from .markets import MarketStore
 from .model import Model
 from .plugins import WebWidgets, discover
@@ -73,11 +73,13 @@ class HelperWindow:
             keymap, keymap_error = None, f"Couldn't read the game's key settings: {e}"
         # The layout (#50): config.toml's widgets, with the changes saved in layout.toml.
         defaults = widgets_from_specs(widgets)
+        window_defaults = windows_from_specs(widgetwindows, defaults)
         self.model = Model(
             markets=markets,
             keymap=keymap,
             missing_equipment=missing_equipment,
             layout=layout_file.load(defaults, layout_path),
+            windows=layout_file.load(window_defaults, layout_path),
         )
         self.model.on_error = lambda exc, where: self.report(exc)
         # The notice is shown until the game sends something.
@@ -147,7 +149,6 @@ class HelperWindow:
         # helper generates for its components. Tk shows the components instead
         # with ui = "tk", or if the web host can't start.
         self.monitors = monitors
-        self.widgetwindows = {window.id: window for window in widgetwindows}
         self.widgets = []
         manifests, broken = plugins
         components = COMPONENTS if ui == "web" else None
@@ -159,21 +160,21 @@ class HelperWindow:
             components=components,
             fallback=self.tk_widgets,
             theme=theme,
-            widgetwindows=self.widgetwindows,
         )
         if components is None:
             self.tk_widgets([w.id for w in model.layout if w.spec.components[0] in COMPONENTS])
-        saver = layout_file.LayoutFile(defaults, layout_path)
+        saver = layout_file.LayoutFile(
+            defaults, layout_path, window_defaults, model.layout, model.windows
+        )
         model.subscribe("layout", saver.save, initial=False)
+        model.subscribe("windows", saver.save_windows, initial=False)
         self.game_window = GameWindow() if self.widgets or self.plugins.widgets else None
         self.ticks = 0
         self.tick()
 
     def tk_widgets(self, ids):
         """Show these widgets' components in Tk windows (the fallback)."""
-        self.widgets += [
-            TkWidget(self.root, self.model, wid, self.monitors, self.widgetwindows) for wid in ids
-        ]
+        self.widgets += [TkWidget(self.root, self.model, wid, self.monitors) for wid in ids]
 
     def tick(self):
         # Any unexpected error is reported and polling carries on: stopping here

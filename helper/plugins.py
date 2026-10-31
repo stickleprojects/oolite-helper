@@ -33,6 +33,7 @@ import tomllib
 from dataclasses import dataclass
 
 from . import config, web
+from .layout import find
 from .plugin_api import (
     ACTIONS,
     API,
@@ -47,7 +48,16 @@ from .plugin_api import (
     topic_value,
 )
 from .webhost import WebFrame, WebHost, WebWindow
-from .widgets import COMPONENTS, WIDGETS, place, place_in_window, title_height, window_rect
+from .widgets import (
+    COMPONENTS,
+    WIDGETS,
+    place,
+    resize_edges,
+    resized,
+    stacked,
+    title_height,
+    window_rect,
+)
 
 DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
@@ -180,18 +190,18 @@ class WebWidgets:
         components=None,
         fallback=None,
         theme=None,
-        widgetwindows=None,
     ):
         """components: the helper's components ({name: web.WebComponent}); each
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
         before it was ever ready, to show them with Tk. theme: config's [theme].
-        widgetwindows: {id: widgets.WindowSpec}, the widgetwindows (#124)."""
+        The widgetwindows (#124) come from the model's windows topic."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
         self.title = title_colours(theme)
-        self.widgetwindows = dict(widgetwindows or {})
+        self.editing = set()  # widgetwindow ids in edit mode (each its own, from its ✎)
+        self.resizing = {}  # widgetwindow id -> (x, y, w, h) while an edge is dragged
         # widget id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
@@ -258,15 +268,35 @@ class WebWidgets:
                 return None
             return widget.spec.height or self.sizes[widget.id][1]
 
+        frames = {}
+        inside = {}  # widget id -> its rect in its widgetwindow, or None
+        for frame in model.topic("windows"):
+            fid, spec = frame.id, frame.spec
+            rect = None
+            if frame.open:
+                rect = self.resizing.get(fid) or window_rect(spec, game_window, self.monitors)
+            title = title_height(spec)
+            frames[fid] = WebFrame(
+                spec.title,
+                rect,
+                self.title,
+                title,
+                editing=fid in self.editing,
+                edges=resize_edges(spec),
+            )
+            heights = [(w.id, height(w), w.spec.fill) for w in widgets if w.spec.window == fid]
+            placed = stacked(rect, title, heights) if rect else {}
+            inside.update({wid: placed.get(wid) for wid, _, _ in heights})
+
         windows = {}
         for wid, manifest in self.widgets.items():
             widget = layout[wid]
             spec = widget.spec
-            frame = self.widgetwindows.get(spec.window)
+            frame = spec.window if spec.window in frames else None
             if not shown(widget):
                 rect = None
             elif frame is not None:
-                rect = place_in_window(widgets, frame, wid, game_window, height, self.monitors)
+                rect = inside.get(wid)
             else:
                 rect = place(spec, game_window, self.sizes[wid], self.monitors)
             css = theme_css(spec.layout, spec.font_scale, self.title)
@@ -286,18 +316,9 @@ class WebWidgets:
                 manifest.entry,
                 rect,
                 extras,
-                frame=spec.window if frame is not None else None,
+                frame=frame,
                 index=index,
             )
-        frames = {
-            fid: WebFrame(
-                window.title,
-                window_rect(window, game_window, self.monitors),
-                self.title,
-                title_height(window),
-            )
-            for fid, window in self.widgetwindows.items()
-        }
         return windows, frames
 
     def sync(self, value):
@@ -316,6 +337,9 @@ class WebWidgets:
     def handle(self, event):
         """Act on one web host event; True if the problems changed."""
         kind, wid = event.get("ev"), event.get("id")
+        if kind == "frame":
+            self.frame_event(wid, event.get("msg") or {})
+            return False
         name = self.widgets[wid].name if wid in self.widgets else None
         if kind == "page" and name:
             msg = event["msg"]
@@ -344,6 +368,27 @@ class WebWidgets:
         else:
             return False
         return True
+
+    def frame_event(self, fid, msg):
+        """A widgetwindow's ✎ (toggle its edit mode) or an edge being dragged
+        (a preview; on release, saved through layout actions)."""
+        frame = find(self.model.topic("windows"), fid)
+        if frame is None:
+            return
+        if msg.get("type") == "edit":
+            (self.editing.discard if fid in self.editing else self.editing.add)(fid)
+            self.resizing.pop(fid, None)
+        elif msg.get("type") == "resize" and fid in self.editing:
+            rect = tuple(msg.get("rect") or ())
+            if len(rect) != 4 or not all(isinstance(n, int) for n in rect):
+                return
+            if msg.get("done"):
+                self.resizing.pop(fid, None)
+                for action in resized(frame.spec, rect, self.monitors):
+                    self.model.dispatch(action)
+            else:
+                self.resizing[fid] = rect
+        self.model.notify()
 
     def fall_back(self):
         """Hand the components to Tk: the web host never started."""

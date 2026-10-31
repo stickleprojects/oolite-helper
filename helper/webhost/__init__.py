@@ -27,8 +27,9 @@ business); the frame's own "place" moves the whole thing.
 PROTOCOL (version 2): JSON objects, one per line.
 
   helper -> host (stdin)
-    {"op": "frame", "id": FID, "title": TEXT, "colours": [BG, FG], "title_height": PX}
-                                                      opens hidden, or updates its title
+    {"op": "frame", "id": FID, "title": TEXT, "colours": [BG, FG], "title_height": PX,
+     "editing": bool, "edges": ["left", ...]}         opens hidden, or updates its bar;
+                                                      editing: its edges resize it
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
      "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N}
                                                       opens hidden; extras are
@@ -47,6 +48,9 @@ PROTOCOL (version 2): JSON objects, one per line.
     {"ev": "error", "id": ID or null, "message": "..."}
     {"ev": "crashed", "id": ID, "reason": "crashed" | "exceeded-memory-limit" | ...}
     {"ev": "closed", "id": ID}
+    {"ev": "frame", "id": FID, "msg": {"type": "edit"}}  its ✎ was clicked
+    {"ev": "frame", "id": FID, "msg": {"type": "resize", "rect": [x, y, w, h], "done": bool}}
+                                                      an edge dragged (done: released)
   made by WebHost.poll() itself
     {"ev": "host_exited", "code": N}                  restarting after a delay
     {"ev": "unavailable", "message": "..."}           couldn't start; retrying
@@ -105,9 +109,11 @@ class WebFrame:
     rect: tuple | None = None  # (x, y, w, h), or None to hide
     colours: tuple = ("#3c4650", "#e6e6e6")  # the title bar's background and text
     title_height: int = 24
+    editing: bool = False  # in edit mode: its ✎ is lit and its edges resize it
+    edges: tuple = ()  # which edges resize it: "left", "right", "top", "bottom"
 
     def bar(self):
-        return (self.title, self.colours, self.title_height)
+        return (self.title, self.colours, self.title_height, self.editing, self.edges)
 
 
 def runtime_dir(environ=os.environ):
@@ -366,9 +372,15 @@ class WebHost:
         for fid, frame in self.frames.items():
             old = self.framed.get(fid)
             if old is None or old.bar() != frame.bar():
-                title, colours, height = frame.bar()
+                title, colours, height, editing, edges = frame.bar()
                 self._send(
-                    op="frame", id=fid, title=title, colours=list(colours), title_height=height
+                    op="frame",
+                    id=fid,
+                    title=title,
+                    colours=list(colours),
+                    title_height=height,
+                    editing=editing,
+                    edges=list(edges),
                 )
             if old is None or old.rect != frame.rect:
                 self._send(op="place", id=fid, rect=list(frame.rect) if frame.rect else None)

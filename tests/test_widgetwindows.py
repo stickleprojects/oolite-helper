@@ -5,9 +5,12 @@ import pytest
 from helper.layout import widgets_from_specs
 from helper.screen import Monitor
 from helper.widgets import (
+    MIN_SIZE,
     WindowSpec,
     load_widgets,
     load_widgetwindows,
+    resize_edges,
+    resized,
     stacked,
     title_height,
     window_rect,
@@ -223,3 +226,32 @@ def test_widgets_off_the_game_are_large_text(tmp_path):
 def test_a_floating_widgetwindow_set_up_badly_is_explained(tmp_path, change, message):
     with pytest.raises(SystemExit, match=message):
         load_widgets(config(tmp_path, FLOATING.replace(*change)))
+
+
+def test_on_a_monitors_right_edge_its_inner_edge_resizes_it():
+    assert resize_edges(WindowSpec("w", "W", "screen:eDP-1:right", width=600)) == ("left",)
+
+
+def test_floating_every_edge_resizes_it():
+    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
+    assert resize_edges(window) == ("left", "right", "top", "bottom")
+
+
+def test_a_resized_floating_widgetwindow_moves_and_resizes_on_its_monitor():
+    window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
+    assert resized(window, (1000, 1100, 600, 300), [LAPTOP]) == [
+        {"type": "layout/move_widget", "id": "w", "x": 40, "y": 20},
+        {"type": "layout/resize_widget", "id": "w", "width": 600, "height": 300},
+    ]
+
+
+def test_a_resized_widgetwindow_beside_the_game_changes_only_its_width():
+    window = WindowSpec("w", "W", "game:right", width=640)
+    assert resized(window, (0, 0, 700, 999), []) == [
+        {"type": "layout/resize_widget", "id": "w", "width": 700}
+    ]
+
+
+def test_a_widgetwindow_cant_be_resized_too_small():
+    window = WindowSpec("w", "W", "game:top", height=60)
+    assert resized(window, (0, 0, 999, 5), [])[0]["height"] == MIN_SIZE

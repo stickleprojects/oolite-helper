@@ -557,6 +557,40 @@ def place(spec, game_window, size, monitors=()):
     return (x + spec.x, gy + spec.y, w, h)
 
 
+MIN_SIZE = 80  # px: a widgetwindow can't be resized smaller
+
+
+def resize_edges(window):
+    """The edges of a widgetwindow that resize it in edit mode: the one away from
+    where it's docked (beside the game: the far side; on a monitor's edge: the
+    inner side), or all four when it floats."""
+    if window.dock is None:
+        return ("left", "right", "top", "bottom")
+    side = window.dock.rsplit(":", 1)[1]
+    if window.on_game:
+        return (side,)
+    return ({"left": "right", "right": "left", "top": "bottom", "bottom": "top"}[side],)
+
+
+def resized(window, rect, monitors=()):
+    """The layout actions that make a widgetwindow the size (and, floating, the
+    place) of rect, (x, y, w, h), after an edge was dragged."""
+    x, y, w, h = rect
+    w, h = max(MIN_SIZE, w), max(MIN_SIZE, h)
+    wid = window.id
+    if window.dock is None:
+        m = next((m for m in monitors if m.name == window.screen), None)
+        if m is None:
+            return []
+        return [
+            {"type": "layout/move_widget", "id": wid, "x": x - m.x, "y": y - m.y},
+            {"type": "layout/resize_widget", "id": wid, "width": w, "height": h},
+        ]
+    if window.dock.endswith((":left", ":right")):
+        return [{"type": "layout/resize_widget", "id": wid, "width": w}]
+    return [{"type": "layout/resize_widget", "id": wid, "height": h}]
+
+
 def place_in_window(widgets, window, wid, game_window, height, monitors=(), title=None):
     """A widget's rect in its widgetwindow, or None. height(widget) is a widget's
     height, or None when it isn't shown, so the ones after it move up. title:
@@ -579,13 +613,13 @@ def _configured_height(widget):
 class TkWidget:
     """One widget as a Tk window (the fallback): its components, kept in place by
     watching the game window and the widget in the model's layout (moved,
-    resized, closed). windows: {id: WindowSpec}, for one in a widgetwindow."""
+    resized, closed)."""
 
-    def __init__(self, root, model, wid, monitors=(), windows=None):
+    def __init__(self, root, model, wid, monitors=()):
         self.wid = wid
         spec = find(model.topic("layout"), wid).spec
         self.monitors = monitors
-        self.frame = (windows or {}).get(spec.window)
+        self.framed = spec.window is not None  # in a widgetwindow (#124)
         self.window = tk.Toplevel(root, bg=BG)
         # Like the main window: not managed by the window manager, never takes
         # focus from the game (verified for widgets in the #50 spike), on top.
@@ -626,11 +660,14 @@ class TkWidget:
 
     def in_window(self, model):
         """Its rect in its widgetwindow (no title bar in Tk), or None."""
-        if self.frame is None:
+        if not self.framed:
             return None
         layout, game_window = model.topic("layout"), model.topic("game_window")
+        frame = find(model.topic("windows"), find(layout, self.wid).spec.window)
+        if frame is None or not frame.open:
+            return None
         return place_in_window(
-            layout, self.frame, self.wid, game_window, _configured_height, self.monitors, 0
+            layout, frame.spec, self.wid, game_window, _configured_height, self.monitors, 0
         )
 
     def follow(self, value):
@@ -638,7 +675,7 @@ class TkWidget:
         hidden = widget is None or not widget.open or (empty and widget.spec.hide_empty)
         if hidden:
             placed = None
-        elif self.frame is not None:
+        elif self.framed:
             placed = in_window
         else:
             placed = place(widget.spec, game_window, size, self.monitors)

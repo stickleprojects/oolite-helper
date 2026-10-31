@@ -11,8 +11,12 @@ setting, or "widget<n>:<first component>". The model keeps the widgets as its
 
     {"type": "layout/move_widget", "id": "widget1:laptop", "x": 10, "y": 0}
     {"type": "layout/resize_widget", "id": "widget1:laptop", "width": 800, "height": 600}
+    {"type": "layout/resize_widget", "id": "trading", "width": 700}  # either or both
     {"type": "layout/close_widget", "id": "widget1:laptop"}
     {"type": "layout/open_widget", "id": "widget1:laptop"}
+
+Widgetwindows (#124) are kept the same way, by their ids, in the model's
+`windows` topic; the same actions change them.
 
 config.toml stays the player's hand-written defaults. Changes made in the
 helper are saved to layout.toml beside it, as differences from those
@@ -34,7 +38,7 @@ SAVED = ("x", "y", "width", "height", "open")  # what layout.toml may change
 @dataclass(frozen=True)
 class Widget:
     id: str
-    spec: object  # widgets.WidgetSpec
+    spec: object  # widgets.WidgetSpec, or widgets.WindowSpec for a widgetwindow
     open: bool = True
 
     def setting(self, name):
@@ -50,6 +54,16 @@ def widgets_from_specs(specs):
             raise SystemExit(f"{config.PATH}: two widgets have the id {wid!r}")
         widgets.append(Widget(wid, spec))
     return tuple(widgets)
+
+
+def windows_from_specs(specs, widgets=()):
+    """The widgetwindows (#124), by id. Ids mustn't clash with each other or widgets'."""
+    taken = {widget.id for widget in widgets}
+    for spec in specs:
+        if spec.id in taken:
+            raise SystemExit(f"{config.PATH}: a widget and a widgetwindow have the id {spec.id!r}")
+        taken.add(spec.id)
+    return tuple(Widget(spec.id, spec) for spec in specs)
 
 
 def find(widgets, wid):
@@ -69,7 +83,7 @@ def reduce_layout(widgets, action):
         if kind == "layout/move_widget":
             return replace(widget, spec=replace(widget.spec, x=action["x"], y=action["y"]))
         if kind == "layout/resize_widget":
-            size = {"width": action["width"], "height": action["height"]}
+            size = {name: action[name] for name in ("width", "height") if name in action}
             return replace(widget, spec=replace(widget.spec, **size))
         if kind in ("layout/close_widget", "layout/open_widget"):
             return replace(widget, open=kind == "layout/open_widget")
@@ -135,12 +149,23 @@ def _toml(value):
 class LayoutFile:
     """Saves the layout's differences from config.toml to layout.toml."""
 
-    def __init__(self, defaults, path=PATH):
-        self.defaults = defaults
+    def __init__(self, defaults, path=PATH, window_defaults=(), widgets=(), windows=()):
+        """widgets and windows: the layout as it is now (loaded), kept when only
+        the other changes."""
+        self.defaults = tuple(defaults) + tuple(window_defaults)
         self.path = path
+        self.widgets, self.windows = tuple(widgets), tuple(windows)
 
     def save(self, widgets):
-        diffs = differences(self.defaults, widgets)
+        self.widgets = tuple(widgets)
+        self._write()
+
+    def save_windows(self, windows):
+        self.windows = tuple(windows)
+        self._write()
+
+    def _write(self):
+        diffs = differences(self.defaults, self.widgets + self.windows)
         if not diffs:
             if os.path.exists(self.path):
                 os.remove(self.path)

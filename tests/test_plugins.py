@@ -5,7 +5,7 @@ import pytest
 
 from helper import plist
 from helper.keys import Keymap, from_override
-from helper.layout import widgets_from_specs
+from helper.layout import widgets_from_specs, windows_from_specs
 from helper.model import Model
 from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
 from helper.widgets import COMPONENTS, WidgetSpec, WindowSpec, load_widgets, title_height
@@ -454,39 +454,78 @@ TRADING = WindowSpec("trading", "Trading", "game:right", width=640)
 
 def trading_window():
     """Trade here filling a widgetwindow on the game's right, the hold under it,
-    both drawn. Returns the stub host after the game window is placed."""
+    both drawn. Returns (the stub host, the WebWidgets, the model)."""
     inside = {"dock": "game:right", "width": 640, "window": "trading"}
     specs = [
         WidgetSpec(components=("trade_here",), fill=True, **inside),
         WidgetSpec(components=("hold",), height=310, **inside),
     ]
-    model = Model(layout=widgets_from_specs(specs))
+    model = Model(layout=widgets_from_specs(specs), windows=windows_from_specs([TRADING]))
     host = StubHost()
-    made = WebWidgets(
-        model, {}, host=host, components=COMPONENTS, widgetwindows={"trading": TRADING}
-    )
+    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
     model.dispatch({**GAME, "active": True})
     for wid in ("widget1:trade_here", "widget2:hold"):
         made.handle({"ev": "page", "id": wid, "msg": {"type": "show", "shown": True}})
     model.notify()
-    return host
+    return host, made, model
+
+
+def edge_dragged(made, rect, done):
+    made.handle(
+        {"ev": "frame", "id": "trading", "msg": {"type": "resize", "rect": rect, "done": done}}
+    )
 
 
 def test_a_widgetwindow_beside_the_game_is_the_game_windows_height():
-    assert trading_window().frames["trading"].rect == (100 + 1280 + 2, 200 - 24, 640, 24 + 720 + 2)
+    assert trading_window()[0].frames["trading"].rect == (
+        100 + 1280 + 2,
+        200 - 24,
+        640,
+        24 + 720 + 2,
+    )
 
 
 def test_a_widgetwindow_has_its_own_title():
-    assert trading_window().frames["trading"].title == "Trading"
+    assert trading_window()[0].frames["trading"].title == "Trading"
 
 
 def test_widgets_in_a_widgetwindow_go_into_its_frame():
-    windows = trading_window().windows
+    windows = trading_window()[0].windows
     assert [windows[wid].frame for wid in ("widget1:trade_here", "widget2:hold")] == ["trading"] * 2
 
 
 def test_the_filling_widget_takes_what_the_others_leave_under_the_title():
-    windows, title = trading_window().windows, title_height(TRADING)
+    windows, title = trading_window()[0].windows, title_height(TRADING)
     top, height = 200 - 24, 24 + 720 + 2  # the game window, title bar and borders included
     assert windows["widget1:trade_here"].rect == (1382, top + title, 640, height - title - 310)
     assert windows["widget2:hold"].rect == (1382, top + height - 310, 640, 310)
+
+
+def test_a_widgetwindows_pencil_puts_just_it_into_edit_mode():
+    host, made, _ = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    assert host.frames["trading"].editing
+
+
+def test_beside_the_game_only_its_far_edge_resizes_it():
+    assert trading_window()[0].frames["trading"].edges == ("right",)
+
+
+def test_an_edge_dragged_outside_edit_mode_does_nothing():
+    host, made, _ = trading_window()
+    edge_dragged(made, [1382, 176, 700, 746], True)
+    assert host.frames["trading"].rect[2] == 640
+
+
+def test_while_an_edge_is_dragged_the_widgetwindow_follows_it():
+    host, made, _ = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    edge_dragged(made, [1382, 176, 700, 746], False)
+    assert host.frames["trading"].rect == (1382, 176, 700, 746)
+
+
+def test_on_release_the_new_width_goes_into_the_layout():
+    host, made, model = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    edge_dragged(made, [1382, 176, 700, 746], True)
+    assert model.topic("windows")[0].spec.width == 700
