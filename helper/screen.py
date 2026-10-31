@@ -1,7 +1,5 @@
 """Window placement: which monitor, how big, and where on it."""
 
-import re
-import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -17,9 +15,6 @@ ANCHORS = (
     "bottom-right",
 )
 
-# e.g. " 1: +eDP-1 1920/293x1080/165+960+1080  eDP-1"
-_MONITOR_RE = re.compile(r"^\s*\d+:\s+\+?(\*?)(\S+)\s+(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)")
-
 
 @dataclass
 class Monitor:
@@ -33,22 +28,6 @@ class Monitor:
     def __str__(self) -> str:
         flag = " (primary)" if self.primary else ""
         return f"{self.name}: {self.width}x{self.height}+{self.x}+{self.y}{flag}"
-
-
-def list_monitors() -> list[Monitor]:
-    try:
-        out = subprocess.run(
-            ["xrandr", "--listmonitors"], capture_output=True, text=True, check=True
-        ).stdout
-    except (OSError, subprocess.CalledProcessError):
-        return []
-    monitors: list[Monitor] = []
-    for line in out.splitlines():
-        m = _MONITOR_RE.match(line)
-        if m:
-            star, name, w, h, x, y = m.groups()
-            monitors.append(Monitor(name, star == "*", int(w), int(h), int(x), int(y)))
-    return monitors
 
 
 def choose_monitor(monitors: Sequence[Monitor], name: str | None = None) -> Monitor | None:

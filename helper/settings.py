@@ -98,7 +98,8 @@ from pydantic import (
     model_validator,
 )
 
-from . import desktop, paths, web
+from . import paths, platform, web
+from .colours import readable
 from .layout import NONE, SAVED, Widget, widgets_from_specs, windows_from_specs
 from .plugin_api import ACTIONS, SETTING_TYPES, TOPICS, declared_settings, setting_fits
 from .tk.components.style import EDGE, FG, LAYOUTS
@@ -263,14 +264,14 @@ class Theme(_Model):
 
     def colours(self):
         """(background, text) of title bars: "system" takes the desktop's focused
-        title bar (helper/desktop.py, Marco/Metacity themes), else the edge and
+        title bar (platform.title_colours()), else the edge and
         text colours; system text that can't be read on the bar turns black or white."""
-        system = desktop.title_colours() or (EDGE, FG)
+        system = platform.title_colours() or (EDGE, FG)
         background = self.title_background
         background = system[0] if background == "system" else background.lower()
         if self.title_text != "system":
             return background, self.title_text.lower()
-        return background, desktop.readable(system[1], background)
+        return background, readable(system[1], background)
 
 
 # -- [[widgets]] ------------------------------------------------------------

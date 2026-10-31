@@ -3,6 +3,7 @@ import subprocess
 import pytest
 
 from helper import screen
+from helper.platform.linux_x11 import monitors as linux_monitors
 
 
 def test_list_monitors_parses_primary_and_negative_offsets(monkeypatch):
@@ -11,11 +12,11 @@ def test_list_monitors_parses_primary_and_negative_offsets(monkeypatch):
  1: +eDP-1 1600/345x900/194+-1600+-200  eDP-1
 """
     monkeypatch.setattr(
-        screen.subprocess,
+        linux_monitors.subprocess,
         "run",
         lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, output, ""),
     )
-    monitors = screen.list_monitors()
+    monitors = linux_monitors.list_monitors()
     assert monitors == [
         screen.Monitor("DP-1", True, 1920, 1080, 0, 0),
         screen.Monitor("eDP-1", False, 1600, 900, -1600, -200),
@@ -66,5 +67,5 @@ def test_list_monitors_handles_xrandr_errors(monkeypatch):
         def fail(*args, error=error, **kwargs):
             raise error
 
-        monkeypatch.setattr(screen.subprocess, "run", fail)
-        assert screen.list_monitors() == []
+        monkeypatch.setattr(linux_monitors.subprocess, "run", fail)
+        assert linux_monitors.list_monitors() == []

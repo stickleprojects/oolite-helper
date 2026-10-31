@@ -1,23 +1,20 @@
 """The helper window: reads the game's messages into the model and lays out the components."""
 
 import argparse
-import fcntl
 import json
-import os
 import sys
-import tempfile
 import tkinter as tk
 import traceback
 
 from . import layout as layout_file
 from . import paths, settings
-from .gamewindow import GameWindow
 from .keys import load_keymap
 from .layout import widgets_from_specs, windows_from_specs
 from .markets import MarketStore
 from .model import Model
+from .platform import GameWindow, list_monitors, single_instance_lock
 from .plugins import WebWidgets, discover
-from .screen import ANCHORS, choose_monitor, geometry, list_monitors
+from .screen import ANCHORS, choose_monitor, geometry
 from .settings import COMPONENTS
 from .sources import DEFAULT_LOG, LogSource
 from .tk.components import Style
@@ -231,20 +228,6 @@ class HelperWindow:
             )
             traceback.print_exc()
             self.model.set_status(error=error)
-
-
-def single_instance_lock():
-    """Hold an exclusive lock for the life of the process; None if another helper has it."""
-    path = os.path.join(
-        os.environ.get("XDG_RUNTIME_DIR", tempfile.gettempdir()), "oolite-helper.lock"
-    )
-    f = open(path, "w")
-    try:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        f.close()
-        return None
-    return f
 
 
 def main():

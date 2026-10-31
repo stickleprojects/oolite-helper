@@ -1,6 +1,6 @@
 """The desktop's title bar colours, from a Metacity/Marco window theme (#122)."""
 
-from helper.desktop import title_colours_from
+from helper.platform.linux_x11.desktop import title_colours_from
 
 THEME = """<metacity_theme>
   <draw_ops name="bar_focused">

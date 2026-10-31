@@ -1,23 +1,14 @@
 """The player's real key bindings, read from the game's files on helper startup.
 
-Built-in bindings and descriptions come from inside the AppImage. They're
-extracted once into a cache that's refreshed whenever the AppImage changes.
-The player's layout choice and in-game key changes come from the settings file
-and are read every time.
+Built-in bindings and descriptions come from the game's own files (on Linux,
+from inside the AppImage: see helper.platform). The player's layout choice and
+in-game key changes come from the settings file and are read every time.
 """
 
 import os
-import shutil
-import subprocess
 
-from . import plist
-from .paths import APPIMAGE, SETTINGS
-
-CACHE = os.path.join(
-    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "oolite-helper"
-)
-CONFIG_IN_APPIMAGE = "usr/bin/Resources/Config"
-NEEDED = ("keyconfig2.plist", "descriptions.plist")
+from . import platform, plist
+from .paths import SETTINGS
 
 KEY_NAMES = {
     "arrowLeft": "←",
@@ -165,8 +156,10 @@ def format_entry(entry):
     return "+".join(mods + [name])
 
 
-def load_keymap(appimage=APPIMAGE, settings_path=SETTINGS):
-    config_dir = _extracted_config(appimage)
+def load_keymap(config_dir=None, settings_path=SETTINGS):
+    """The bindings from config_dir's keyconfig2.plist and descriptions.plist
+    (default: the game's, platform.game_config_dir()) and the player's settings."""
+    config_dir = config_dir or platform.game_config_dir()
     keyconfig = plist.load(os.path.join(config_dir, "keyconfig2.plist"))
     texts = plist.load(os.path.join(config_dir, "descriptions.plist"))
 
@@ -186,40 +179,3 @@ def load_keymap(appimage=APPIMAGE, settings_path=SETTINGS):
     names = "commodity-name "
     commodities = {k[len(names) :]: v for k, v in texts.items() if k.startswith(names)}
     return Keymap(bindings, descriptions, commodities)
-
-
-def _extracted_config(appimage):
-    """Directory holding NEEDED files from the AppImage, extracting if stale."""
-    stamp = str(int(os.stat(appimage).st_mtime))
-    root = os.path.join(CACHE, os.path.basename(appimage) + "-" + stamp)
-    config_dir = os.path.join(root, "squashfs-root", CONFIG_IN_APPIMAGE)
-    if all(os.path.exists(os.path.join(config_dir, n)) for n in NEEDED):
-        return config_dir
-    os.makedirs(root, exist_ok=True)
-    for name in NEEDED:
-        subprocess.run(
-            [appimage, "--appimage-extract", f"{CONFIG_IN_APPIMAGE}/{name}"],
-            cwd=root,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    _prune_old_caches(appimage, root)
-    return config_dir
-
-
-def _prune_old_caches(appimage, root):
-    """Remove extractions of earlier versions of this AppImage. Best effort: a
-    folder that can't be removed mustn't stop the keys loading."""
-    prefix = os.path.basename(appimage) + "-"
-    try:
-        with os.scandir(CACHE) as entries:
-            for entry in entries:
-                if (
-                    entry.name.startswith(prefix)
-                    and entry.name != os.path.basename(root)
-                    and entry.is_dir(follow_symlinks=False)
-                ):
-                    shutil.rmtree(entry.path, ignore_errors=True)
-    except OSError:
-        pass

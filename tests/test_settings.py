@@ -83,23 +83,23 @@ def test_a_title_bar_colour_must_be_system_or_rrggbb(tmp_path):
 
 
 def test_system_title_colours_are_the_desktops(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    monkeypatch.setattr("helper.platform.title_colours", lambda: ("#0055aa", "#ffffff"))
     assert Theme().colours() == ("#0055aa", "#ffffff")
 
 
 def test_without_desktop_colours_title_bars_are_the_edge_grey(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: None)
+    monkeypatch.setattr("helper.platform.title_colours", lambda: None)
     assert Theme().colours() == ("#3c4650", "#e6e6e6")
 
 
 def test_set_title_colours_replace_the_desktops(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    monkeypatch.setattr("helper.platform.title_colours", lambda: ("#0055aa", "#ffffff"))
     theme = Theme(title_background="#CC0000", title_text="#FFFFFF")
     assert theme.colours() == ("#cc0000", "#ffffff")
 
 
 def test_system_text_stays_readable_on_a_set_background(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    monkeypatch.setattr("helper.platform.title_colours", lambda: ("#0055aa", "#ffffff"))
     assert Theme(title_background="#eeeeee").colours()[1] == "#000000"
 
 

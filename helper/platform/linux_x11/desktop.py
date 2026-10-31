@@ -5,13 +5,15 @@ the colour it fills a focused window's title bar with, and its title text.
 Only plain #rrggbb colours are taken; a theme that draws with GTK colours,
 blends or images gives None, and the helper keeps its own colours. Other
 window managers (Mutter, KWin, xfwm4) don't use these themes, so they give
-None too; the helper only runs on X11 anyway.
+None too.
 """
 
 import functools
 import os
 import subprocess
 import xml.etree.ElementTree as ET
+
+from ...colours import readable
 
 THEME_KEYS = (
     ("org.mate.Marco.general", "theme"),
@@ -54,18 +56,6 @@ def _colour(value):
             return None
         return value.lower()
     return None
-
-
-def _lightness(colour):
-    r, g, b = (int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5))
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def readable(text, background):
-    """text, or black or white if it's too close to background to read."""
-    if text and abs(_lightness(text) - _lightness(background)) > 0.4:
-        return text
-    return "#000000" if _lightness(background) > 0.5 else "#ffffff"
 
 
 def _ops_colour(ops, tags):

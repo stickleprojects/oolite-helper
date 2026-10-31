@@ -9,6 +9,65 @@
 - A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.
 - A **web view** is WebKit's browser view, which shows web widgets in the web host.
 
+## The big picture
+Dashed boxes are planned (a port). GitHub draws this from the Mermaid text below.
+
+```mermaid
+flowchart TB
+  subgraph game["Oolite: the game"]
+    direction LR
+    oxp["CtxKeys.oxp<br/>world script"]
+    files[("game files<br/>keyconfig2, descriptions,<br/>OoliteDefaults")]
+  end
+
+  subgraph helper["Helper process: Python, the same on every system"]
+    direction LR
+    src["LogSource<br/>(TCP source, phase 2)"]
+    model["Model<br/>GameState, MarketStore,<br/>UI, layout"]
+    keys["keys + plist"]
+    settings["settings<br/>config.toml, layout.toml"]
+    api["plugin_api<br/>TOPICS, ACTIONS"]
+    client["WebHost client"]
+    src --> model
+    keys --> model
+    settings --> model
+    model --> api --> client
+  end
+
+  oxp -- "Latest.log: JSON lines" --> src
+  files --> keys
+
+  subgraph platform["helper.platform"]
+    direction LR
+    linux["linux_x11<br/>XDG, AppImage, xrandr,<br/>xdotool, Marco, fcntl"]
+    win["windows<br/>(planned)"]
+    mac["macos<br/>(planned)"]
+  end
+  helper --> platform
+
+  subgraph host["Web host process"]
+    direction LR
+    hostL["Linux<br/>GTK 3 + WebKitGTK"]
+    hostW["Windows (planned)<br/>Qt WebEngine or WebView2"]
+    hostM["macOS (planned)<br/>WKWebView"]
+  end
+  client <-- "PROTOCOL: JSON lines" --> host
+
+  subgraph pages["Sandboxed pages: plugin:// scheme, CSP, no network"]
+    direction LR
+    comps["helper's components<br/>helper/web/components/"]
+    third["third-party plugins<br/>~/.config/oolite-helper/plugins/NAME/<br/>plugin.toml"]
+  end
+  host --> pages
+  third -. "topics it lists in; ui/... actions out,<br/>checked by plugin_api.check_action" .-> api
+
+  classDef planned stroke-dasharray: 5 5
+  class win,mac,hostW,hostM planned
+```
+
+- **Third-party plugins** are folders the player adds under `~/.config/oolite-helper/plugins/` (see [plugins.md](plugins.md)). The helper discovers them at startup (`plugins.discover`), and the web host runs each one like the helper's own components: a sandboxed page that gets only the `plugin_api` topics its `plugin.toml` lists, and may send only the `ui/...` actions it lists, each checked before it reaches the model. They never see the model, the game or the file system directly, so they work unchanged on any system with a web host.
+- **What a port replaces:** a module in `helper.platform` and a web host that speaks `PROTOCOL`. Everything else in the helper process, the add-on and every page stays the same.
+
 Data flows one way, Redux-style (#53):
 
 ```
@@ -115,9 +174,18 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/tk/components/`: the Tk fallback: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
 - `helper/settings.py`: every setting (#135): `config.toml` and `layout.toml` read and checked through one pydantic model (`Settings`, `WindowSettings`, `Theme`, `WidgetSpec`, `WindowSpec`, named widgets), with the rules in it (sizes, docks, `height = "*"`, `"system"` colours, declared settings). `oolite-helper --check-config` lists every problem.
-- `helper/widgets.py`, `gamewindow.py`: placing widgets and widgetwindows, docked to the game or a monitor (#50, #124), and the Tk fallback.
+- `helper/widgets.py`: placing widgets and widgetwindows, docked to the game or a monitor (#50, #124), and the Tk fallback.
+- `helper/platform/`: everything tied to the operating system and desktop (#140): the helper's folders, where the game's log, settings and key files are, the monitors, the game window, title bar colours and the single-instance lock. The rest of the helper imports only from `helper.platform`; `linux_x11/` is the one implementation so far. See Platforms below.
 - `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and saving `layout.toml`.
 - `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, of the helper's components or a plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
+
+## Platforms
+The helper runs on Linux with X11. What ties it there is in two places:
+
+- **`helper/platform/`** (#140): the names listed in its `__init__.py`, implemented for Linux in `linux_x11/` (XDG folders, the AppImage, `xrandr`, `xdotool`/`xprop`, Marco themes, `fcntl`). A port adds one module beside it with the same names; `helper.platform` says which names are missing when it's imported on a system it doesn't know.
+- **The web host** (`helper/webhost/host.py`): GTK and WebKitGTK, in its own process behind `PROTOCOL`, so another system can bring its own host.
+
+#139 lists what a Windows version could use for each (libraries, file locations, and a trap: `LogSource` keeps `Latest.log` open, which on Windows can stop Oolite renaming it).

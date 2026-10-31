@@ -97,7 +97,7 @@ class Model:
         self.ui = UI()
         self.layout = tuple(layout)  # layout.Widget for each widget (#50)
         self.windows = tuple(windows)  # layout.Widget for each widgetwindow (#124)
-        # The game window, from gamewindow.GameWindow: ((x, y, w, h) or None,
+        # The game window, from platform.GameWindow: ((x, y, w, h) or None,
         # frame borders (left, right, top, bottom), whether it's the active window).
         self.game_window = (None, (0, 0, 0, 0), False)
         self.status = {}  # app status for the status line: error, notice, last message
