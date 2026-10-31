@@ -35,6 +35,8 @@ Configured in config.toml as an array of [[widgets]] tables:
     widgets = [{widget = "trade-beside", height = "*"}, {widget = "hold-beside", height = 310}]
 
 The widget with height = "*" takes what the others leave; with none, the last does.
+A widgetwindow can also dock to a monitor's edge (dock = "screen:eDP-1:right",
+its width in px or "%") or float on one (no dock; screen, x, y, width, height).
 
 A named widget is a folder in helper/web/widgets/<name>/: a widget.toml with
 the settings a [[widgets]] table takes, plus a description and named states,
@@ -141,16 +143,48 @@ def load_widgets(path=config.PATH, plugins=()):
 
 @dataclass(frozen=True)
 class WindowSpec:
-    """A widgetwindow (#124): a title bar over one or more widgets, stacked top to bottom."""
+    """A widgetwindow (#124): a title bar over one or more widgets, stacked top to bottom.
+
+    It docks to the game (DOCKS), to a monitor's edge ("screen:<monitor>:<edge>"),
+    or floats on a monitor (dock None: screen, x, y, width and height).
+    """
 
     id: str
     title: str
-    dock: str  # one of DOCKS
-    width: int | None = None  # game:left/right: its width; top/bottom: the game's
-    height: int | None = None  # game:top/bottom: its height; left/right: the game's
-    layout: str = "compact"  # the title bar's text size
+    dock: str | None = None  # DOCKS, "screen:<monitor>:<edge>", or None to float
+    screen: str | None = None  # floating: the monitor's name
+    x: int = 0  # floating: position on that monitor
+    y: int = 0
+    width: int | str | None = None  # px or "N%" of the monitor; None: the game's or monitor's
+    height: int | str | None = None
+    layout: str | None = None  # the title bar's text size; default compact on the game
     font_scale: float = 1.0
-    show: str = "with_game"  # SHOW
+    show: str | None = None  # SHOW; default with_game on the game, else always
+
+    @property
+    def on_game(self):
+        return self.dock in DOCKS
+
+    @property
+    def shown(self):
+        return self.show or ("with_game" if self.on_game else "always")
+
+    @property
+    def text_layout(self):
+        return self.layout or ("compact" if self.on_game else "large")
+
+
+SCREEN_DOCK = re.compile(r"screen:(?P<monitor>[^:]+):(?P<edge>top|bottom|left|right)")
+SIZE = re.compile(r"\d+(\.\d+)?%")
+
+
+def _is_size(value):
+    """A width or height: whole pixels, or "N%" of the monitor."""
+    if isinstance(value, bool):
+        return False
+    return (isinstance(value, int) and value > 0) or (
+        isinstance(value, str) and SIZE.fullmatch(value) is not None
+    )
 
 
 def load_widgetwindows(path=config.PATH, plugins=()):
@@ -160,6 +194,41 @@ def load_widgetwindows(path=config.PATH, plugins=()):
     with open(path, "rb") as f:
         data = tomllib.load(f)
     return _widgetwindows(path, data, plugins)[0]
+
+
+def _window_sizes(where, table):
+    """Stops with a message unless the widgetwindow's placement and sizes fit together."""
+    side = table.get("dock")
+    if side is None:
+        if not isinstance(table.get("screen"), str):
+            raise SystemExit(f"{where}: floating, it needs a screen (a monitor's name)")
+        for name in ("x", "y"):
+            value = table.get(name, 0)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise SystemExit(f"{where}: {name} must be a whole number of pixels")
+        for name in ("width", "height"):
+            if not _is_size(table.get(name)):
+                raise SystemExit(f'{where}: {name} must be pixels or a percentage like "100%"')
+        return
+    edge = SCREEN_DOCK.fullmatch(side) if isinstance(side, str) else None
+    if side not in DOCKS and edge is None:
+        docks = ", ".join(DOCKS)
+        raise SystemExit(
+            f'{where}: dock must be one of {docks}, "screen:<monitor>:<edge>", or left out'
+        )
+    placed = sorted({"screen", "x", "y"} & set(table))
+    if placed:
+        raise SystemExit(f"{where}: docked, it can't set {', '.join(placed)}")
+    sideways = side.endswith((":left", ":right"))
+    across, other = ("width", "height") if sideways else ("height", "width")
+    size = table.get(across)
+    if edge is None and not (isinstance(size, int) and not isinstance(size, bool) and size > 0):
+        raise SystemExit(f"{where}: {across} must be a whole number of pixels")
+    if edge is not None and not _is_size(size):
+        raise SystemExit(f'{where}: {across} must be pixels or a percentage like "25%"')
+    if table.get(other) is not None:
+        whose = "the game's" if edge is None else "the monitor's"
+        raise SystemExit(f"{where}: docked to {side}, its other size is {whose}")
 
 
 def _widgetwindows(path, data, plugins):
@@ -176,21 +245,14 @@ def _widgetwindows(path, data, plugins):
         unknown = set(table) - {*WindowSpec.__dataclass_fields__, "widgets"}
         if unknown:
             raise SystemExit(f"{where}: unknown settings: {', '.join(sorted(unknown))}")
-        wid, title, side = table.get("id"), table.get("title"), table.get("dock")
+        wid, title = table.get("id"), table.get("title")
         if not (isinstance(wid, str) and WIDGET_ID.fullmatch(wid)):
             raise SystemExit(f"{where}: id must be letters, digits, '_', '.', ':' or '-'")
         if any(window.id == wid for window in windows):
             raise SystemExit(f"{where}: two widgetwindows have the id {wid!r}")
         if not isinstance(title, str) or not title:
             raise SystemExit(f"{where}: title must be some text")
-        if side not in DOCKS:
-            raise SystemExit(f"{where}: dock must be one of {', '.join(DOCKS)}")
-        across = "width" if side in ("game:left", "game:right") else "height"
-        size = table.get(across)
-        if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
-            raise SystemExit(f"{where}: {across} must be a whole number of pixels")
-        if table.get("width" if across == "height" else "height") is not None:
-            raise SystemExit(f"{where}: docked to {side}, its other size is the game's")
+        _window_sizes(where, table)
         if table.get("layout", "compact") not in LAYOUTS:
             raise SystemExit(f"{where}: layout must be one of {', '.join(LAYOUTS)}")
         if table.get("show", "with_game") not in SHOW:
@@ -202,7 +264,12 @@ def _widgetwindows(path, data, plugins):
         if not isinstance(entries, list) or not entries:
             raise SystemExit(f"{where}: widgets must be a list of widget tables")
         window = WindowSpec(**{k: v for k, v in table.items() if k != "widgets"})
-        windows.append(replace(window, font_scale=float(scale)))
+        window = replace(window, font_scale=float(scale))
+        windows.append(window)
+        # Its widgets: docked to the game with it (so compact, like game strips), else
+        # free; a pixel width they all take, a percentage worked out when placed.
+        dock = window.dock if window.on_game else None
+        width = window.width if isinstance(window.width, int) else None
         fills = 0
         for n, entry in enumerate(entries, start=1):
             at = f"{where}, widget {n}"
@@ -215,8 +282,7 @@ def _widgetwindows(path, data, plugins):
             fill = entry.get("height") == "*"
             fills += fill
             entry = {k: v for k, v in entry.items() if not (k == "height" and fill)}
-            width = size if across == "width" else None
-            spec = _spec(path, n, {**entry, "dock": side, "width": width}, plugins, where=at)
+            spec = _spec(path, n, {**entry, "dock": dock, "width": width}, plugins, where=at)
             specs.append(replace(spec, window=wid, fill=fill))
         if fills > 1:
             raise SystemExit(f'{where}: only one widget can have height = "*"')
@@ -394,24 +460,51 @@ WIDGETS = discover_widgets()
 
 def title_height(window):
     """The px height of a widgetwindow's title bar, for its layout and font_scale."""
-    return round(40 * LAYOUTS[window.layout][0] * window.font_scale)
+    return round(40 * LAYOUTS[window.text_layout][0] * window.font_scale)
 
 
-def window_rect(window, game_window):
-    """(x, y, width, height) of a widgetwindow docked to the game, or None to hide it.
+def _length(value, total):
+    """A width or height in px: whole pixels as they are, "N%" of total."""
+    if isinstance(value, str):
+        return round(total * float(value[:-1]) / 100)
+    return value
+
+
+def window_rect(window, game_window, monitors=()):
+    """(x, y, width, height) of a widgetwindow, or None to hide it.
+
     Beside the game it's the game window's whole height, its title bar and
-    borders included; above or below, its whole width."""
+    borders included; above or below, its whole width. On a monitor's edge it's
+    that monitor's height or width; floating, its own size on the monitor.
+    """
     geometry, frame, active = game_window
-    if geometry is None or (window.show == "with_game" and not active):
+    if window.shown == "with_game" and not (geometry and active):
         return None
-    gx, gy, gw, gh = geometry
-    left, right, top, bottom = frame
-    side = window.dock.split(":")[1]
+    if window.on_game:
+        if geometry is None:
+            return None
+        gx, gy, gw, gh = geometry
+        left, right, top, bottom = frame
+        side = window.dock.split(":")[1]
+        if side in ("left", "right"):
+            x = gx - left - window.width if side == "left" else gx + gw + right
+            return (x, gy - top, window.width, top + gh + bottom)
+        y = gy - top - window.height if side == "top" else gy + gh + bottom
+        return (gx - left, y, left + gw + right, window.height)
+    edge = SCREEN_DOCK.fullmatch(window.dock) if window.dock else None
+    name = edge["monitor"] if edge else window.screen
+    m = next((m for m in monitors if m.name == name), None)
+    if m is None:
+        return None
+    if edge is None:
+        w, h = _length(window.width, m.width), _length(window.height, m.height)
+        return (m.x + window.x, m.y + window.y, w, h)
+    side = edge["edge"]
     if side in ("left", "right"):
-        x = gx - left - window.width if side == "left" else gx + gw + right
-        return (x, gy - top, window.width, top + gh + bottom)
-    y = gy - top - window.height if side == "top" else gy + gh + bottom
-    return (gx - left, y, left + gw + right, window.height)
+        w = _length(window.width, m.width)
+        return (m.x if side == "left" else m.x + m.width - w, m.y, w, m.height)
+    h = _length(window.height, m.height)
+    return (m.x, m.y if side == "top" else m.y + m.height - h, m.width, h)
 
 
 def stacked(rect, title, heights):
@@ -464,11 +557,11 @@ def place(spec, game_window, size, monitors=()):
     return (x + spec.x, gy + spec.y, w, h)
 
 
-def place_in_window(widgets, window, wid, game_window, height, title=None):
+def place_in_window(widgets, window, wid, game_window, height, monitors=(), title=None):
     """A widget's rect in its widgetwindow, or None. height(widget) is a widget's
     height, or None when it isn't shown, so the ones after it move up. title:
     the title bar's height (default title_height(window))."""
-    rect = window_rect(window, game_window)
+    rect = window_rect(window, game_window, monitors)
     if rect is None:
         return None
     inside = [w for w in widgets if w.spec.window == window.id]
@@ -536,7 +629,9 @@ class TkWidget:
         if self.frame is None:
             return None
         layout, game_window = model.topic("layout"), model.topic("game_window")
-        return place_in_window(layout, self.frame, self.wid, game_window, _configured_height, 0)
+        return place_in_window(
+            layout, self.frame, self.wid, game_window, _configured_height, self.monitors, 0
+        )
 
     def follow(self, value):
         game_window, size, empty, widget, in_window = value

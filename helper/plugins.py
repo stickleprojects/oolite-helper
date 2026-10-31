@@ -266,15 +266,17 @@ class WebWidgets:
             if not shown(widget):
                 rect = None
             elif frame is not None:
-                rect = place_in_window(widgets, frame, wid, game_window, height)
+                rect = place_in_window(widgets, frame, wid, game_window, height, self.monitors)
             else:
                 rect = place(spec, game_window, self.sizes[wid], self.monitors)
             css = theme_css(spec.layout, spec.font_scale, self.title)
             extras = (("theme.css", css), ("dev.js", DEV_JS))
             if wid in self.pages:
-                fill = "*" if spec.fill else spec.height  # fills its view's height
+                # In a widgetwindow it fills its view's width, and its height if it fills.
+                width = "*" if frame is not None else spec.width
+                fill = "*" if spec.fill else spec.height
                 script = web.widget_config(
-                    spec.components, spec.widget, manifest.topics, spec.width, fill
+                    spec.components, spec.widget, manifest.topics, width, fill
                 )
                 extras += (("widget.html", manifest.page), ("widget.js", script))
             index = [w.id for w in widgets].index(wid)
@@ -290,7 +292,7 @@ class WebWidgets:
         frames = {
             fid: WebFrame(
                 window.title,
-                window_rect(window, game_window),
+                window_rect(window, game_window, self.monitors),
                 self.title,
                 title_height(window),
             )

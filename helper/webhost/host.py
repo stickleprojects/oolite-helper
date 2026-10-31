@@ -272,6 +272,11 @@ def main():
         def place(self, rect):
             place_window(self.window, rect)
 
+        def raise_(self):
+            gdk_window = self.window.get_window()
+            if self.window.get_visible() and gdk_window is not None:
+                gdk_window.raise_()
+
         def close(self):
             self.window.destroy()
 
@@ -471,6 +476,9 @@ def main():
             emit("error", id=wid, message=f"{op}: no window {wid!r}")
         elif op == "place":
             windows[wid].place(cmd.get("rect"))
+            if not windows[wid].framed:
+                for frame in frames.values():  # widgetwindows stay above lone widgets
+                    frame.raise_()
         elif op == "topic":
             windows[wid].topic(cmd["name"], cmd.get("value"))
         elif op == "close":
