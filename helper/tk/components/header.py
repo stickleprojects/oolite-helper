@@ -77,7 +77,13 @@ def status_line(status):
     """(kind, text) for the status line: an error, a warning, a notice or the last message."""
     if status.get("error"):
         return "error", f"Error (still running): {status['error']}"
-    for kind, field in (("warning", "keymap_error"), ("warning", "plugins"), ("notice", "notice")):
+    fields = (
+        ("warning", "keymap_error"),
+        ("warning", "settings"),
+        ("warning", "plugins"),
+        ("notice", "notice"),
+    )
+    for kind, field in fields:
         if status.get(field):
             return kind, status[field]
     if status.get("last_message"):

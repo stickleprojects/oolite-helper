@@ -42,13 +42,13 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import config, plugin_api, web
+from . import paths, plugin_api, settings, web
 from .keys import load_keymap
 from .markets import MarketStore
 from .model import Model
 from .plugins import Manifest, discover, page_manifest
+from .settings import COMPONENTS, WIDGETS, WidgetSpec
 from .webhost.host import content_type, csp
-from .widgets import COMPONENTS, WIDGETS, WidgetSpec, load_widgets
 
 SCENARIOS = Path(__file__).resolve().parent.parent / "scenarios"
 # How each component is shown on its own: (width, height, layout). Small ones
@@ -203,7 +203,9 @@ def widget_target(name):
 def config_targets(config_path, manifests):
     found = []
     if config_path and Path(config_path).exists():
-        for n, spec in enumerate(load_widgets(config_path, plugins=set(manifests)), start=1):
+        declared = {name: manifest.settings for name, manifest in manifests.items()}
+        config = settings.load(config_path, declared)[0]
+        for n, spec in enumerate(config.all_widgets, start=1):
             wid = spec.id or f"widget{n}:{spec.components[0]}"
             if spec.components[0] in manifests:
                 manifest = manifests[spec.components[0]]
@@ -238,7 +240,9 @@ def targets(config_path=None, plugins=None, names=()):
             found.append(widget_target(name))
         elif name not in COMPONENTS and all(part in COMPONENTS for part in parts):
             widget = "tabs" if tabs else None
-            spec = WidgetSpec(parts, width=DEFAULT_VIEW[0], layout="large", widget=widget)
+            spec = WidgetSpec(
+                components=parts, width=DEFAULT_VIEW[0], layout="large", widget=widget
+            )
             title = (" | " if tabs else " + ").join(parts)
             manifest = page_manifest(COMPONENTS, parts, WIDGETS.get(widget))
             found.append(Target(f"widget.{name}", title, spec, manifest))
@@ -966,7 +970,7 @@ def main():
         "--scenario", type=Path, action="append", help="fake-game scenario (default: all)"
     )
     parser.add_argument(
-        "--config", type=Path, default=Path(config.PATH), help="widgets to show (config.toml)"
+        "--config", type=Path, default=Path(paths.CONFIG), help="widgets to show (config.toml)"
     )
     parser.add_argument("--port", type=int, default=8566)
     parser.add_argument("--shots", type=Path, metavar="DIR", help="write images here and exit")
@@ -991,9 +995,9 @@ def main():
         import tests.fakegame  # noqa: F401
     except ImportError:
         parser.error("run this from the oolite-helper repository (it needs tests/fakegame.py)")
-    paths = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
+    scenarios = args.scenario or sorted(SCENARIOS.glob("*.yaml"))
     if args.readmes:
-        paths = []  # READMEs show the named states, over the blank snapshot
+        scenarios = []  # READMEs show the named states, over the blank snapshot
     if args.since:
         try:
             args.targets = affected(changed_since(args.since))
@@ -1009,7 +1013,7 @@ def main():
         keymap = None  # no game here: keys show as unbound
     with tempfile.TemporaryDirectory(prefix="oolite-harness-") as folder:
         try:
-            snaps = snapshots(paths, keymap, folder)
+            snaps = snapshots(scenarios, keymap, folder)
             found = targets(args.config, names=args.targets)
         except (OSError, ValueError) as error:
             parser.error(str(error))

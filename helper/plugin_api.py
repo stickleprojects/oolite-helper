@@ -17,7 +17,6 @@ The topics are enough to rebuild the whole laptop window as a plugin.
 import functools
 import re
 
-from . import desktop
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
 from .tk.components.header import status_line
@@ -471,22 +470,53 @@ DEV_JS = (
 )
 
 
-def title_colours(theme=None):
-    """(background, text) of widgets' title bars, from config's [theme] (#122):
-    each "system" takes the desktop's, falling back to the edge and text colours."""
-    theme = theme or {}
-    system = desktop.title_colours() or (EDGE, FG)
-    background = theme.get("title_background", "system")
-    background = system[0] if background == "system" else background.lower()
-    text = theme.get("title_text", "system")
-    if text != "system":
-        return background, text.lower()
-    return background, desktop.readable(system[1], background)
+# Settings a component, plugin or named widget declares it understands (#135):
+# [settings] name = "type" in its component.toml, plugin.toml or widget.toml.
+# A [[widgets]] table may then set them; settings.WidgetSpec checks the values.
+SETTING_TYPES = {
+    "colour": 'a colour like "#cc0000"',
+    "text": "some text",
+    "number": "a number",
+    "whole": "a whole number",
+    "true/false": "true or false",
+    "size": 'pixels or a percentage like "25%"',
+}
+COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+PERCENT = re.compile(r"\d+(\.\d+)?%")
+
+
+def setting_fits(kind, value):
+    """Whether value is a SETTING_TYPES kind of value."""
+    number = isinstance(value, (int, float)) and not isinstance(value, bool)
+    return {
+        "colour": isinstance(value, str) and COLOUR.fullmatch(value) is not None,
+        "text": isinstance(value, str),
+        "number": number,
+        "whole": number and isinstance(value, int),
+        "true/false": isinstance(value, bool),
+        "size": (number and isinstance(value, int) and value > 0)
+        or (isinstance(value, str) and PERCENT.fullmatch(value) is not None),
+    }.get(kind, False)
+
+
+def declared_settings(where, settings):
+    """A [settings] table's {name: type}, checked; raises ValueError saying what's wrong."""
+    if not isinstance(settings, dict):
+        raise ValueError(f"{where}: settings must be a table of name = type")
+    for name, kind in settings.items():
+        if kind not in SETTING_TYPES:
+            kinds = ", ".join(SETTING_TYPES)
+            raise ValueError(f"{where}: setting {name}'s type must be one of {kinds}")
+    return dict(settings)
 
 
 def theme_css(layout="compact", font_scale=1.0, title=None):
     scale = LAYOUTS[layout][0] * font_scale
-    title, title_fg = title or title_colours()
+    if title is None:
+        from .settings import Theme  # settings reads this module's setting types
+
+        title = Theme().colours()
+    title, title_fg = title
     return f"""/* The helper's look, for plugins (#59). Use the variables; they follow its theme. */
 :root {{
   --oo-bg: {BG};

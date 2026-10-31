@@ -8,7 +8,7 @@ A second-screen helper for the space game Oolite. An Oolite add-on writes JSON m
 - `helper/`: the Python package (`oolite-helper` entry point).
   - `sources.py` follows the log; `state.py` turns messages into a context.
   - `contexts.py` lists which actions to show; `keys.py`/`plist.py` read the key bindings.
-  - `screen.py`/`config.py` handle window placement; `app.py` is the Tk window.
+  - `screen.py` places the window; `settings.py` reads and checks config.toml and layout.toml (pydantic, #135); `app.py` is the Tk window.
 - `scripts/launch-oolite.sh`: game launcher (fixes the AppImage's data folders, starts the helper).
 
 ## Rules

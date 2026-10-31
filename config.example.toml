@@ -1,5 +1,6 @@
 # Copy to ~/.config/oolite-helper/config.toml and adjust.
 # Every setting is optional; command-line options override this file.
+# Check it with: oolite-helper --check-config (lists every problem).
 
 [window]
 # Which monitor, by xrandr name. Run `oolite-helper --list-screens` to see them.

@@ -30,9 +30,9 @@ import os
 import re
 import sys
 import tomllib
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field
 
-from . import config, web
+from . import paths, web
 from .layout import find
 from .plugin_api import (
     ACTIONS,
@@ -42,15 +42,14 @@ from .plugin_api import (
     KEYS_TOPIC,
     TOPICS,
     check_action,
+    declared_settings,
     key_info,
     theme_css,
-    title_colours,
     topic_value,
 )
+from .settings import COMPONENTS, WIDGETS, Theme
 from .webhost import WebFrame, WebHost, WebWindow
 from .widgets import (
-    COMPONENTS,
-    WIDGETS,
     dropped,
     landing,
     move_to,
@@ -63,7 +62,7 @@ from .widgets import (
     window_rect,
 )
 
-DIR = os.path.join(os.path.dirname(config.PATH), "plugins")
+DIR = os.path.join(paths.CONFIG_DIR, "plugins")
 NAME = re.compile(r"[a-z][a-z0-9-]{0,39}")  # also the host in plugin://<name>/
 
 
@@ -80,6 +79,7 @@ class Manifest:
     description: str = ""
     keys: tuple = ()  # actions whose keys it wants (the "keys" topic)
     actions: tuple = ()  # UI actions it may dispatch (plugin_api.ACTIONS)
+    settings: dict = field(default_factory=dict)  # {name: type} a widget may set for it (#135)
 
 
 def read_manifest(root):
@@ -134,6 +134,7 @@ def read_manifest(root):
             "topics": tuple(topics),
             "keys": tuple(keys),
             "actions": tuple(actions),
+            "settings": declared_settings("plugin.toml", data.get("settings", {})),
         }
     )
 
@@ -198,12 +199,12 @@ class WebWidgets:
         """components: the helper's components ({name: web.WebComponent}); each
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
-        before it was ever ready, to show them with Tk. theme: config's [theme].
+        before it was ever ready, to show them with Tk. theme: settings.Theme ([theme]).
         The widgetwindows (#124) come from the model's windows topic."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
-        self.title = title_colours(theme)
+        self.title = (theme or Theme()).colours()
         self.editing = set()  # widgetwindow ids in edit mode (each its own, from its ✎)
         self.resizing = {}  # widgetwindow id -> (x, y, w, h) while an edge or its title is dragged
         self.moving = {}  # those whose title bar is being dragged -> the pointer: they show a ghost
@@ -281,7 +282,7 @@ class WebWidgets:
             rect = None
             if frame.open:
                 # In edit mode it stays shown, even docked to a game that isn't active.
-                kept = replace(spec, show="always") if fid in self.editing else spec
+                kept = spec.changed(show="always") if fid in self.editing else spec
                 rect = self.resizing.get(fid) or window_rect(kept, game_window, self.monitors)
             title = title_height(spec)
             ghost = None
@@ -406,7 +407,7 @@ class WebWidgets:
         elif kind == "dock":
             game_window = self.model.topic("game_window")
             known = {place for place, _ in places(self.monitors, game_window)}
-            rect = window_rect(replace(frame.spec, show="always"), game_window, self.monitors)
+            rect = window_rect(frame.spec.changed(show="always"), game_window, self.monitors)
             if msg.get("place") in known and rect is not None:
                 action = move_to(frame.spec, msg["place"], rect, game_window, self.monitors)
                 if action is not None:

@@ -9,8 +9,8 @@ import tempfile
 import tkinter as tk
 import traceback
 
-from . import config
 from . import layout as layout_file
+from . import paths, settings
 from .gamewindow import GameWindow
 from .keys import load_keymap
 from .layout import widgets_from_specs, windows_from_specs
@@ -18,13 +18,14 @@ from .markets import MarketStore
 from .model import Model
 from .plugins import WebWidgets, discover
 from .screen import ANCHORS, choose_monitor, geometry, list_monitors
+from .settings import COMPONENTS
 from .sources import DEFAULT_LOG, LogSource
 from .tk.components import Style
 from .tk.components.body import Body
 from .tk.components.chips import ClearanceBadge, DriveChips, Tabs
 from .tk.components.header import Details, Heading, Location, Status, Tip
-from .tk.components.style import ACCENT, BG, DIM, FG, MONO, SANS
-from .widgets import COMPONENTS, TkWidget, load_widgets, load_widgetwindows
+from .tk.components.style import ACCENT, BG, DIM, FG, LAYOUTS, MONO, SANS
+from .widgets import TkWidget
 
 POLL_MS = 200
 GAME_WINDOW_EVERY = 2  # ticks between game window checks (the #50 spike used 0.5 s)
@@ -54,10 +55,11 @@ class HelperWindow:
         widgets=(),
         monitors=(),
         plugins=({}, {}),
-        layout_path=layout_file.PATH,
+        layout_path=paths.LAYOUT,
         ui="web",
         theme=None,
         widgetwindows=(),
+        setting_warnings=(),
     ):
         self.root = root
         self.source = source
@@ -74,13 +76,21 @@ class HelperWindow:
         # The layout (#50): config.toml's widgets, with the changes saved in layout.toml.
         defaults = widgets_from_specs(widgets)
         window_defaults = windows_from_specs(widgetwindows, defaults)
+        laid_out, windows, layout_warnings = settings.load_layout(
+            defaults, window_defaults, layout_path
+        )
+        for warning in (*setting_warnings, *layout_warnings):
+            print(f"oolite-helper: {warning}", file=sys.stderr)
         self.model = Model(
             markets=markets,
             keymap=keymap,
             missing_equipment=missing_equipment,
-            layout=layout_file.load(defaults, layout_path),
-            windows=layout_file.load(window_defaults, layout_path),
+            layout=laid_out,
+            windows=windows,
         )
+        warnings = (*setting_warnings, *layout_warnings)
+        if warnings:  # the last one says what was done about it
+            self.model.set_status(settings=f"{warnings[-1]} (see the log)")
         self.model.on_error = lambda exc, where: self.report(exc)
         # The notice is shown until the game sends something.
         self.model.set_status(keymap_error=keymap_error, notice=markets.load_error)
@@ -240,8 +250,15 @@ def single_instance_lock():
 def main():
     parser = argparse.ArgumentParser(
         description="Context-aware key helper for Oolite.",
-        epilog=f"Window settings can also go in {config.PATH} (see README).",
+        epilog=f"Settings go in {paths.CONFIG} (see config.example.toml).",
     )
+    parser.add_argument(
+        "--check-config",
+        action="store_true",
+        help="check config.toml and layout.toml, list every problem, and exit (0: fine)",
+    )
+    parser.add_argument("--config", default=paths.CONFIG, help="config.toml to read")
+    parser.add_argument("--layout-file", default=paths.LAYOUT, help="layout.toml to read")
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
     parser.add_argument("--stay", action="store_true", help="keep running when the game exits")
     parser.add_argument(
@@ -257,7 +274,7 @@ def main():
     win.add_argument("--margin", type=int, help="pixels from the screen edges")
     win.add_argument(
         "--layout",
-        choices=config.LAYOUTS,
+        choices=tuple(LAYOUTS),
         help="compact: smaller text and spacing, more key columns",
     )
     win.add_argument("--font-scale", type=float, help="text size multiplier, e.g. 0.8")
@@ -270,29 +287,41 @@ def main():
             print(m)
         return
 
-    settings = config.load_window_settings(
-        overrides={
-            "screen": args.screen,
-            "width": args.width,
-            "height": args.height,
-            "anchor": args.anchor,
-            "margin": args.margin,
-            "layout": args.layout,
-            "font_scale": args.font_scale,
-            "geometry": args.geometry,
-        }
-    )
-    theme = config.load_theme()
-    window_geometry = settings["geometry"]
+    manifests, broken = discover()
+    plugins = {name: m.settings for name, m in manifests.items()}
+    plugins.update({name: {} for name in broken})
+    if args.check_config:
+        found = settings.check(args.config, args.layout_file, plugins)
+        for problem in found:
+            print(problem)
+        print("config.toml and layout.toml are fine" if not found else f"{len(found)} problem(s)")
+        raise SystemExit(1 if found else 0)
+
+    config, setting_warnings = settings.load(args.config, plugins)
+    overrides = {
+        "screen": args.screen,
+        "width": args.width,
+        "height": args.height,
+        "anchor": args.anchor,
+        "margin": args.margin,
+        "layout": args.layout,
+        "font_scale": args.font_scale,
+        "geometry": args.geometry,
+    }
+    try:
+        window = config.window.changed(**{k: v for k, v in overrides.items() if v is not None})
+    except settings.ValidationError as error:
+        raise SystemExit("\n".join(settings.problems(error, "command line"))) from None
+    window_geometry = window.geometry
     if not window_geometry:
-        monitor = choose_monitor(monitors, settings["screen"])
+        monitor = choose_monitor(monitors, window.screen)
         if monitor is None:
             raise SystemExit(
                 "No monitors found via xrandr; set geometry in the config "
                 "file or use --geometry WxH+X+Y"
             )
         window_geometry = geometry(
-            monitor, settings["width"], settings["height"], settings["anchor"], settings["margin"]
+            monitor, window.width, window.height, window.anchor, window.margin
         )
 
     lock = single_instance_lock()
@@ -300,22 +329,22 @@ def main():
         print("oolite-helper is already running", file=sys.stderr)
         return
 
-    plugins = discover()
     root = tk.Tk()
     helper = HelperWindow(
         root,
         LogSource(args.log),
         window_geometry,
         quit_with_game=not args.stay,
-        font_scale=float(settings["font_scale"]),
-        layout=settings["layout"],
-        missing_equipment=settings["missing_equipment"],
-        widgets=load_widgets(plugins=set(plugins[0]) | set(plugins[1])),
-        widgetwindows=load_widgetwindows(plugins=set(plugins[0]) | set(plugins[1])),
+        font_scale=float(window.font_scale),
+        layout=window.layout,
+        missing_equipment=window.missing_equipment,
+        widgets=config.all_widgets,
+        widgetwindows=config.widgetwindows,
+        setting_warnings=setting_warnings,
         monitors=monitors,
-        plugins=plugins,
-        ui=settings["ui"],
-        theme=theme,
+        plugins=(manifests, broken),
+        ui=window.ui,
+        theme=config.theme,
     )
     try:
         root.mainloop()

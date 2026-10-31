@@ -11,7 +11,7 @@ license = "MIT"
 authors = [{ name = "Kieron Wray" }]
 requires-python = ">=3.11"
 # Tkinter comes from the system Python (python3-tk), not pip.
-dependencies = []
+dependencies = ["pydantic>=2.11,<3"]
 urls = { Repository = "https://github.com/stickleprojects/oolite-helper" }
 
 [project.optional-dependencies]
