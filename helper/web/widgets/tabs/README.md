@@ -10,7 +10,7 @@ Keys, all keys and the trade table, one at a time under a tab row
 | **Dock** | free, on the desktop |
 | **Width** | what its components need |
 | **Height** | what its components need |
-| **Layout** | `large` |
+| **Layout** | `compact` |
 | **Reads too** | `tabs` |
 | **Sends too** | `ui/choose_tab` |
 

@@ -1,5 +1,7 @@
 """Widgetwindows: a title bar over widgets stacked top to bottom, docked to the game (#124)."""
 
+from dataclasses import replace
+
 import pytest
 
 from helper.layout import widgets_from_specs
@@ -7,8 +9,12 @@ from helper.screen import Monitor
 from helper.widgets import (
     MIN_SIZE,
     WindowSpec,
+    dropped,
+    landing,
     load_widgets,
     load_widgetwindows,
+    move_to,
+    places,
     resize_edges,
     resized,
     stacked,
@@ -184,9 +190,9 @@ def test_on_a_monitor_that_isnt_there_it_hides():
     assert window_rect(window, NO_GAME, [LAPTOP]) is None
 
 
-def test_off_the_game_its_title_bar_is_large_text():
+def test_off_the_game_its_text_is_compact_too():
     window = WindowSpec("w", "W", screen="eDP-1", width=500, height=400)
-    assert title_height(window) == 40
+    assert title_height(window) == title_height(WindowSpec("w", "W", "game:right", width=640))
 
 
 FLOATING = """
@@ -208,11 +214,6 @@ def test_a_floating_widgetwindow_reads_its_screen_and_sizes(tmp_path):
         "100%",
         "100%",
     )
-
-
-def test_widgets_off_the_game_are_large_text(tmp_path):
-    (spec,) = load_widgets(config(tmp_path, FLOATING))
-    assert (spec.dock, spec.layout) == (None, "large")
 
 
 @pytest.mark.parametrize(
@@ -255,3 +256,103 @@ def test_a_resized_widgetwindow_beside_the_game_changes_only_its_width():
 def test_a_widgetwindow_cant_be_resized_too_small():
     window = WindowSpec("w", "W", "game:top", height=60)
     assert resized(window, (0, 0, 999, 5), [])[0]["height"] == MIN_SIZE
+
+
+ON_GAME_RIGHT = WindowSpec("w", "W", "game:right", width=640)
+OUTER = (1282 - 2, 204 - 24, 2 + 1280 + 2, 24 + 720 + 2)  # the game window, frame included
+MAIN = Monitor("DP-2", True, 3840, 1080, 0, 0)
+SCREENS = [MAIN, LAPTOP]
+ANYWHERE = (1200, 300, 640, 746)  # the dragged window; the pointer decides
+
+
+def drop(pointer, window=ON_GAME_RIGHT):
+    return dropped(window, ANYWHERE, GAME, SCREENS, pointer)
+
+
+def test_dropped_with_the_pointer_just_right_of_the_game_it_docks_there():
+    move = drop((OUTER[0] + OUTER[2] + 20, 400))
+    assert (move["dock"], move["width"], move["height"]) == ("game:right", 640, None)
+
+
+def test_dropped_with_the_pointer_just_left_of_the_game_it_docks_on_the_left():
+    assert drop((OUTER[0] - 20, 400))["dock"] == "game:left"
+
+
+def test_dropped_with_the_pointer_just_above_the_game_it_docks_on_top():
+    assert drop((1900, OUTER[1] - 20))["dock"] == "game:top"
+
+
+def test_turning_from_a_side_to_the_top_it_takes_a_third_of_the_edge():
+    move = drop((1900, OUTER[1] - 20))
+    assert (move["width"], move["height"]) == (None, OUTER[3] // 3)
+
+
+def test_dropped_with_the_pointer_by_a_monitors_edge_it_docks_to_that_edge():
+    assert drop((960 + 1920 - 10, 1500))["dock"] == "screen:eDP-1:right"
+
+
+def test_dropped_with_the_pointer_by_a_monitors_bottom_it_docks_there():
+    assert drop((1500, 1080 + 1080 - 10))["dock"] == "screen:eDP-1:bottom"
+
+
+def test_dropped_away_from_edges_it_floats_on_the_screen_under_the_pointer():
+    move = dropped(ON_GAME_RIGHT, (1200, 1300, 600, 500), GAME, SCREENS, (1500, 1500))
+    assert move == {
+        "type": "layout/move_widget",
+        "id": "w",
+        "dock": None,
+        "screen": "eDP-1",
+        "x": 240,
+        "y": 220,
+        "width": 600,
+        "height": 500,
+    }
+
+
+def test_floating_it_is_kept_on_its_screen():
+    move = dropped(ON_GAME_RIGHT, (2700, 1300, 600, 500), GAME, SCREENS, (2800, 1500))
+    assert move["x"] == 1920 - 600
+
+
+def test_dropped_on_no_monitor_it_stays_put():
+    assert dropped(ON_GAME_RIGHT, (9000, 9000, 600, 500), NO_GAME, [LAPTOP], (9100, 9100)) is None
+
+
+def test_its_ghost_shows_the_whole_edge_it_would_dock_to():
+    ghost = landing(ON_GAME_RIGHT, ANYWHERE, GAME, SCREENS, (960 + 5, 1500))
+    assert ghost == (960, 1080, 640, 1080)
+
+
+def test_its_anchor_list_offers_the_games_edges_each_screens_and_float():
+    labels = [label for _, label in places([LAPTOP], GAME)]
+    assert labels == [
+        "Game: left",
+        "Game: right",
+        "Game: top",
+        "Game: bottom",
+        "eDP-1: left",
+        "eDP-1: right",
+        "eDP-1: top",
+        "eDP-1: bottom",
+        "Float",
+    ]
+
+
+def test_without_a_game_window_its_list_has_no_game_edges():
+    assert [place for place, _ in places([LAPTOP], NO_GAME)][0] == "screen:eDP-1:left"
+
+
+def test_sent_from_its_list_to_a_screen_edge_it_keeps_its_width():
+    move = move_to(ON_GAME_RIGHT, "screen:eDP-1:left", ANYWHERE, GAME, SCREENS)
+    assert (move["dock"], move["width"]) == ("screen:eDP-1:left", 640)
+
+
+def test_floated_off_a_side_dock_it_is_half_the_screens_height():
+    move = move_to(ON_GAME_RIGHT, "float", (1200, 1080, 640, 1080), GAME, SCREENS)
+    assert (move["width"], move["height"]) == (640, 540)
+
+
+def test_its_text_size_stays_the_same_wherever_it_is_moved(tmp_path):
+    (window,) = load_widgetwindows(config(tmp_path))
+    floating = replace(window, dock=None, screen="eDP-1", width=500, height=400)
+    assert floating.layout == window.layout == "compact"

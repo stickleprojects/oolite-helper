@@ -194,3 +194,12 @@ def test_a_named_widgets_topics_must_be_known(tmp_path):
     (tmp_path / "widget.toml").write_text('components = ["keys"]\ntopics = ["sonar"]\n')
     with pytest.raises(ValueError, match="topics must be from plugin_api.TOPICS"):
         read_widget(tmp_path)
+
+
+def test_a_free_widget_is_compact_unless_its_config_says_large(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        '[[widgets]]\ncomponents = ["drive"]\nscreen = "eDP-1"\n\n'
+        '[[widgets]]\ncomponents = ["tip"]\nscreen = "eDP-1"\nlayout = "large"\n'
+    )
+    assert [spec.layout for spec in load_widgets(path)] == ["compact", "large"]

@@ -105,7 +105,7 @@ class WidgetSpec:
     y: int = 0
     width: int | None = None  # None: the game's width (top/bottom) or what the components need
     height: int | None = None  # None: the game's height (left/right) or what the components need
-    layout: str = "compact"  # from config.toml: compact when docked to the game, else large
+    layout: str = "compact"  # its text size: "compact" unless config.toml says "large"
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game when docked, always when free
     hide_empty: bool = False  # true: hide while its components (or plugin) have nothing to show
@@ -157,7 +157,7 @@ class WindowSpec:
     y: int = 0
     width: int | str | None = None  # px or "N%" of the monitor; None: the game's or monitor's
     height: int | str | None = None
-    layout: str | None = None  # the title bar's text size; default compact on the game
+    layout: str = "compact"  # its text size (and its widgets'), wherever it is
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game on the game, else always
 
@@ -168,10 +168,6 @@ class WindowSpec:
     @property
     def shown(self):
         return self.show or ("with_game" if self.on_game else "always")
-
-    @property
-    def text_layout(self):
-        return self.layout or ("compact" if self.on_game else "large")
 
 
 SCREEN_DOCK = re.compile(r"screen:(?P<monitor>[^:]+):(?P<edge>top|bottom|left|right)")
@@ -282,7 +278,8 @@ def _widgetwindows(path, data, plugins):
             fill = entry.get("height") == "*"
             fills += fill
             entry = {k: v for k, v in entry.items() if not (k == "height" and fill)}
-            spec = _spec(path, n, {**entry, "dock": dock, "width": width}, plugins, where=at)
+            entry = {"layout": window.layout, **entry, "dock": dock, "width": width}
+            spec = _spec(path, n, entry, plugins, where=at)
             specs.append(replace(spec, window=wid, fill=fill))
         if fills > 1:
             raise SystemExit(f'{where}: only one widget can have height = "*"')
@@ -325,8 +322,7 @@ def _spec(path, n, entry, plugins=(), where=None):
     scale = entry.get("font_scale", 1.0)
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or scale <= 0:
         raise SystemExit(f"{where}: font_scale must be a positive number")
-    # Strips docked to the game are compact unless asked; other widgets are large.
-    layout = entry.get("layout", "compact" if entry.get("dock") else "large")
+    layout = entry.get("layout", "compact")  # every widget, unless config.toml says otherwise
     return WidgetSpec(
         **{**entry, "components": components, "font_scale": float(scale), "layout": layout}
     )
@@ -460,7 +456,7 @@ WIDGETS = discover_widgets()
 
 def title_height(window):
     """The px height of a widgetwindow's title bar, for its layout and font_scale."""
-    return round(40 * LAYOUTS[window.text_layout][0] * window.font_scale)
+    return round(40 * LAYOUTS[window.layout][0] * window.font_scale)
 
 
 def _length(value, total):
@@ -589,6 +585,135 @@ def resized(window, rect, monitors=()):
     if window.dock.endswith((":left", ":right")):
         return [{"type": "layout/resize_widget", "id": wid, "width": w}]
     return [{"type": "layout/resize_widget", "id": wid, "height": h}]
+
+
+ZONE = 48  # px: a widgetwindow dropped with the pointer this close to an edge docks to it
+
+
+def _game_outer(game_window):
+    """The game window with its title bar and borders, (x, y, w, h), or None."""
+    geometry, frame, _ = game_window
+    if geometry is None:
+        return None
+    gx, gy, gw, gh = geometry
+    left, right, top, bottom = frame
+    return (gx - left, gy - top, gw + left + right, gh + top + bottom)
+
+
+def _monitor_at(monitors, x, y):
+    return next(
+        (m for m in monitors if m.x <= x < m.x + m.width and m.y <= y < m.y + m.height), None
+    )
+
+
+def places(monitors, game_window):
+    """[(place, label)] a widgetwindow can be sent to from its ⚓ list: the game's
+    edges (while there's a game window), each monitor's edges, and floating."""
+    sides = ("left", "right", "top", "bottom")
+    found = []
+    if game_window[0] is not None:
+        found += [(f"game:{side}", f"Game: {side}") for side in sides]
+    for m in monitors:
+        found += [(f"screen:{m.name}:{side}", f"{m.name}: {side}") for side in sides]
+    return found + [("float", "Float")]
+
+
+def move_to(window, place, rect, game_window, monitors=(), monitor=None):
+    """The layout/move_widget action that sends a widgetwindow, now at rect
+    (x, y, w, h), to place: "game:<side>", "screen:<monitor>:<side>" or "float"
+    (at rect, on monitor, else the one holding its centre). Docked it keeps its
+    width (left, right) or height (top, bottom), but turning from one to the
+    other it takes a third of the edge. Coming off a dock to float, the length
+    it had along the edge becomes half the monitor's. None if there's nowhere
+    to put it."""
+    x, y, w, h = rect
+    move = {"type": "layout/move_widget", "id": window.id, "x": 0, "y": 0, "screen": None}
+    was = (window.dock or "").rsplit(":", 1)[-1]
+    if place == "float":
+        m = monitor or _monitor_at(monitors, x + w // 2, y + h // 2)
+        if m is None:
+            return None
+        if was in ("left", "right"):
+            h = min(h, m.height // 2)
+        elif was in ("top", "bottom"):
+            w = min(w, m.width // 2)
+        x = min(max(x, m.x), m.x + m.width - min(w, m.width))
+        y = min(max(y, m.y), m.y + m.height - min(h, m.height))
+        return {
+            **move,
+            "dock": None,
+            "screen": m.name,
+            "x": x - m.x,
+            "y": y - m.y,
+            "width": w,
+            "height": h,
+        }
+    side = place.rsplit(":", 1)[1]
+    if place.startswith("game:"):
+        target = _game_outer(game_window)
+    else:
+        name = place.split(":")[1]
+        m = next((m for m in monitors if m.name == name), None)
+        target = (m.x, m.y, m.width, m.height) if m else None
+    if target is None:
+        return None
+    if side in ("left", "right"):
+        width = w if was in ("left", "right") else min(w, max(MIN_SIZE, target[2] // 3))
+        return {**move, "dock": place, "width": width, "height": None}
+    height = h if was in ("top", "bottom") else min(h, max(MIN_SIZE, target[3] // 3))
+    return {**move, "dock": place, "width": None, "height": height}
+
+
+def drop_place(rect, pointer, game_window, monitors=()):
+    """Where a widgetwindow dropped with the pointer at pointer (x, y) goes: a game
+    edge with the pointer within ZONE px outside it, else a monitor's edge with
+    the pointer within ZONE px of it, else "float"."""
+    px, py = pointer
+    outer = _game_outer(game_window)
+    if outer is not None:
+        ox, oy, ow, oh = outer
+        beside, over = oy <= py <= oy + oh, ox <= px <= ox + ow
+        zones = (
+            ("right", beside and 0 <= px - (ox + ow) <= ZONE),
+            ("left", beside and 0 <= ox - px <= ZONE),
+            ("top", over and 0 <= oy - py <= ZONE),
+            ("bottom", over and 0 <= py - (oy + oh) <= ZONE),
+        )
+        side = next((side for side, near in zones if near), None)
+        if side:
+            return f"game:{side}"
+    m = _monitor_at(monitors, px, py)
+    if m is not None:
+        gaps = {
+            "left": px - m.x,
+            "right": m.x + m.width - 1 - px,
+            "top": py - m.y,
+            "bottom": m.y + m.height - 1 - py,
+        }
+        side = min(gaps, key=gaps.get)
+        if gaps[side] <= ZONE:
+            return f"screen:{m.name}:{side}"
+    return "float"
+
+
+def dropped(window, rect, game_window, monitors=(), pointer=None):
+    """The layout/move_widget action for a widgetwindow dropped at rect after its
+    title bar was dragged, the pointer at pointer (default: rect's centre);
+    floating, it goes on the monitor holding the pointer."""
+    x, y, w, h = rect
+    pointer = pointer or (x + w // 2, y + h // 2)
+    place = drop_place(rect, pointer, game_window, monitors)
+    return move_to(window, place, rect, game_window, monitors, _monitor_at(monitors, *pointer))
+
+
+def landing(window, rect, game_window, monitors=(), pointer=None):
+    """Where a widgetwindow dragged to rect would be once dropped: (x, y, w, h)
+    for its ghost, or None."""
+    move = dropped(window, rect, game_window, monitors, pointer)
+    if move is None:
+        return None
+    placed = {name: move[name] for name in ("dock", "screen", "x", "y", "width", "height")}
+    return window_rect(replace(window, **placed, show="always"), game_window, monitors)
 
 
 def place_in_window(widgets, window, wid, game_window, height, monitors=(), title=None):

@@ -228,9 +228,10 @@ def main():
         """A widgetwindow: a title bar (title, ✎, ×) over a column of plugin views.
 
         Its ✎ asks the helper to toggle its edit mode. In edit mode its allowed
-        edges light up and dragging one resizes the window, following the
-        pointer here (the window manager doesn't manage popups) and telling the
-        helper the rect as it goes and when released.
+        edges light up and dragging one resizes the window, dragging the title
+        bar moves it, and × closes it. Drags follow the pointer here (the window
+        manager doesn't manage popups), telling the helper the rect as they go
+        and when released.
         """
 
         def __init__(self, fid):
@@ -243,18 +244,34 @@ def main():
             outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.bar = Gtk.Label(xalign=0.5)  # the title, centred on the whole bar
             self.bar.set_name("title")
-            # ✎ and × over its right end. × closes once edit mode can (#124 step 4).
+            # ✎ and × over its right end; × only does something in edit mode.
             self.pencil = self.button("✎", "pencil", self.on_pencil)
-            close = self.button("×", "close", None)
+            self.anchor = self.button("⚓", "anchor", self.on_anchor)  # shown while editing
+            close = self.button("×", "close", self.on_close)
             buttons = Gtk.Box(halign=Gtk.Align.END)
+            buttons.pack_start(self.anchor, False, False, 0)
             buttons.pack_start(self.pencil, False, False, 0)
             buttons.pack_start(close, False, False, 0)
             self.style(self.bar)
+            # The buttons' own area, so they show a pointer, not the title's move cursor.
+            pointer = Gtk.EventBox(visible_window=False, halign=Gtk.Align.END)
+            pointer.add(buttons)
+            pointer.connect(
+                "realize",
+                lambda b: b.get_window().set_cursor(
+                    Gdk.Cursor.new_from_name(b.get_display(), "pointer")
+                ),
+            )
             title = Gtk.Overlay()
             title.add(self.bar)
-            title.add_overlay(buttons)
+            title.add_overlay(pointer)
+            # The title bar's own events, for dragging it in edit mode.
+            self.handle = Gtk.EventBox()
+            self.handle.add(title)
+            self.drags(self.handle, "move")
+            self.editing = False
             self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            outer.pack_start(title, False, False, 0)
+            outer.pack_start(self.handle, False, False, 0)
             outer.pack_start(self.views, True, True, 0)
             root = Gtk.Overlay()
             root.add(outer)
@@ -265,6 +282,41 @@ def main():
             root.show_all()
             for edge in self.edges.values():
                 edge.hide()
+            self.ghost = [self.ghost_side() for _ in range(4)]  # top, bottom, left, right
+            self.anchor.hide()
+            # The ⚓ list: our own popup of buttons, as GTK's menus would grab the
+            # keyboard from the game while open.
+            self.list = popup()
+            self.list_box = Gtk.Grid(column_spacing=4)
+            self.list_box.set_name("list")
+            self.style(self.list_box)
+            self.list.add(self.list_box)
+            self.list_box.show()
+            self.places = ()
+
+        def ghost_side(self):
+            """One side of the outline showing where a dragged window would land."""
+            side = popup()
+            box = Gtk.EventBox(visible_window=True)
+            box.set_name("edge")
+            self.style(box)
+            side.add(box)
+            box.show()
+            return side
+
+        def show_ghost(self, rect):
+            if rect is None:
+                for side in self.ghost:
+                    side.hide()
+                return
+            x, y, w, h = rect
+            t = EDGE_PX
+            for side, (sx, sy, sw, sh) in zip(
+                self.ghost,
+                ((x, y, w, t), (x, y + h - t, w, t), (x, y, t, h), (x + w - t, y, t, h)),
+                strict=True,
+            ):
+                place_window(side, (sx, sy, max(1, sw), max(1, sh)))
 
         def style(self, widget):
             widget.get_style_context().add_provider(
@@ -294,23 +346,27 @@ def main():
             box.set_valign(
                 {"top": Gtk.Align.START, "bottom": Gtk.Align.END}.get(side, Gtk.Align.FILL)
             )
-            box.add_events(
-                Gdk.EventMask.BUTTON_PRESS_MASK
-                | Gdk.EventMask.BUTTON_RELEASE_MASK
-                | Gdk.EventMask.BUTTON_MOTION_MASK
-            )
             box.connect(
                 "realize",
                 lambda b: b.get_window().set_cursor(
                     Gdk.Cursor.new_from_name(b.get_display(), EDGE_CURSORS[side])
                 ),
             )
-            box.connect("button-press-event", self.on_press, side)
-            box.connect("motion-notify-event", self.on_motion)
-            box.connect("button-release-event", self.on_release)
+            self.drags(box, side)
             return box
 
-        def title(self, text, colours, height, editing=False, edges=()):
+        def drags(self, box, what):
+            """Dragging box resizes the window by side what, or moves it ("move")."""
+            box.add_events(
+                Gdk.EventMask.BUTTON_PRESS_MASK
+                | Gdk.EventMask.BUTTON_RELEASE_MASK
+                | Gdk.EventMask.BUTTON_MOTION_MASK
+            )
+            box.connect("button-press-event", self.on_press, what)
+            box.connect("motion-notify-event", self.on_motion)
+            box.connect("button-release-event", self.on_release)
+
+        def title(self, text, colours, height, editing=False, edges=(), ghost=None, places=()):
             background, text_colour = colours
             font = max(8, round(height * 0.5))
             pencil = EDIT_COLOUR if editing else text_colour
@@ -323,28 +379,104 @@ def main():
                     f"padding: 0 {font // 2}px; min-height: 0; }}"
                     f"#pencil {{ color: {pencil}; }}"
                     f"#edge {{ background: {EDIT_COLOUR}; }}"
+                    f"#anchor {{ background: none; border: none; box-shadow: none; "
+                    f"color: {EDIT_COLOUR}; font: bold {font}px sans-serif; "
+                    f"padding: 0 {font // 2}px; min-height: 0; }}"
+                    f"#list {{ background: {background}; border: 1px solid {EDIT_COLOUR}; }}"
+                    f"#item {{ background: none; border: none; box-shadow: none; "
+                    f"color: {text_colour}; font: {font}px sans-serif; "
+                    f"padding: 2px {font}px; min-height: 0; }}"
+                    f"#item:hover {{ background: {EDIT_COLOUR}; color: #000000; }}"
+                    f"#head {{ color: {EDIT_COLOUR}; font: bold {font}px sans-serif; "
+                    f"padding: 2px {font}px; }}"
                 ).encode()
             )
             self.bar.set_text(text)
             self.bar.set_size_request(-1, height)
             for side, edge in self.edges.items():
                 edge.set_visible(editing and side in edges)
+            self.editing = editing
+            handle = self.handle.get_window()
+            if handle is not None:
+                cursor = Gdk.Cursor.new_from_name(self.handle.get_display(), "move")
+                handle.set_cursor(cursor if editing else None)
             if not editing:
                 self.drag = None
+            self.show_ghost(ghost if editing else None)
+            self.anchor.set_visible(editing)
+            if not editing:
+                self.list.hide()
+            places = tuple(tuple(place) for place in places)
+            if places != self.places:
+                self.places = places
+                for child in self.list_box.get_children():
+                    child.destroy()
+                self.fill_list(places)
+
+        def fill_list(self, places):
+            """The ⚓ list as a grid: a column per target (the game, each screen)
+            headed by its name, a row per side, and Float across the bottom."""
+            sides = ("left", "right", "top", "bottom")
+            columns = {}  # "game" or "screen:<name>" -> its heading
+            for place, label in places:
+                if place != "float":
+                    columns.setdefault(place.rsplit(":", 1)[0], label.rsplit(":", 1)[0])
+            for col, (target, heading) in enumerate(columns.items()):
+                head = Gtk.Label(label=heading)
+                head.set_name("head")
+                self.style(head)
+                self.list_box.attach(head, col, 0, 1, 1)
+                for row, side in enumerate(sides, start=1):
+                    place = f"{target}:{side}"
+                    item = self.button(side, "item", lambda b, p=place: self.on_place(p))
+                    self.list_box.attach(item, col, row, 1, 1)
+            float_item = self.button("Float", "item", lambda b: self.on_place("float"))
+            self.list_box.attach(float_item, 0, len(sides) + 1, max(1, len(columns)), 1)
+            self.list_box.show_all()
+
+        def on_anchor(self, button):
+            """Opens (or closes) the ⚓ list under the title bar's right end."""
+            if self.list.get_visible() or self.rect is None:
+                self.list.hide()
+                return
+            size = self.list.get_preferred_size()[1]
+            x, y, w, _ = self.rect
+            below = y + self.bar.get_allocated_height()
+            lx, ly = max(x, x + w - size.width), below
+            # Kept on the monitor it opens on: upwards when there's no room below.
+            display = self.list.get_display()
+            area = display.get_monitor_at_point(x + w - 1, y).get_geometry()
+            if ly + size.height > area.y + area.height:
+                ly = max(area.y, y - size.height)
+            lx = min(max(lx, area.x), area.x + area.width - size.width)
+            self.list.move(lx, ly)
+            self.list.show()
+            gdk_window = self.list.get_window()
+            if gdk_window is not None:
+                gdk_window.raise_()
+
+        def on_place(self, place):
+            self.list.hide()
+            emit("frame", id=self.id, msg={"type": "dock", "place": place})
 
         def on_pencil(self, button):
             emit("frame", id=self.id, msg={"type": "edit"})
 
-        def on_press(self, box, event, side):
-            if event.button == 1 and self.rect is not None:
-                self.drag = (side, event.x_root, event.y_root, tuple(self.rect))
+        def on_close(self, button):
+            emit("frame", id=self.id, msg={"type": "close"})  # the helper checks edit mode
+
+        def on_press(self, box, event, what):
+            if event.button == 1 and self.editing and self.rect is not None:
+                self.drag = (what, event.x_root, event.y_root, tuple(self.rect))
             return True
 
         def dragged(self, event):
             """The rect the drag so far gives: the dragged edge follows the pointer."""
             side, px, py, (x, y, w, h) = self.drag
             dx, dy = round(event.x_root - px), round(event.y_root - py)
-            if side == "left":
+            if side == "move":
+                x, y = x + dx, y + dy
+            elif side == "left":
                 dx = min(dx, w - MIN_PX)
                 x, w = x + dx, w - dx
             elif side == "right":
@@ -365,16 +497,26 @@ def main():
             now = GLib.get_monotonic_time() / 1e6
             if now - self.sent >= DRAG_REPORT_SECONDS:
                 self.sent = now
-                emit("frame", id=self.id, msg={"type": "resize", "rect": rect, "done": False})
+                emit("frame", id=self.id, msg=self.report(rect, event, False))
             return True
 
         def on_release(self, box, event):
             if self.drag is None:
                 return False
-            rect = self.dragged(event)
+            msg = self.report(self.dragged(event), event, True)
             self.drag = None
-            emit("frame", id=self.id, msg={"type": "resize", "rect": rect, "done": True})
+            emit("frame", id=self.id, msg=msg)
             return True
+
+        def report(self, rect, event, done):
+            """The drag so far, for the helper: the rect and, moving, the pointer."""
+            msg = {"type": self.kind(), "rect": rect, "done": done}
+            if msg["type"] == "move":
+                msg["pointer"] = [round(event.x_root), round(event.y_root)]
+            return msg
+
+        def kind(self):
+            return "move" if self.drag[0] == "move" else "resize"
 
         def add(self, view, index):
             """Packs view in index order among the views already here."""
@@ -400,6 +542,9 @@ def main():
                 gdk_window.raise_()
 
         def close(self):
+            self.list.destroy()
+            for side in self.ghost:
+                side.destroy()
             self.window.destroy()
 
     class PluginWindow:
@@ -577,6 +722,8 @@ def main():
                 cmd["title_height"],
                 cmd.get("editing", False),
                 cmd.get("edges", ()),
+                cmd.get("ghost"),
+                cmd.get("places", ()),
             )
         elif op == "open":
             if wid in windows:

@@ -28,8 +28,11 @@ PROTOCOL (version 2): JSON objects, one per line.
 
   helper -> host (stdin)
     {"op": "frame", "id": FID, "title": TEXT, "colours": [BG, FG], "title_height": PX,
-     "editing": bool, "edges": ["left", ...]}         opens hidden, or updates its bar;
-                                                      editing: its edges resize it
+     "editing": bool, "edges": ["left", ...], "ghost": [x, y, w, h] or null}
+                                                      opens hidden, or updates its bar;
+                                                      editing: its edges resize it;
+                                                      ghost: an outline where a drag lands;
+     "places": [[PLACE, LABEL], ...]                  editing: what its ⚓ list offers
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
      "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N}
                                                       opens hidden; extras are
@@ -51,6 +54,11 @@ PROTOCOL (version 2): JSON objects, one per line.
     {"ev": "frame", "id": FID, "msg": {"type": "edit"}}  its ✎ was clicked
     {"ev": "frame", "id": FID, "msg": {"type": "resize", "rect": [x, y, w, h], "done": bool}}
                                                       an edge dragged (done: released)
+    {"ev": "frame", "id": FID, "msg": {"type": "move", "rect": [x, y, w, h],
+                                       "pointer": [x, y], "done": bool}}
+                                                      its title bar dragged
+    {"ev": "frame", "id": FID, "msg": {"type": "dock", "place": PLACE}}  picked from its ⚓ list
+    {"ev": "frame", "id": FID, "msg": {"type": "close"}}  its × was clicked
   made by WebHost.poll() itself
     {"ev": "host_exited", "code": N}                  restarting after a delay
     {"ev": "unavailable", "message": "..."}           couldn't start; retrying
@@ -111,9 +119,19 @@ class WebFrame:
     title_height: int = 24
     editing: bool = False  # in edit mode: its ✎ is lit and its edges resize it
     edges: tuple = ()  # which edges resize it: "left", "right", "top", "bottom"
+    ghost: tuple | None = None  # while its title bar is dragged: where it would land
+    places: tuple = ()  # editing: ((place, label), ...) its ⚓ list offers
 
     def bar(self):
-        return (self.title, self.colours, self.title_height, self.editing, self.edges)
+        return (
+            self.title,
+            self.colours,
+            self.title_height,
+            self.editing,
+            self.edges,
+            self.ghost,
+            self.places,
+        )
 
 
 def runtime_dir(environ=os.environ):
@@ -372,7 +390,7 @@ class WebHost:
         for fid, frame in self.frames.items():
             old = self.framed.get(fid)
             if old is None or old.bar() != frame.bar():
-                title, colours, height, editing, edges = frame.bar()
+                title, colours, height, editing, edges, ghost, places = frame.bar()
                 self._send(
                     op="frame",
                     id=fid,
@@ -381,6 +399,8 @@ class WebHost:
                     title_height=height,
                     editing=editing,
                     edges=list(edges),
+                    ghost=list(ghost) if ghost else None,
+                    places=[list(place) for place in places],
                 )
             if old is None or old.rect != frame.rect:
                 self._send(op="place", id=fid, rect=list(frame.rect) if frame.rect else None)

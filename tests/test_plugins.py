@@ -8,6 +8,7 @@ from helper.keys import Keymap, from_override
 from helper.layout import widgets_from_specs, windows_from_specs
 from helper.model import Model
 from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
+from helper.screen import Monitor
 from helper.widgets import COMPONENTS, WidgetSpec, WindowSpec, load_widgets, title_height
 
 GAME = {"type": "window/game", "geometry": [100, 200, 1280, 720], "frame": [2, 2, 24, 2]}
@@ -529,3 +530,77 @@ def test_on_release_the_new_width_goes_into_the_layout():
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
     edge_dragged(made, [1382, 176, 700, 746], True)
     assert model.topic("windows")[0].spec.width == 700
+
+
+def test_its_cross_outside_edit_mode_does_nothing():
+    _, made, model = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "close"}})
+    assert model.topic("windows")[0].open
+
+
+def test_its_cross_in_edit_mode_closes_it_and_the_widgets_in_it():
+    host, made, model = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "close"}})
+    assert (host.frames["trading"].rect, host.windows["widget2:hold"].rect) == (None, None)
+
+
+def test_dropped_away_from_the_game_it_floats_there():
+    host, made, model = trading_window()
+    made.monitors = [Monitor("eDP-1", False, 1920, 1080, 960, 1080)]
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    rect = [1200, 1300, 600, 500]
+    made.handle(
+        {"ev": "frame", "id": "trading", "msg": {"type": "move", "rect": rect, "done": True}}
+    )
+    assert host.frames["trading"].rect == (1200, 1300, 600, 500)
+
+
+def test_while_its_title_bar_is_dragged_a_ghost_shows_where_it_would_land():
+    host, made, _ = trading_window()
+    made.monitors = [Monitor("eDP-1", False, 1920, 1080, 960, 1080)]
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    rect = [1200, 1300, 600, 500]
+    made.handle(
+        {"ev": "frame", "id": "trading", "msg": {"type": "move", "rect": rect, "done": False}}
+    )
+    assert host.frames["trading"].ghost == (1200, 1300, 600, 500)
+
+
+def test_in_edit_mode_its_anchor_list_offers_places():
+    host, made, _ = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    assert ("float", "Float") in host.frames["trading"].places
+
+
+def test_picked_from_its_anchor_list_it_goes_there():
+    host, made, model = trading_window()
+    made.monitors = [Monitor("eDP-1", False, 1920, 1080, 960, 1080)]
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    pick = {"type": "dock", "place": "screen:eDP-1:left"}
+    made.handle({"ev": "frame", "id": "trading", "msg": pick})
+    assert model.topic("windows")[0].spec.dock == "screen:eDP-1:left"
+
+
+def test_a_place_its_list_doesnt_offer_is_refused():
+    _, made, model = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "dock", "place": "nowhere"}})
+    assert model.topic("windows")[0].spec.dock == "game:right"
+
+
+def test_in_edit_mode_it_stays_shown_while_the_game_isnt_active():
+    host, made, model = trading_window()
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    model.dispatch({**GAME, "active": False})
+    model.notify()
+    assert host.frames["trading"].rect is not None
+
+
+def test_a_widgets_text_stays_its_widgetwindows_size_off_the_game():
+    host, made, _ = trading_window()
+    made.monitors = [Monitor("eDP-1", False, 1920, 1080, 960, 1080)]
+    made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
+    pick = {"type": "dock", "place": "screen:eDP-1:left"}
+    made.handle({"ev": "frame", "id": "trading", "msg": pick})
+    assert "--oo-scale: 0.6;" in dict(host.windows["widget2:hold"].extras)["theme.css"]
