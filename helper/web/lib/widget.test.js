@@ -9,6 +9,12 @@ const path = require("node:path");
 const { test } = require("node:test");
 const { load, loadComponents, states, widget, WEB } = require("./testing.js");
 
+function started(size) {
+  const page = load(["tip"], null);
+  page.start({ components: ["tip"], widget: null, topics: ["tip"], ...size }, { tip: ["Dock now."] });
+  return page.classes;
+}
+
 test("every component folder registers a component of its name", () => {
   const folder = path.join(WEB, "components");
   const names = fs
@@ -36,4 +42,12 @@ test("a widget without its own drawing draws its components in order", () => {
 test("a named widget with its own drawing draws itself", () => {
   const { root } = widget(["keys", "all_keys"], { ...states("keys")["near a station"], tabs: {} }, "tabs");
   assert.equal(root.children[0].className, "tabs");
+});
+
+test("a widget with only a width set takes its components' height", () => {
+  assert.deepEqual(started({ width: 640, height: null }), ["fixed"]);
+});
+
+test("a widget with a height set fills that height", () => {
+  assert.deepEqual(started({ width: 640, height: 310 }), ["fixed", "fixed-height"]);
 });

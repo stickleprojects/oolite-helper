@@ -90,6 +90,11 @@ def test_the_page_config_names_the_widget():
     assert '"components": ["keys", "all_keys"], "widget": "tabs"' in script
 
 
+def test_the_page_config_gives_the_widgets_set_size():
+    script = web.widget_config(("hold",), None, ("hold",), 640, 310)
+    assert '"width": 640, "height": 310' in script
+
+
 def test_only_titled_components_can_be_tabs_keys_first():
     names = [name for name, _ in web.tab_titles(web.discover())]
     assert names == ["keys", "all_keys", "trade_table"]

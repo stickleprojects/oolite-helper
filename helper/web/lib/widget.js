@@ -4,7 +4,7 @@
 // The helper generates each widget's page: it loads this file, the listed
 // components' files, and _oolite/widget.js, which sets
 // OOLITE_WIDGET = {components: [names], widget: its name or null,
-// topics: [...], width: px or null}.
+// topics: [...], width: px or null, height: px or null}.
 //
 // A component is
 //   Oolite.component("name", {render(state, refresh) { return node or null; }});
@@ -60,8 +60,10 @@ const Oolite = (() => {
 
   function start() {
     const widget = globalThis.OOLITE_WIDGET;
-    // A width or height set in config.toml: the components fill the window.
-    if (widget.width) document.documentElement.classList.add("fixed");
+    // A width or height set in config.toml: the components fill the window's
+    // width; only a set height fills its height, else it's their own (#80).
+    if (widget.width || widget.height) document.documentElement.classList.add("fixed");
+    if (widget.height) document.documentElement.classList.add("fixed-height");
     for (const topic of widget.topics) {
       oolite.on(topic, (value) => {
         state[topic] = value;

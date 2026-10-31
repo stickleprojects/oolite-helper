@@ -377,7 +377,7 @@ def test_components_get_a_page_of_their_own_and_hide_until_it_draws(page_widgets
     extras = dict(window.extras)
     assert extras["widget.js"] == (
         'globalThis.OOLITE_WIDGET = {"components": ["clearance", "drive"], "widget": null, '
-        '"topics": ["clearance", "context", "drive"], "width": null};\n'
+        '"topics": ["clearance", "context", "drive"], "width": null, "height": null};\n'
     )
     host.events = [
         {"ev": "page", "id": "widget1:clearance", "msg": {"type": "show", "shown": True}}

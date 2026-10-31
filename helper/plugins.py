@@ -256,7 +256,7 @@ class WebWidgets:
             extras = (("theme.css", theme_css(spec.layout, spec.font_scale)), ("dev.js", DEV_JS))
             if wid in self.pages:
                 script = web.widget_config(
-                    spec.components, spec.widget, manifest.topics, spec.width
+                    spec.components, spec.widget, manifest.topics, spec.width, spec.height
                 )
                 extras += (("widget.html", manifest.page), ("widget.js", script))
             windows[wid] = WebWindow(manifest.name, manifest.root, manifest.entry, rect, extras)
