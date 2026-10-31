@@ -223,6 +223,11 @@ def test_each_plugin_gets_the_theme_for_its_widgets_layout(clicky):
     assert "--oo-scale: 1.2;" in theme_css("compact", 2.0)
 
 
+def test_the_theme_draws_a_window_edge_round_every_widget():
+    assert "--oo-edge: #3c4650;" in theme_css()
+    assert "border: 1px solid var(--oo-edge);" in theme_css()
+
+
 def test_the_plugin_docs_cover_every_topic_and_action():
     docs = (ROOT / "docs" / "plugins.md").read_text()
     from helper.plugin_api import ACTIONS

@@ -20,7 +20,7 @@ import re
 from .contexts import ALL_KEY_GROUPS
 from .model import URGENT
 from .tk.components.header import status_line
-from .tk.components.style import ACCENT, BG, DIM, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
+from .tk.components.style import ACCENT, BG, DIM, EDGE, FG, GREEN, LAYOUTS, MONO, PANEL, RED, SANS
 from .trade import ECONOMIES, GOVERNMENTS
 
 API = 1
@@ -481,6 +481,7 @@ def theme_css(layout="compact", font_scale=1.0):
   --oo-red: {RED};
   --oo-green: {GREEN};
   --oo-dim: {DIM};
+  --oo-edge: {EDGE};
   --oo-sans: "{SANS}", sans-serif;
   --oo-mono: "{MONO}", monospace;
   --oo-scale: {scale:g};
@@ -494,4 +495,13 @@ html, body {{
   font-size: calc(18pt * var(--oo-scale));
 }}
 body {{ overflow: hidden; cursor: default; user-select: none; }}
+/* A window edge, so the widget stands out against whatever is behind it (#122).
+   Drawn over the page, so it takes no room and panels can't cover it. */
+body::after {{
+  content: "";
+  position: fixed;
+  inset: 0;
+  border: 1px solid var(--oo-edge);
+  pointer-events: none;
+}}
 """

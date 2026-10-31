@@ -119,6 +119,7 @@ Other fields, other values or actions not in your manifest are refused.
 |---|---|
 | `--oo-bg`, `--oo-panel` | background, and panels on it |
 | `--oo-fg`, `--oo-dim` | text, and secondary text |
+| `--oo-edge` | the window edge it draws around every widget |
 | `--oo-accent`, `--oo-green`, `--oo-red` | keys and highlights; good; bad |
 | `--oo-sans`, `--oo-mono` | fonts |
 | `--oo-scale` | the widget's layout scale (`large` 1, `compact` 0.6, times its `font_scale`) |

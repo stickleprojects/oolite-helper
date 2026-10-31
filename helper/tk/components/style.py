@@ -12,6 +12,7 @@ FG = "#e6e6e6"
 ACCENT = "#ffb000"
 RED = "#ff4040"
 DIM = "#7a8590"
+EDGE = "#3c4650"  # web widgets' window edge (#122)
 GREEN = "#5fd068"
 SANS = "DejaVu Sans"
 MONO = "DejaVu Sans Mono"
