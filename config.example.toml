@@ -44,7 +44,9 @@ ui = "web"
 
 [theme]
 # Widgets' title bars: "system" takes the colours of the desktop's focused
-# title bars (from the window manager's theme), or set your own, e.g. white on red:
+# title bars (from the window manager's theme), or set your own, e.g. white on red.
+# "system" only works with Marco or Metacity themes (MATE, GNOME Flashback) that
+# give plain colours; anywhere else it falls back to the helper's grey.
 # title_background = "#cc0000"
 # title_text = "#ffffff"
 title_background = "system"

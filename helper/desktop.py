@@ -3,7 +3,9 @@
 Reads the window manager's theme (Marco on MATE, Metacity's theme format):
 the colour it fills a focused window's title bar with, and its title text.
 Only plain #rrggbb colours are taken; a theme that draws with GTK colours,
-blends or images gives None, and the helper keeps its own colours.
+blends or images gives None, and the helper keeps its own colours. Other
+window managers (Mutter, KWin, xfwm4) don't use these themes, so they give
+None too; the helper only runs on X11 anyway.
 """
 
 import functools
