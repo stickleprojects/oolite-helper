@@ -30,7 +30,7 @@ import os
 import re
 import sys
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from . import config, web
 from .layout import find
@@ -51,7 +51,11 @@ from .webhost import WebFrame, WebHost, WebWindow
 from .widgets import (
     COMPONENTS,
     WIDGETS,
+    dropped,
+    landing,
+    move_to,
     place,
+    places,
     resize_edges,
     resized,
     stacked,
@@ -201,7 +205,8 @@ class WebWidgets:
         self.monitors = monitors
         self.title = title_colours(theme)
         self.editing = set()  # widgetwindow ids in edit mode (each its own, from its ✎)
-        self.resizing = {}  # widgetwindow id -> (x, y, w, h) while an edge is dragged
+        self.resizing = {}  # widgetwindow id -> (x, y, w, h) while an edge or its title is dragged
+        self.moving = {}  # those whose title bar is being dragged -> the pointer: they show a ghost
         # widget id, "host" or "plugin:<name>" -> message for the status line
         self.problems = {f"plugin:{name}": f"plugin {name}: {why}" for name, why in broken.items()}
         self.manifests = manifests
@@ -269,20 +274,30 @@ class WebWidgets:
             return widget.spec.height or self.sizes[widget.id][1]
 
         frames = {}
+        window_specs = {frame.id: frame.spec for frame in model.topic("windows")}
         inside = {}  # widget id -> its rect in its widgetwindow, or None
         for frame in model.topic("windows"):
             fid, spec = frame.id, frame.spec
             rect = None
             if frame.open:
-                rect = self.resizing.get(fid) or window_rect(spec, game_window, self.monitors)
+                # In edit mode it stays shown, even docked to a game that isn't active.
+                kept = replace(spec, show="always") if fid in self.editing else spec
+                rect = self.resizing.get(fid) or window_rect(kept, game_window, self.monitors)
             title = title_height(spec)
+            ghost = None
+            if fid in self.moving and fid in self.resizing:
+                rect, pointer = self.resizing[fid], self.moving[fid]
+                ghost = landing(spec, rect, game_window, self.monitors, pointer)
+            editing = fid in self.editing
             frames[fid] = WebFrame(
                 spec.title,
                 rect,
                 self.title,
                 title,
-                editing=fid in self.editing,
+                editing=editing,
                 edges=resize_edges(spec),
+                ghost=ghost,
+                places=tuple(places(self.monitors, game_window)) if editing else (),
             )
             heights = [(w.id, height(w), w.spec.fill) for w in widgets if w.spec.window == fid]
             placed = stacked(rect, title, heights) if rect else {}
@@ -299,7 +314,9 @@ class WebWidgets:
                 rect = inside.get(wid)
             else:
                 rect = place(spec, game_window, self.sizes[wid], self.monitors)
-            css = theme_css(spec.layout, spec.font_scale, self.title)
+            # In a widgetwindow its text is the widgetwindow's size.
+            text = window_specs[frame].layout if frame is not None else spec.layout
+            css = theme_css(text, spec.font_scale, self.title)
             extras = (("theme.css", css), ("dev.js", DEV_JS))
             if wid in self.pages:
                 # In a widgetwindow it fills its view's width, and its height if it fills.
@@ -370,24 +387,52 @@ class WebWidgets:
         return True
 
     def frame_event(self, fid, msg):
-        """A widgetwindow's ✎ (toggle its edit mode) or an edge being dragged
-        (a preview; on release, saved through layout actions)."""
+        """A widgetwindow's ✎ (toggle its edit mode), and in edit mode its ×
+        (close it) or an edge or its title bar being dragged (a preview; on
+        release, saved through layout actions)."""
         frame = find(self.model.topic("windows"), fid)
+        kind = msg.get("type")
         if frame is None:
             return
-        if msg.get("type") == "edit":
+        if kind == "edit":
             (self.editing.discard if fid in self.editing else self.editing.add)(fid)
             self.resizing.pop(fid, None)
-        elif msg.get("type") == "resize" and fid in self.editing:
+            self.moving.pop(fid, None)
+        elif fid not in self.editing:
+            return  # × and dragging only work in edit mode
+        elif kind == "close":
+            self.editing.discard(fid)
+            self.model.dispatch({"type": "layout/close_widget", "id": fid})
+        elif kind == "dock":
+            game_window = self.model.topic("game_window")
+            known = {place for place, _ in places(self.monitors, game_window)}
+            rect = window_rect(replace(frame.spec, show="always"), game_window, self.monitors)
+            if msg.get("place") in known and rect is not None:
+                action = move_to(frame.spec, msg["place"], rect, game_window, self.monitors)
+                if action is not None:
+                    self.model.dispatch(action)
+        elif kind in ("resize", "move"):
             rect = tuple(msg.get("rect") or ())
             if len(rect) != 4 or not all(isinstance(n, int) for n in rect):
                 return
-            if msg.get("done"):
-                self.resizing.pop(fid, None)
-                for action in resized(frame.spec, rect, self.monitors):
-                    self.model.dispatch(action)
-            else:
+            pointer = msg.get("pointer")
+            if not (isinstance(pointer, list) and len(pointer) == 2):
+                pointer = None
+            if not msg.get("done"):
                 self.resizing[fid] = rect
+                if kind == "move":
+                    self.moving[fid] = tuple(pointer) if pointer else None
+            else:
+                self.resizing.pop(fid, None)
+                self.moving.pop(fid, None)
+                game_window = self.model.topic("game_window")
+                if kind == "resize":
+                    actions = resized(frame.spec, rect, self.monitors)
+                else:
+                    where = tuple(pointer) if pointer else None
+                    actions = [dropped(frame.spec, rect, game_window, self.monitors, where)]
+                for action in filter(None, actions):
+                    self.model.dispatch(action)
         self.model.notify()
 
     def fall_back(self):

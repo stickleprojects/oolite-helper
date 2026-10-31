@@ -10,6 +10,8 @@ setting, or "widget<n>:<first component>". The model keeps the widgets as its
 `layout` topic, and only "layout/..." actions change them:
 
     {"type": "layout/move_widget", "id": "widget1:laptop", "x": 10, "y": 0}
+    {"type": "layout/move_widget", "id": "trading", "dock": None, "screen": "eDP-1",
+     "x": 10, "y": 0, "width": 600, "height": 400}  # a whole new placement (#124)
     {"type": "layout/resize_widget", "id": "widget1:laptop", "width": 800, "height": 600}
     {"type": "layout/resize_widget", "id": "trading", "width": 700}  # either or both
     {"type": "layout/close_widget", "id": "widget1:laptop"}
@@ -24,7 +26,9 @@ defaults; delete it to go back to config.toml. See docs/architecture.md,
 "Layouts and the admin panel".
 """
 
+import json
 import os
+import re
 import sys
 import tomllib
 from dataclasses import dataclass, replace
@@ -32,7 +36,11 @@ from dataclasses import dataclass, replace
 from . import config
 
 PATH = os.path.join(os.path.dirname(config.PATH), "layout.toml")
-SAVED = ("x", "y", "width", "height", "open")  # what layout.toml may change
+SAVED = ("x", "y", "width", "height", "open", "dock", "screen")  # what layout.toml may change
+NONE = "none"  # layout.toml's word for an unset dock, screen or size (TOML has no null)
+MOVED = ("x", "y", "dock", "screen", "width", "height")  # what layout/move_widget may set
+PERCENT = re.compile(r"\d+(\.\d+)?%")
+PLACE = re.compile(r"game:(top|bottom|left|right)|screen:[^:]+:(top|bottom|left|right)")
 
 
 @dataclass(frozen=True)
@@ -81,7 +89,8 @@ def reduce_layout(widgets, action):
         if widget.id != wid:
             return widget
         if kind == "layout/move_widget":
-            return replace(widget, spec=replace(widget.spec, x=action["x"], y=action["y"]))
+            moved = {name: action[name] for name in MOVED if name in action}
+            return replace(widget, spec=replace(widget.spec, **moved))
         if kind == "layout/resize_widget":
             size = {name: action[name] for name in ("width", "height") if name in action}
             return replace(widget, spec=replace(widget.spec, **size))
@@ -95,9 +104,15 @@ def reduce_layout(widgets, action):
 def _valid(name, value):
     if name == "open":
         return isinstance(value, bool)
-    if not isinstance(value, int) or isinstance(value, bool):
-        return False
-    return value > 0 if name in ("width", "height") else True
+    if name == "dock":
+        return value is None or (isinstance(value, str) and PLACE.fullmatch(value) is not None)
+    if name == "screen":
+        return value is None or isinstance(value, str)
+    if name in ("width", "height"):
+        if value is None or (isinstance(value, str) and PERCENT.fullmatch(value)):
+            return True
+        return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def load(widgets, path=PATH):
@@ -118,6 +133,7 @@ def load(widgets, path=PATH):
     for widget in widgets:
         values = saved.get(widget.id)
         if isinstance(values, dict):
+            values = {k: (None if v == NONE else v) for k, v in values.items()}
             good = {k: v for k, v in values.items() if k in SAVED and _valid(k, v)}
             is_open = good.pop("open", widget.open)
             widget = replace(widget, spec=replace(widget.spec, **good), open=is_open)
@@ -135,7 +151,7 @@ def differences(defaults, widgets):
         changed = {
             name: widget.setting(name)
             for name in SAVED
-            if widget.setting(name) != default.setting(name) and widget.setting(name) is not None
+            if widget.setting(name) != default.setting(name)
         }
         if changed:
             diffs[widget.id] = changed
@@ -143,7 +159,11 @@ def differences(defaults, widgets):
 
 
 def _toml(value):
-    return ("true" if value else "false") if isinstance(value, bool) else str(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return json.dumps(NONE)
+    return json.dumps(value) if isinstance(value, str) else str(value)
 
 
 class LayoutFile:

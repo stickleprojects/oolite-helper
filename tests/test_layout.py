@@ -134,3 +134,13 @@ def test_saving_widgets_keeps_the_widgetwindows_changes(tmp_path):
     saver = LayoutFile(widgets, path, windows, widgets, wider)
     saver.save(reduce_layout(widgets, {"type": "layout/close_widget", "id": "trade"}))
     assert layout.load(windows, path) == wider
+
+
+def test_a_whole_new_placement_is_saved_and_loaded_back(tmp_path):
+    path = tmp_path / "layout.toml"
+    widgets, windows = widgets_from_specs(SPECS), windows_from_specs([TRADING])
+    floating = {"dock": None, "screen": "eDP-1", "x": 4, "y": 5, "width": "50%", "height": 300}
+    moved = reduce_layout(windows, {"type": "layout/move_widget", "id": "trading", **floating})
+    LayoutFile(widgets, path, windows, widgets, windows).save_windows(moved)
+    assert 'dock = "none"' in path.read_text()
+    assert layout.load(windows, path) == moved
