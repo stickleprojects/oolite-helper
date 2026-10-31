@@ -50,6 +50,14 @@ const Oolite = (() => {
       oolite.show(show);
     }
     if (!show) return;
+    measure();
+  }
+
+  // Asks for the window the components need. Run after each draw, and again
+  // when their layout changes without one: a page first laid out in the host's
+  // small window wraps its text, so it measures too tall until it's resized.
+  function measure() {
+    const root = document.getElementById("root");
     const box = root.getBoundingClientRect();
     const want = [Math.ceil(box.width), Math.ceil(box.height)];
     if (!size || want[0] !== size[0] || want[1] !== size[1]) {
@@ -71,6 +79,9 @@ const Oolite = (() => {
       });
     }
     draw();
+    if (typeof ResizeObserver === "function") {
+      new ResizeObserver(() => shown && measure()).observe(document.getElementById("root"));
+    }
   }
 
   document.addEventListener("DOMContentLoaded", start);
