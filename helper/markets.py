@@ -24,11 +24,9 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-PATH = (
-    Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    / "oolite-helper"
-    / "markets.json"
-)
+from . import platform
+
+PATH = Path(platform.DATA_DIR) / "markets.json"
 MAX_TRADE_EVENTS = 500
 MAX_MARKET_EVENTS = 500
 MAX_HOLD_EVENTS = 500

@@ -263,10 +263,10 @@ def test_equipment_gives_ok_instead_of_the_games_status_string():
 
 
 def test_title_bars_take_the_desktops_colours(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: ("#0055aa", "#ffffff"))
+    monkeypatch.setattr("helper.platform.title_colours", lambda: ("#0055aa", "#ffffff"))
     assert "--oo-title: #0055aa;\n  --oo-title-fg: #ffffff;" in theme_css()
 
 
 def test_title_bars_fall_back_to_the_edge_colour(monkeypatch):
-    monkeypatch.setattr("helper.desktop.title_colours", lambda: None)
+    monkeypatch.setattr("helper.platform.title_colours", lambda: None)
     assert "--oo-title: #3c4650;\n  --oo-title-fg: #e6e6e6;" in theme_css()

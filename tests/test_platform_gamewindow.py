@@ -1,4 +1,9 @@
-from helper.gamewindow import GameWindow, parse_frame_extents, parse_geometry, parse_window_id
+from helper.platform.linux_x11.gamewindow import (
+    GameWindow,
+    parse_frame_extents,
+    parse_geometry,
+    parse_window_id,
+)
 
 XWININFO = """
 xwininfo: Window id: 0x5400014 "Oolite v1.92.1 - Mar 19 2026"

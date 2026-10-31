@@ -115,9 +115,18 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/tk/components/`: the Tk fallback: `header.py` (heading, location, details, tip, status), `chips.py` (tabs, drive chips, clearance badge), `body.py` (key panels, All keys, trade table and detail, Trade here).
 - `helper/app.py`: the window layout, polling the log and the command line.
 - `helper/settings.py`: every setting (#135): `config.toml` and `layout.toml` read and checked through one pydantic model (`Settings`, `WindowSettings`, `Theme`, `WidgetSpec`, `WindowSpec`, named widgets), with the rules in it (sizes, docks, `height = "*"`, `"system"` colours, declared settings). `oolite-helper --check-config` lists every problem.
-- `helper/widgets.py`, `gamewindow.py`: placing widgets and widgetwindows, docked to the game or a monitor (#50, #124), and the Tk fallback.
+- `helper/widgets.py`: placing widgets and widgetwindows, docked to the game or a monitor (#50, #124), and the Tk fallback.
+- `helper/platform/`: everything tied to the operating system and desktop (#140): the helper's folders, where the game's log, settings and key files are, the monitors, the game window, title bar colours and the single-instance lock. The rest of the helper imports only from `helper.platform`; `linux_x11/` is the one implementation so far. See Platforms below.
 - `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and saving `layout.toml`.
 - `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, of the helper's components or a plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
 - `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
+
+## Platforms
+The helper runs on Linux with X11. What ties it there is in two places:
+
+- **`helper/platform/`** (#140): the names listed in its `__init__.py`, implemented for Linux in `linux_x11/` (XDG folders, the AppImage, `xrandr`, `xdotool`/`xprop`, Marco themes, `fcntl`). A port adds one module beside it with the same names; `helper.platform` says which names are missing when it's imported on a system it doesn't know.
+- **The web host** (`helper/webhost/host.py`): GTK and WebKitGTK, in its own process behind `PROTOCOL`, so another system can bring its own host.
+
+#139 lists what a Windows version could use for each (libraries, file locations, and a trap: `LogSource` keeps `Latest.log` open, which on Windows can stop Oolite renaming it).

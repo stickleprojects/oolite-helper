@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import pytest
@@ -53,59 +52,12 @@ def test_load_keymap_merges_default_layout_then_overrides(tmp_path, monkeypatch)
         '{ "oolite-keydesc-key_hyperspace" = "Hyperspace"; }',
         encoding="utf-8",
     )
-    monkeypatch.setattr(keys, "_extracted_config", lambda appimage: str(config_dir))
-    keymap = keys.load_keymap("unused", str(settings))
+    keymap = keys.load_keymap(str(config_dir), str(settings))
 
     assert keymap.bindings["key_roll_left"] == keyconfig["default"]["key_roll_left"]
     assert keymap.keys("key_next_compass_mode") == "Alt+\\"
     assert keymap.keys("key_hyperspace") == "X"
     assert keymap.describe("key_hyperspace") == "Hyperspace"
-
-
-def test_extracted_config_refreshes_when_appimage_changes(tmp_path, monkeypatch):
-    appimage = tmp_path / "oolite.AppImage"
-    appimage.touch()
-    cache = tmp_path / "cache"
-    cache.mkdir()
-    monkeypatch.setattr(keys, "CACHE", str(cache))
-    stale_cache = cache / "oolite.AppImage-9999999999"
-    stale_cache.mkdir()
-    other_cache = cache / "other.AppImage-9999999999"
-    other_cache.mkdir()
-    outside_cache = tmp_path / "outside-cache"
-    outside_cache.mkdir()
-    calls = []
-
-    def extract(args, cwd, **kwargs):
-        calls.append(args[-1])
-        config_dir = Path(cwd) / "squashfs-root" / keys.CONFIG_IN_APPIMAGE
-        config_dir.mkdir(parents=True, exist_ok=True)
-        if args[-1].endswith("keyconfig2.plist"):
-            (config_dir / "keyconfig2.plist").write_text(
-                '{ default = { key_fire_lasers = ({ key = "a"; }); }; }',
-                encoding="utf-8",
-            )
-        else:
-            (config_dir / "descriptions.plist").write_text(
-                '{ "oolite-keydesc-key_fire_lasers" = "Fire"; }',
-                encoding="utf-8",
-            )
-
-    monkeypatch.setattr(keys.subprocess, "run", extract)
-    os.utime(appimage, (1_000_000_000, 1_000_000_000))
-    first = keys._extracted_config(str(appimage))
-    first_root = Path(first).parents[4]
-    assert len(calls) == 2
-    assert not stale_cache.exists()
-    assert other_cache.exists()
-    assert outside_cache.exists()
-
-    os.utime(appimage, (1_000_000_002, 1_000_000_002))
-    second = keys._extracted_config(str(appimage))
-    assert second != first
-    assert len(calls) == 4
-    assert not first_root.exists()
-    assert other_cache.exists()
 
 
 def test_real_in_game_remap_shows_ctrl_alt_quote(tmp_path, monkeypatch):
@@ -117,8 +69,7 @@ def test_real_in_game_remap_shows_ctrl_alt_quote(tmp_path, monkeypatch):
         FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
     )
     (config_dir / "descriptions.plist").write_text("{}", encoding="utf-8")
-    monkeypatch.setattr(keys, "_extracted_config", lambda appimage: str(config_dir))
-    keymap = keys.load_keymap("unused", str(remap))
+    keymap = keys.load_keymap(str(config_dir), str(remap))
     assert keymap.keys("key_docking_clearance_request") == 'Ctrl+Alt+"'
 
 
@@ -155,15 +106,3 @@ def test_commodity_names_come_from_descriptions_with_a_fallback():
     keymap = keys.Keymap({}, {}, {"gem_stones": "Gem-Stones"})
     assert keymap.commodity("gem_stones") == "Gem-Stones"
     assert keymap.commodity("liquor_wines") == "Liquor Wines"
-
-
-def test_a_cache_that_cannot_be_pruned_does_not_stop_the_keys_loading(tmp_path, monkeypatch):
-    cache = tmp_path / "cache"
-    cache.mkdir()
-    monkeypatch.setattr(keys, "CACHE", str(cache))
-
-    def broken_scandir(path):
-        raise PermissionError(path)
-
-    monkeypatch.setattr(keys.os, "scandir", broken_scandir)
-    keys._prune_old_caches(str(tmp_path / "oolite.AppImage"), str(cache / "x"))  # no error
