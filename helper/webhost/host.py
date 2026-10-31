@@ -226,13 +226,22 @@ def main():
             self.window = popup()
             self.css = Gtk.CssProvider()
             outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            self.bar = Gtk.Label(xalign=0.5)  # the title, centred
+            self.bar = Gtk.Label(xalign=0.5)  # the title, centred on the whole bar
             self.bar.set_name("title")
-            self.bar.get_style_context().add_provider(
-                self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-            )
+            # × over its right end: shown, but closing comes with edit mode (#124 step 3).
+            close = Gtk.Button(label="×", relief=Gtk.ReliefStyle.NONE, halign=Gtk.Align.END)
+            close.set_name("close")
+            close.set_can_focus(False)
+            close.set_focus_on_click(False)
+            for part in (self.bar, close):
+                part.get_style_context().add_provider(
+                    self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+                )
+            title = Gtk.Overlay()
+            title.add(self.bar)
+            title.add_overlay(close)
             self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            outer.pack_start(self.bar, False, False, 0)
+            outer.pack_start(title, False, False, 0)
             outer.pack_start(self.views, True, True, 0)
             self.window.add(outer)
             outer.show_all()
@@ -244,6 +253,9 @@ def main():
                 (
                     f"#title {{ background: {background}; color: {text_colour}; "
                     f"font: bold {font}px sans-serif; padding: 0 {font}px; }}"
+                    f"#close {{ background: none; border: none; box-shadow: none; "
+                    f"color: {text_colour}; font: bold {font}px sans-serif; "
+                    f"padding: 0 {font // 2}px; min-height: 0; }}"
                 ).encode()
             )
             self.bar.set_text(text)
