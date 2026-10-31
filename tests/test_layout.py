@@ -1,9 +1,16 @@
 import pytest
 
 from helper import layout
-from helper.layout import LayoutFile, Widget, differences, reduce_layout, widgets_from_specs
+from helper.layout import (
+    LayoutFile,
+    Widget,
+    differences,
+    reduce_layout,
+    widgets_from_specs,
+    windows_from_specs,
+)
 from helper.model import Model
-from helper.widgets import WidgetSpec, load_widgets
+from helper.widgets import WidgetSpec, WindowSpec, load_widgets
 
 SPECS = [
     WidgetSpec(components=("drive",), dock="game:top"),
@@ -86,3 +93,44 @@ def test_a_bad_layout_file_is_skipped_not_fatal(tmp_path, capsys):
     )
     trade = layout.load(defaults, path)[1]
     assert trade == Widget("trade", WidgetSpec(**{**vars(SPECS[1]), "y": 7}), open=False)
+
+
+TRADING = WindowSpec("trading", "Trading", "game:right", width=640)
+
+
+def test_a_resize_can_change_just_the_width():
+    windows = windows_from_specs([TRADING])
+    resized = reduce_layout(
+        windows, {"type": "layout/resize_widget", "id": "trading", "width": 700}
+    )
+    assert (resized[0].spec.width, resized[0].spec.height) == (700, None)
+
+
+def test_layout_actions_with_a_widgetwindows_id_change_the_windows_topic():
+    model = Model(layout=widgets_from_specs(SPECS), windows=windows_from_specs([TRADING]))
+    model.dispatch({"type": "layout/resize_widget", "id": "trading", "width": 700})
+    assert model.topic("windows")[0].spec.width == 700
+
+
+def test_a_widgetwindow_cant_share_a_widgets_id():
+    with pytest.raises(SystemExit, match="a widget and a widgetwindow have the id 'trade'"):
+        windows_from_specs(
+            [WindowSpec("trade", "T", "game:right", width=1)], widgets_from_specs(SPECS)
+        )
+
+
+def test_a_widgetwindows_new_size_is_saved_and_loaded_back(tmp_path):
+    path = tmp_path / "layout.toml"
+    widgets, windows = widgets_from_specs(SPECS), windows_from_specs([TRADING])
+    wider = reduce_layout(windows, {"type": "layout/resize_widget", "id": "trading", "width": 700})
+    LayoutFile(widgets, path, windows, widgets, windows).save_windows(wider)
+    assert layout.load(windows, path) == wider
+
+
+def test_saving_widgets_keeps_the_widgetwindows_changes(tmp_path):
+    path = tmp_path / "layout.toml"
+    widgets, windows = widgets_from_specs(SPECS), windows_from_specs([TRADING])
+    wider = reduce_layout(windows, {"type": "layout/resize_widget", "id": "trading", "width": 700})
+    saver = LayoutFile(widgets, path, windows, widgets, wider)
+    saver.save(reduce_layout(widgets, {"type": "layout/close_widget", "id": "trade"}))
+    assert layout.load(windows, path) == wider

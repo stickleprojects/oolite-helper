@@ -47,6 +47,12 @@ MIME = {
 }
 SIZE_LIMITS = (16, 4000)  # px: no vanishing or screen-covering windows (oolite.show hides)
 LOG_TEXT_LIMIT = 500
+# Widgetwindows' edit mode (#124): the edge strips and how they behave.
+EDGE_CURSORS = {"left": "w-resize", "right": "e-resize", "top": "n-resize", "bottom": "s-resize"}
+EDGE_PX = 6
+MIN_PX = 80  # as widgets.MIN_SIZE
+DRAG_REPORT_SECONDS = 0.04  # how often a dragged edge's rect goes to the helper
+EDIT_COLOUR = "#ffb000"  # the helper's accent: lit ✎ and edges
 PAGE_MESSAGES_PER_SECOND = 20  # more than this from one page are dropped
 ACTION_LIMIT = 2000  # characters of JSON in one dispatched action
 # Files the helper provides to every plugin under plugin://<name>/_oolite/
@@ -219,47 +225,156 @@ def main():
             gdk_window.raise_()
 
     class FrameWindow:
-        """A widgetwindow: a title bar over a column of plugin views."""
+        """A widgetwindow: a title bar (title, ✎, ×) over a column of plugin views.
+
+        Its ✎ asks the helper to toggle its edit mode. In edit mode its allowed
+        edges light up and dragging one resizes the window, following the
+        pointer here (the window manager doesn't manage popups) and telling the
+        helper the rect as it goes and when released.
+        """
 
         def __init__(self, fid):
             self.id = fid
             self.window = popup()
             self.css = Gtk.CssProvider()
+            self.rect = None  # where the helper last placed it
+            self.drag = None  # (edge, pointer x, y, rect) while an edge is dragged
+            self.sent = 0.0  # when the last drag rect went to the helper
             outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.bar = Gtk.Label(xalign=0.5)  # the title, centred on the whole bar
             self.bar.set_name("title")
-            # × over its right end: shown, but closing comes with edit mode (#124 step 3).
-            close = Gtk.Button(label="×", relief=Gtk.ReliefStyle.NONE, halign=Gtk.Align.END)
-            close.set_name("close")
-            close.set_can_focus(False)
-            close.set_focus_on_click(False)
-            for part in (self.bar, close):
-                part.get_style_context().add_provider(
-                    self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-                )
+            # ✎ and × over its right end. × closes once edit mode can (#124 step 4).
+            self.pencil = self.button("✎", "pencil", self.on_pencil)
+            close = self.button("×", "close", None)
+            buttons = Gtk.Box(halign=Gtk.Align.END)
+            buttons.pack_start(self.pencil, False, False, 0)
+            buttons.pack_start(close, False, False, 0)
+            self.style(self.bar)
             title = Gtk.Overlay()
             title.add(self.bar)
-            title.add_overlay(close)
+            title.add_overlay(buttons)
             self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             outer.pack_start(title, False, False, 0)
             outer.pack_start(self.views, True, True, 0)
-            self.window.add(outer)
-            outer.show_all()
+            root = Gtk.Overlay()
+            root.add(outer)
+            self.edges = {side: self.edge(side) for side in EDGE_CURSORS}
+            for edge in self.edges.values():
+                root.add_overlay(edge)
+            self.window.add(root)
+            root.show_all()
+            for edge in self.edges.values():
+                edge.hide()
 
-        def title(self, text, colours, height):
+        def style(self, widget):
+            widget.get_style_context().add_provider(
+                self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+
+        def button(self, text, name, clicked):
+            button = Gtk.Button(label=text, relief=Gtk.ReliefStyle.NONE)
+            button.set_name(name)
+            button.set_can_focus(False)  # never takes keyboard focus from the game
+            button.set_focus_on_click(False)
+            if clicked is not None:
+                button.connect("clicked", clicked)
+            self.style(button)
+            return button
+
+        def edge(self, side):
+            """A strip along one side that resizes the window when dragged."""
+            box = Gtk.EventBox(visible_window=True)
+            box.set_name("edge")
+            self.style(box)
+            across = side in ("left", "right")
+            box.set_size_request(EDGE_PX if across else -1, -1 if across else EDGE_PX)
+            box.set_halign(
+                {"left": Gtk.Align.START, "right": Gtk.Align.END}.get(side, Gtk.Align.FILL)
+            )
+            box.set_valign(
+                {"top": Gtk.Align.START, "bottom": Gtk.Align.END}.get(side, Gtk.Align.FILL)
+            )
+            box.add_events(
+                Gdk.EventMask.BUTTON_PRESS_MASK
+                | Gdk.EventMask.BUTTON_RELEASE_MASK
+                | Gdk.EventMask.BUTTON_MOTION_MASK
+            )
+            box.connect(
+                "realize",
+                lambda b: b.get_window().set_cursor(
+                    Gdk.Cursor.new_from_name(b.get_display(), EDGE_CURSORS[side])
+                ),
+            )
+            box.connect("button-press-event", self.on_press, side)
+            box.connect("motion-notify-event", self.on_motion)
+            box.connect("button-release-event", self.on_release)
+            return box
+
+        def title(self, text, colours, height, editing=False, edges=()):
             background, text_colour = colours
             font = max(8, round(height * 0.5))
+            pencil = EDIT_COLOUR if editing else text_colour
             self.css.load_from_data(
                 (
                     f"#title {{ background: {background}; color: {text_colour}; "
                     f"font: bold {font}px sans-serif; padding: 0 {font}px; }}"
-                    f"#close {{ background: none; border: none; box-shadow: none; "
+                    f"#close, #pencil {{ background: none; border: none; box-shadow: none; "
                     f"color: {text_colour}; font: bold {font}px sans-serif; "
                     f"padding: 0 {font // 2}px; min-height: 0; }}"
+                    f"#pencil {{ color: {pencil}; }}"
+                    f"#edge {{ background: {EDIT_COLOUR}; }}"
                 ).encode()
             )
             self.bar.set_text(text)
             self.bar.set_size_request(-1, height)
+            for side, edge in self.edges.items():
+                edge.set_visible(editing and side in edges)
+            if not editing:
+                self.drag = None
+
+        def on_pencil(self, button):
+            emit("frame", id=self.id, msg={"type": "edit"})
+
+        def on_press(self, box, event, side):
+            if event.button == 1 and self.rect is not None:
+                self.drag = (side, event.x_root, event.y_root, tuple(self.rect))
+            return True
+
+        def dragged(self, event):
+            """The rect the drag so far gives: the dragged edge follows the pointer."""
+            side, px, py, (x, y, w, h) = self.drag
+            dx, dy = round(event.x_root - px), round(event.y_root - py)
+            if side == "left":
+                dx = min(dx, w - MIN_PX)
+                x, w = x + dx, w - dx
+            elif side == "right":
+                w = max(MIN_PX, w + dx)
+            elif side == "top":
+                dy = min(dy, h - MIN_PX)
+                y, h = y + dy, h - dy
+            else:
+                h = max(MIN_PX, h + dy)
+            return [x, y, w, h]
+
+        def on_motion(self, box, event):
+            if self.drag is None:
+                return False
+            rect = self.dragged(event)
+            self.window.move(rect[0], rect[1])
+            self.window.resize(rect[2], rect[3])
+            now = GLib.get_monotonic_time() / 1e6
+            if now - self.sent >= DRAG_REPORT_SECONDS:
+                self.sent = now
+                emit("frame", id=self.id, msg={"type": "resize", "rect": rect, "done": False})
+            return True
+
+        def on_release(self, box, event):
+            if self.drag is None:
+                return False
+            rect = self.dragged(event)
+            self.drag = None
+            emit("frame", id=self.id, msg={"type": "resize", "rect": rect, "done": True})
+            return True
 
         def add(self, view, index):
             """Packs view in index order among the views already here."""
@@ -270,7 +385,14 @@ def main():
                 self.views.reorder_child(child, position)
 
         def place(self, rect):
-            place_window(self.window, rect)
+            self.rect = rect
+            if self.drag is None:  # mid-drag the pointer, not the helper, places it
+                place_window(self.window, rect)
+
+        def refit(self):
+            """Back to its placed size once its views have shrunk to fit it."""
+            if self.rect is not None and self.drag is None:
+                self.window.resize(self.rect[2], self.rect[3])
 
         def raise_(self):
             gdk_window = self.window.get_window()
@@ -338,6 +460,7 @@ def main():
             self.view.connect("web-process-terminated", self.on_crash)
 
             # In a frame (#124) the view is one of its column; else a window of its own.
+            self.frame = frame
             self.framed = frame is not None
             if self.framed:
                 frame.add(self.view, index)
@@ -434,6 +557,7 @@ def main():
             else:
                 self.view.set_size_request(rect[2], rect[3])  # its frame places it
                 self.view.show()
+                self.frame.refit()
 
         def close(self):
             (self.view if self.framed else self.window).destroy()
@@ -447,7 +571,13 @@ def main():
         if op == "frame":
             if wid not in frames:
                 frames[wid] = FrameWindow(wid)
-            frames[wid].title(cmd["title"], cmd["colours"], cmd["title_height"])
+            frames[wid].title(
+                cmd["title"],
+                cmd["colours"],
+                cmd["title_height"],
+                cmd.get("editing", False),
+                cmd.get("edges", ()),
+            )
         elif op == "open":
             if wid in windows:
                 windows.pop(wid).close()

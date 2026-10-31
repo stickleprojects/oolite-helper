@@ -109,6 +109,10 @@ title_text = "system"
 # x, y and width. A closed widget leaves no gap. Also: layout and font_scale
 # (the title's size), show ("with_game" default on the game, else "always").
 #
+# Its title bar has ✎ and ×: ✎ puts that widgetwindow into edit mode, where
+# dragging its free edge (the far side from what it's docked to; any edge when
+# floating) resizes it. New sizes are saved in layout.toml beside this file.
+#
 # Or on a monitor's edge, its height (left/right) or width (top/bottom):
 #   dock = "screen:eDP-1:right" with width = 600 (or "30%").
 # Or floating on a monitor: leave dock out and give screen, x, y (default 0),
