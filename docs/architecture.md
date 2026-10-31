@@ -10,66 +10,59 @@
 - A **web view** is WebKit's browser view, which shows web widgets in the web host.
 
 ## The big picture
-Solid lines are built; dotted boxes and lines are planned or for a port. GitHub draws this from the Mermaid text below.
+Dashed boxes are planned (a port). GitHub draws this from the Mermaid text below.
 
 ```mermaid
-flowchart LR
-  subgraph game["Oolite (game process)"]
-    oxp["CtxKeys.oxp<br/>world script, _emit()"]
-    files[("game files<br/>keyconfig2.plist<br/>descriptions.plist<br/>OoliteDefaults.plist")]
+flowchart TB
+  subgraph game["Oolite: the game"]
+    direction LR
+    oxp["CtxKeys.oxp<br/>world script"]
+    files[("game files<br/>keyconfig2, descriptions,<br/>OoliteDefaults")]
   end
-  oxp -- "log(): JSON lines" --> log[("Latest.log")]
-  oxp -. "phase 2: debugConsole TCP :8563" .-> tcp["TCP source"]
 
   subgraph helper["Helper process: Python, the same on every system"]
-    src["sources.LogSource"]
-    model["Model: store, reducers, topics<br/>GameState, MarketStore, UI, layout"]
-    keys["keys + plist<br/>bindings, remaps"]
-    settings["settings (pydantic)<br/>config.toml, layout.toml"]
-    place["widgets + layout<br/>docks, widgetwindows"]
-    api["plugin_api<br/>public TOPICS and ACTIONS"]
-    client["webhost.WebHost<br/>sync, publish, poll"]
-    tk["Tk fallback window"]
+    direction LR
+    src["LogSource<br/>(TCP source, phase 2)"]
+    model["Model<br/>GameState, MarketStore,<br/>UI, layout"]
+    keys["keys + plist"]
+    settings["settings<br/>config.toml, layout.toml"]
+    api["plugin_api<br/>TOPICS, ACTIONS"]
+    client["WebHost client"]
     src --> model
     keys --> model
-    settings --> place
-    model --> place
+    settings --> model
     model --> api --> client
-    place --> client
-    model --> tk
   end
-  log --> src
-  tcp -.-> model
+
+  oxp -- "Latest.log: JSON lines" --> src
   files --> keys
 
-  subgraph platform["helper.platform: one module per system"]
-    linux["linux_x11<br/>XDG folders, AppImage,<br/>xrandr, xdotool/xprop,<br/>Marco theme, fcntl"]
-    win["windows (planned)<br/>platformdirs, screeninfo,<br/>PyWinCtl or Win32, msvcrt"]
-    mac["macos (planned)"]
+  subgraph platform["helper.platform"]
+    direction LR
+    linux["linux_x11<br/>XDG, AppImage, xrandr,<br/>xdotool, Marco, fcntl"]
+    win["windows<br/>(planned)"]
+    mac["macos<br/>(planned)"]
   end
   helper --> platform
-  linux --> files
 
-  client <-- "PROTOCOL: JSON lines over a pipe" --> hostL
-  subgraph hosts["Web host process: one per system"]
-    hostL["Linux: GTK 3 + WebKitGTK<br/>popups that never take focus"]
-    hostW["Windows (planned): Qt WebEngine<br/>or WebView2"]
-    hostM["macOS (planned): WKWebView"]
+  subgraph host["Web host process"]
+    direction LR
+    hostL["Linux<br/>GTK 3 + WebKitGTK"]
+    hostW["Windows (planned)<br/>Qt WebEngine or WebView2"]
+    hostM["macOS (planned)<br/>WKWebView"]
   end
-  client -.-> hostW
-  client -.-> hostM
+  client <-- "PROTOCOL: JSON lines" --> host
 
-  subgraph pages["Sandboxed pages (plugin:// scheme, CSP, no network)"]
+  subgraph pages["Sandboxed pages: plugin:// scheme, CSP, no network"]
+    direction LR
     comps["helper's components<br/>helper/web/components/"]
-    third["third-party plugins<br/>~/.config/oolite-helper/plugins/NAME/<br/>plugin.toml: topics, actions"]
+    third["third-party plugins<br/>~/.config/oolite-helper/plugins/NAME/<br/>plugin.toml"]
   end
-  hostL --> comps
-  hostL --> third
-  third -- "oolite.on(topic)" --- api
-  third -- "oolite.dispatch(ui/...): checked by plugin_api.check_action" --> model
+  host --> pages
+  third -. "topics it lists in; ui/... actions out,<br/>checked by plugin_api.check_action" .-> api
 
   classDef planned stroke-dasharray: 5 5
-  class tcp,win,mac,hostW,hostM planned
+  class win,mac,hostW,hostM planned
 ```
 
 - **Third-party plugins** are folders the player adds under `~/.config/oolite-helper/plugins/` (see [plugins.md](plugins.md)). The helper discovers them at startup (`plugins.discover`), and the web host runs each one like the helper's own components: a sandboxed page that gets only the `plugin_api` topics its `plugin.toml` lists, and may send only the `ui/...` actions it lists, each checked before it reaches the model. They never see the model, the game or the file system directly, so they work unchanged on any system with a web host.
