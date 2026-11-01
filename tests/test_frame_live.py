@@ -97,11 +97,11 @@ def desktop(tmp_path_factory):
             [sys.executable, "-c", GAME], env=env, stdout=subprocess.PIPE, text=True
         )
         procs.append(game)
-        found = lambda: (
-            subprocess.run(  # noqa: E731
-                ["xdotool", "search", "--name", "fake game"], env=env, capture_output=True
-            ).stdout
-        )
+
+        def found():
+            search = ["xdotool", "search", "--name", "fake game"]
+            return subprocess.run(search, env=env, capture_output=True).stdout
+
         assert wait(found), "the stand-in game didn't open"
         window = found().split()[0].decode()
         xdotool("windowactivate", "--sync", window, env=env)
@@ -260,12 +260,12 @@ def test_the_wheel_scrolls_its_column_and_the_game_keeps_the_keyboard(frame, des
     mouse, model, made = frame
     x, y, w, h = bar(model)
     column = f"{x},{y + h},{w},{200 - h}"
-    shot = lambda name: (
-        subprocess.run(  # noqa: E731
-            ["scrot", "-a", column, "-o", str(tmp_path / name)], env=desktop[0], check=True
-        )
-        and (tmp_path / name).read_bytes()
-    )
+
+    def shot(name):
+        path = tmp_path / name
+        subprocess.run(["scrot", "-a", column, "-o", str(path)], env=desktop[0], check=True)
+        return path.read_bytes()
+
     before = shot("before.png")
     mouse("mousemove", x + w // 2, y + 120)
     for _ in range(5):
