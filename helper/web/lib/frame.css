@@ -58,7 +58,12 @@ body { flex-direction: column; align-items: stretch; }
   flex-direction: column;
   align-items: stretch;
   gap: calc(12px * var(--oo-scale));
+  min-width: 0;
   padding: 1px;
+  overflow-x: auto; /* wider than the window: it scrolls sideways */
 }
 /* A set height: it scrolls inside that. */
 .oo-widget.sized > .oo-root { min-height: 0; overflow: auto; }
+.oo-root::-webkit-scrollbar { width: 6px; height: 6px; }
+.oo-root::-webkit-scrollbar-track, .oo-root::-webkit-scrollbar-corner { background: transparent; }
+.oo-root::-webkit-scrollbar-thumb { background: var(--oo-dim); border-radius: 3px; }
