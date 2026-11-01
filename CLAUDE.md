@@ -83,7 +83,7 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 
 ## Rules
 
-- **Python runs from the project venv**, `.venv/` (gitignored, built from the system Python for Tkinter). Install with `.venv/bin/pip install -e ".[dev]"`, run with `.venv/bin/oolite-helper`, and add any dependencies to `pyproject.toml`.
+- **Python runs from the project venv**, `.venv/` (gitignored, built from the system Python for Tkinter). Install with `.venv/bin/pip install -e ".[dev]" ruff==0.17.1`, run with `.venv/bin/oolite-helper`, and add any dependencies to `pyproject.toml`.
 - **The repo is on NTFS (`core.fileMode=false`)**, so git never records the executable bit. For a script that must be executable, run `git update-index --chmod=+x <file>`.
 
 - **Key bindings come from the game's files, never from memory.** Extract the AppImage (`--appimage-extract`) into a scratch folder, not into this repo, then read `keyconfig*.plist` and any user overrides (check `Settings/OoliteDefaults.plist`).
@@ -101,7 +101,7 @@ The claude-sdlc framework was assessed on 2026-11-02 and isn't adopted; the thre
 - **Mark the issue in progress.** When work starts, add the `in progress` label (`gh issue edit N --add-label "in progress"`) to each issue the branch covers. Remove it when the PR merges, and also if the work is dropped.
 - Kieron merges PRs (0 approvals are required), or tells Claude to. After a merge: `git checkout main && git pull --ff-only && git fetch --prune`, delete the local branch, and remove the `in progress` label from the issues it closed.
 - Commits use the noreply address set in this repo's git config, so don't change `user.email`.
-- **CI is required** (`.github/workflows/ci.yml`): 7 checks (Python 3.11/3.12/3.13, Lint, Add-on Node 20/22, Shell), and **strict**, so a PR must be up to date with `main`. Run the same checks locally before pushing: `scripts/run-ci-checks.sh` (`--quick` for pytest and ruff only). If you change `ci.yml`, change the script with it.
+- **CI is required** (`.github/workflows/ci.yml`): 7 checks (Python 3.11/3.12/3.13, Lint, Add-on Node 20/22, Shell), and **strict**, so a PR must be up to date with `main`. Run the same checks locally before pushing: `scripts/run-ci-checks.sh` (`--quick` for pytest and ruff only). CI's jobs run the same script (`--only <group>`), so a new check goes in the script, not in `ci.yml`.
 - If `gh pr merge` fails with "part of a stack", use `gh api -X PUT repos/stickleprojects/oolite-helper/pulls/N/merge-async -f merge_method=squash -f merge_action=direct_merge`, then poll `.../merge-async/<details.uuid>` until `merged`.
 
 ## Working with Copilot

@@ -24,7 +24,7 @@ scripts/run-ci-checks.sh --quick   # only pytest and ruff
 scripts/run-ci-checks.sh --live    # also the two live tests below (need a display)
 ```
 
-Every check runs even if one fails, and the failed ones are listed at the end. It uses one Python and one Node; CI also tries Python 3.11 to 3.13 and Node 20 and 22. Fix formatting with `.venv/bin/ruff format .`.
+You need Python 3.11+ and Node 20+. Every check runs even if one fails, and the failed ones are listed at the end. CI's jobs run the same script, one group each (`--only python`, `lint`, `js` or `shell`). It uses one Python and one Node; CI also tries Python 3.11 to 3.13 and Node 20 and 22. Fix formatting with `.venv/bin/ruff format .`.
 
 Without `--live`, none of these need Oolite or a display.
 

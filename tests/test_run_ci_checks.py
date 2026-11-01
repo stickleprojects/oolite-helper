@@ -50,3 +50,21 @@ def test_quick_runs_only_pytest_and_ruff(tmp_path):
     assert result.returncode == 0
     assert [call.split()[0] for call in calls] == ["python", "ruff", "ruff"]
     assert "-m pytest -q" in calls[0]
+
+
+def test_only_js_runs_the_node_checks_without_a_venv(tmp_path):
+    bin_dir, log = fake_tools(tmp_path)
+    (bin_dir / "python").unlink()  # CI's Node jobs have no Python set up
+    env = {**os.environ, "VENV": str(bin_dir.parent), "PATH": f"{bin_dir}:/usr/bin:/bin"}
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--only", "js"], capture_output=True, text=True, env=env, check=False
+    )
+    assert result.returncode == 0
+    assert {call.split()[0] for call in log.read_text().splitlines()} == {"node"}
+
+
+def test_an_unknown_group_exits_2(tmp_path):
+    result, calls = run(tmp_path, "--only", "docs")
+    assert result.returncode == 2
+    assert "unknown group: docs" in result.stderr
+    assert calls == []
