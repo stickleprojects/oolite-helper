@@ -67,6 +67,9 @@ Draft it in the scratchpad, then show Kieron a short summary (the goal, the step
 ## Steps
 1. <PR-sized, each verified on its own; say which needs Kieron to play-test>
 
+## Acceptance criteria
+1. <one checkable outcome, in the player's or the code's terms> (test: `<file>`, "<what it checks>" | play-test (Kieron))
+
 ## Tests
 <one behaviour per test, beside the component>
 
@@ -76,6 +79,8 @@ Draft it in the scratchpad, then show Kieron a short summary (the goal, the step
 ## To check
 <facts still unverified, if any>
 ```
+
+Every acceptance criterion names the test that will prove it, or says *play-test (Kieron)* when only the game can show it. The `verifier` agent checks the PR against this list, so write each criterion so that it passes or fails on its own; quote what it means rather than relying on its number.
 
 Write in plain, short English. Name the files and functions to change. Keep it as long as the feature needs and no longer.
 

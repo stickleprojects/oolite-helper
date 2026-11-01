@@ -88,6 +88,10 @@ Stop them with `systemctl --user stop oolite-helper` (or `oolite-game`). To chec
 
 - **Key bindings come from the game's files, never from memory.** Extract the AppImage (`--appimage-extract`) into a scratch folder, not into this repo, then read `keyconfig*.plist` and any user overrides (check `Settings/OoliteDefaults.plist`).
 - **Build in small, verified steps.** The game has to be run by Kieron, so ask them to run it and then check the log.
+- **Verify before a PR.** Run the `verifier` agent (`.claude/agents/verifier.md`) with the issue number (and step). It checks each `## Acceptance criteria` item in the issue: PASS with the test, FAIL, or PENDING for a play-test. Fix the FAILs, then put its report in the PR body under "Checked" and the PENDING items under "To check (Kieron)".
+- **Bug fixes start with a failing test.** Commit the test on its own first and check that it fails. Then lock the tests with `touch .claude/tests-locked` (gitignored): the `lock-tests.sh` hook blocks edits to `tests/`, `*.test.js` and `test_*.py` until `rm .claude/tests-locked`. Only unlock early if Kieron agrees the test is wrong. The hook covers Edit and Write only, so don't change tests through Bash while locked.
+
+The claude-sdlc framework was assessed on 2026-11-02 and isn't adopted; the three ideas above came from it (#145). Don't run its `sync-sdlc.sh` or `bootstrap-github.sh` here: they replace `ci.yml`, `.claude/settings.json` and the required checks.
 - Don't commit extracted AppImage contents, game logs or save files.
 
 ## Git workflow
