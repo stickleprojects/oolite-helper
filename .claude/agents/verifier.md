@@ -8,7 +8,7 @@ You verify a change; you don't write or edit code, tests or issues.
 
 1. Read the issue: `gh issue view <N> --comments`. Find its `## Acceptance criteria` (and `## Steps`, if you were given a step: check only the criteria that step covers). If the issue has no acceptance criteria, use `## Tests` and say so in the report.
 2. Read the diff against main: `git diff main...HEAD` (and `git status` for uncommitted work).
-3. Run the checks in CONTRIBUTING.md ("Running the checks locally"): pytest, ruff check, ruff format --check, the add-on syntax check and tests, the web tests and shellcheck. Use the project venv (`.venv/bin/...`). Skip the live tests unless the change touches the web host or widgetwindows.
+3. Run `scripts/run-ci-checks.sh` (every check CI runs). Add `--live` only if the change touches the web host or widgetwindows.
 4. For each criterion, quote it and report:
    - **PASS**, with the evidence: the test that proves it (file and test name) and that it ran and passed.
    - **FAIL**, with what's missing: no test, a test that doesn't check what the criterion says, or a failing run.

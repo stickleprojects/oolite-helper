@@ -13,22 +13,20 @@ Thanks for helping. Issues and pull requests are welcome.
 
 ## Running the checks locally
 
-These are the same checks CI runs on every pull request:
+One script runs the same checks CI runs (`.github/workflows/ci.yml`): pytest, ruff, mypy, the JavaScript syntax check, the add-on and web tests, and shellcheck. Set up the venv once, then run it:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]" pytest ruff
+.venv/bin/pip install -e ".[dev]" ruff==0.17.1
 
-.venv/bin/python -m pytest -q                    # helper tests (Python 3.11+)
-.venv/bin/ruff check .                           # lint (rules in ruff.toml)
-.venv/bin/ruff format --check .                  # formatting (fix with: ruff format .)
-node --check oxp/CtxKeys.oxp/Config/script.js    # add-on syntax
-node --test tests/oxp/script.test.js             # add-on tests (Node 20+; name the file, not the folder)
-node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js helper/web/widgets/*/*.test.js  # web tests
-.venv/bin/shellcheck scripts/*.sh .claude/hooks/*.sh  # launcher and Claude hooks (shellcheck-py, in the dev extra)
+scripts/run-ci-checks.sh           # everything CI runs (about 40 s)
+scripts/run-ci-checks.sh --quick   # only pytest and ruff
+scripts/run-ci-checks.sh --live    # also the two live tests below (need a display)
 ```
 
-None of these need Oolite or a display.
+Every check runs even if one fails, and the failed ones are listed at the end. It uses one Python and one Node; CI also tries Python 3.11 to 3.13 and Node 20 and 22. Fix formatting with `.venv/bin/ruff format .`.
+
+Without `--live`, none of these need Oolite or a display.
 
 The plugin web host (#59) also has a live test that needs a display, GTK 3, WebKit2 4.1 (`gir1.2-webkit2-4.1`) and `xauth`. It checks the WebKit sandbox, so run it after WebKit upgrades:
 
