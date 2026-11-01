@@ -7,7 +7,7 @@ from helper import plist
 from helper.keys import Keymap, from_override
 from helper.layout import widgets_from_specs, windows_from_specs
 from helper.model import Model
-from helper.plugins import TOPICS, WebWidgets, discover, read_manifest
+from helper.plugins import TOPICS, WebWidgets, chrome_id, discover, read_manifest
 from helper.screen import Monitor
 from helper.settings import COMPONENTS, WidgetSpec, WindowSpec
 from helper.widgets import title_height
@@ -454,22 +454,34 @@ def test_an_empty_page_stays_shown_by_default():
 TRADING = WindowSpec(id="trading", title="Trading", dock="game:right", width=640)
 
 
-def trading_window():
+PAGE = chrome_id("trading")
+
+
+def trading_window(manifests=None, extra=()):
     """Trade here filling a widgetwindow on the game's right, the hold under it,
-    both drawn. Returns (the stub host, the WebWidgets, the model)."""
+    and extra widgets (plugins' in manifests) after them. Returns (the stub
+    host, the WebWidgets, the model)."""
     inside = {"dock": "game:right", "width": 640, "window": "trading"}
     specs = [
         WidgetSpec(components=("trade_here",), fill=True, **inside),
         WidgetSpec(components=("hold",), height=310, **inside),
+        *(WidgetSpec(components=(name,), height=h, **inside) for name, h in extra),
     ]
     model = Model(layout=widgets_from_specs(specs), windows=windows_from_specs([TRADING]))
     host = StubHost()
-    made = WebWidgets(model, {}, host=host, components=COMPONENTS)
+    made = WebWidgets(model, manifests or {}, host=host, components=COMPONENTS)
     model.dispatch({**GAME, "active": True})
-    for wid in ("widget1:trade_here", "widget2:hold"):
-        made.handle({"ev": "page", "id": wid, "msg": {"type": "show", "shown": True}})
     model.notify()
     return host, made, model
+
+
+def frame_config(host):
+    script = dict(host.windows[PAGE].extras)["frame-config.js"]
+    return json.loads(script.removeprefix("globalThis.OOLITE_FRAME = ").removesuffix(";\n"))
+
+
+def frame_topic(host):
+    return [value for wid, topic, value in host.published if (wid, topic) == (PAGE, "frame")][-1]
 
 
 def edge_dragged(made, rect, done):
@@ -487,26 +499,72 @@ def test_a_widgetwindow_beside_the_game_is_the_game_windows_height():
     )
 
 
-def test_a_widgetwindow_has_its_own_title():
-    assert trading_window()[0].frames["trading"].title == "Trading"
+def test_a_widgetwindows_page_shows_its_title():
+    assert frame_topic(trading_window()[0])["title"] == "Trading"
 
 
-def test_widgets_in_a_widgetwindow_go_into_its_frame():
-    windows = trading_window()[0].windows
-    assert [windows[wid].frame for wid in ("widget1:trade_here", "widget2:hold")] == ["trading"] * 2
+def test_a_widgetwindow_has_a_page_of_its_own_first():
+    page = trading_window()[0].windows[PAGE]
+    assert (page.frame, page.index, page.chrome) == ("trading", -1, True)
 
 
-def test_the_filling_widget_takes_what_the_others_leave_under_the_title():
-    windows, title = trading_window()[0].windows, title_height(TRADING)
-    top, height = 200 - 24, 24 + 720 + 2  # the game window, title bar and borders included
-    assert windows["widget1:trade_here"].rect == (1382, top + title, 640, height - title - 310)
-    assert windows["widget2:hold"].rect == (1382, top + height - 310, 640, 310)
+def test_the_helpers_widgets_in_a_widgetwindow_are_drawn_in_its_page():
+    host = trading_window()[0]
+    ids = [w["id"] for w in frame_config(host)["widgets"]]
+    assert ids == ["widget1:trade_here", "widget2:hold"]
+    assert "widget2:hold" not in host.windows
+
+
+def test_its_page_knows_which_widget_fills_and_which_has_a_height():
+    sizes = [(w["fill"], w["height"]) for w in frame_config(trading_window()[0])["widgets"]]
+    assert sizes == [(True, None), (False, 310)]
+
+
+def test_its_page_has_the_title_bar_height_for_its_text_size():
+    assert frame_config(trading_window()[0])["title_height"] == title_height(TRADING)
+
+
+def test_its_widgets_topics_go_to_its_page():
+    host = trading_window()[0]
+    assert (PAGE, "hold") in {(wid, topic) for wid, topic, _ in host.published}
+
+
+def test_its_page_loads_its_widgets_components():
+    page = dict(trading_window()[0].windows[PAGE].extras)["frame.html"]
+    assert '<script src="../components/hold/hold.js">' in page
+
+
+def test_with_only_the_helpers_widgets_its_page_fills_it():
+    page = trading_window()[0].windows[PAGE]
+    assert page.rect == (1382, 200 - 24, 640, 24 + 720 + 2)
+
+
+def test_a_plugins_widget_in_it_goes_under_its_page(tmp_path):
+    make_plugin(tmp_path)
+    host, _, _ = trading_window(discover(tmp_path)[0], [("lamp", 100)])
+    page, lamp = host.windows[PAGE], host.windows["widget3:lamp"]
+    assert (lamp.frame, lamp.rect) == ("trading", (1382, 176 + 746 - 100, 640, 100))
+    assert page.rect == (1382, 176, 640, 746 - 100)
+
+
+def test_a_closed_widget_in_it_is_left_out_of_its_page():
+    host, _, model = trading_window()
+    model.dispatch({"type": "layout/close_widget", "id": "widget2:hold"})
+    model.notify()
+    assert frame_topic(host)["shown"] == ["widget1:trade_here"]
+
+
+def test_its_page_may_send_only_its_widgets_actions(capsys):
+    _, made, _ = trading_window()
+    action = {"type": "ui/choose_tab", "tab": "x"}
+    made.handle({"ev": "page", "id": PAGE, "msg": {"type": "dispatch", "action": action}})
+    assert "refused action" in capsys.readouterr().err
 
 
 def test_a_widgetwindows_pencil_puts_just_it_into_edit_mode():
     host, made, _ = trading_window()
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
-    assert host.frames["trading"].editing
+    assert host.frames["trading"].editing and frame_topic(host)["editing"]
 
 
 def test_beside_the_game_only_its_far_edge_resizes_it():
@@ -543,7 +601,7 @@ def test_its_cross_in_edit_mode_closes_it_and_the_widgets_in_it():
     host, made, model = trading_window()
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "close"}})
-    assert (host.frames["trading"].rect, host.windows["widget2:hold"].rect) == (None, None)
+    assert (host.frames["trading"].rect, host.windows[PAGE].rect) == (None, None)
 
 
 def test_dropped_away_from_the_game_it_floats_there():
@@ -604,4 +662,4 @@ def test_a_widgets_text_stays_its_widgetwindows_size_off_the_game():
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
     pick = {"type": "dock", "place": "screen:eDP-1:left"}
     made.handle({"ev": "frame", "id": "trading", "msg": pick})
-    assert "--oo-scale: 0.6;" in dict(host.windows["widget2:hold"].extras)["theme.css"]
+    assert "--oo-scale: 0.6;" in dict(host.windows[PAGE].extras)["theme.css"]

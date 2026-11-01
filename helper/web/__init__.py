@@ -40,6 +40,8 @@ COMPONENTS_DIR = os.path.join(DIR, "components")
 HOST = "helper"  # the pages' address: plugin://helper/
 LIB_CSS = ("lib/base.css",)
 LIB_JS = ("lib/dom.js", "lib/format.js", "lib/widget.js")
+FRAME_CSS = ("lib/frame.css",)
+FRAME_JS = ("lib/frame.js",)
 
 
 @dataclass(frozen=True)
@@ -148,13 +150,25 @@ class Page:
 def page(components, names, widget=None):
     """The Page for a widget showing these components. widget: the
     named widget it is, if any (widgets.NamedWidget), whose own files load last."""
-    parts = loaded(components, names)
+    return _page(components, [(names, widget)], "widget.js")
+
+
+def frame_page(components, widgets):
+    """The Page for a widgetwindow (#141): its title bar over a column of the
+    helper's widgets in it, each [(names, named widget or None), ...]."""
+    return _page(components, widgets, "frame-config.js", FRAME_CSS, FRAME_JS)
+
+
+def _page(components, widgets, config, css_extra=(), js_extra=()):
+    parts = loaded(components, [name for names, _ in widgets for name in names])
     files = [file for part in parts for file in part.files]
-    files += widget.files if widget else ()
-    # Relative to the page, _oolite/widget.html, so it works wherever it's
+    named = list({w.name: w for _, w in widgets if w}.values())  # each named widget once
+    files += [file for w in named for file in w.files]
+    files = list(dict.fromkeys(files))
+    # Relative to the page, _oolite/<page>.html, so it works wherever it's
     # served: plugin://helper/ in the web host, or under the harness's paths.
-    css = ["theme.css", *(f"../{f}" for f in (*LIB_CSS, *files) if f.endswith(".css"))]
-    js = ["dev.js", "widget.js", *(f"../{f}" for f in (*LIB_JS, *files) if f.endswith(".js"))]
+    css = ["theme.css", *(f"../{f}" for f in (*LIB_CSS, *css_extra, *files) if f.endswith(".css"))]
+    js = ["dev.js", config, *(f"../{f}" for f in (*LIB_JS, *files, *js_extra) if f.endswith(".js"))]
     lines = [
         "<!doctype html>",
         '<html><head><meta charset="utf-8">',
@@ -163,11 +177,14 @@ def page(components, names, widget=None):
         *(f'<script src="{html.escape(src)}"></script>' for src in js),
         "</body></html>",
     ]
-    own = (widget.topics, widget.actions) if widget else ((), ())
     return Page(
         "\n".join(lines) + "\n",
-        _unique([*(topic for part in parts for topic in part.topics), *own[0]]),
-        _unique([*(action for part in parts for action in part.actions), *own[1]]),
+        _unique(
+            [*(t for part in parts for t in part.topics), *(t for w in named for t in w.topics)]
+        ),
+        _unique(
+            [*(a for part in parts for a in part.actions), *(a for w in named for a in w.actions)]
+        ),
     )
 
 
@@ -181,3 +198,11 @@ def widget_config(names, widget, topics, width, height=None):
         "height": height,
     }
     return f"globalThis.OOLITE_WIDGET = {json.dumps(config)};\n"
+
+
+def frame_config(title_height, topics, widgets):
+    """The frame page's OOLITE_FRAME (#141), as the script that sets it
+    (_oolite/frame-config.js). widgets: one dict per widget in the column, as
+    lib/frame.js reads them."""
+    config = {"title_height": title_height, "topics": list(topics), "widgets": list(widgets)}
+    return f"globalThis.OOLITE_FRAME = {json.dumps(config)};\n"

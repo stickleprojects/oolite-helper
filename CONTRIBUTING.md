@@ -36,6 +36,13 @@ The plugin web host (#59) also has a live test that needs a display, GTK 3, WebK
 OOLITE_HELPER_LIVE_WEBHOST=1 .venv/bin/python -m pytest tests/test_webhost_live.py
 ```
 
+Widgetwindows have a live UI test too (#141). It clicks, drags and scrolls a widgetwindow with `xdotool` and checks that a stand-in game window keeps keyboard focus. By default it runs on a hidden display (needs `xvfb` and `marco`); `=here` uses your own display, so keep off the mouse while it runs (about 30 s):
+
+```bash
+OOLITE_HELPER_LIVE_UI=1 .venv/bin/python -m pytest tests/test_frame_live.py
+OOLITE_HELPER_LIVE_UI=here .venv/bin/python -m pytest tests/test_frame_live.py
+```
+
 ## Testing tools
 
 - **Fake game** (`tests/fakegame.py`, `scenarios/*.yaml`): writes add-on-style log lines on a timeline. Use it to drive `GameState` in tests, or to see the helper without Oolite:
