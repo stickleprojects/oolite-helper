@@ -74,6 +74,23 @@ def test_page_messages_are_whitelisted_and_clamped():
         assert host.page_message(bad) is None, bad
 
 
+def test_only_a_frames_own_page_may_ask_it_to_move_or_close():
+    raw = '{"type": "chrome", "do": "move"}'
+    assert host.page_message(raw) is None
+    assert host.page_message(raw, chrome=True) == {"type": "chrome", "do": "move"}
+
+
+def test_a_frames_own_page_can_ask_only_for_what_its_bar_does():
+    assert host.page_message('{"type": "chrome", "do": "quit"}', chrome=True) is None
+
+
+def test_a_frames_own_page_is_opened_as_its_chrome(fake_host):
+    fake_host.sync({"a": WebWindow("probe", PROBE, frame="f", index=-1, chrome=True)}, {"f": FRAME})
+    events = run_until(fake_host, lambda ev: len(sent(ev)) == 4)
+    opened = [e["cmd"] for e in events if e["ev"] == "got"][2]
+    assert opened["chrome"] is True
+
+
 def test_dispatches_pass_through_the_host_for_the_helper_to_check():
     action = {"type": "ui/choose_tab", "tab": "trade_table"}
     raw = '{"type": "dispatch", "action": {"type": "ui/choose_tab", "tab": "trade_table"}}'
@@ -207,7 +224,7 @@ def test_sync_closes_removed_windows_and_reopens_changed_ones(fake_host):
     assert sorted(sent(events)) == [("close", "a"), ("close", "b"), ("open", "a"), ("place", "a")]
 
 
-FRAME = WebFrame("Trading", (10, 20, 640, 720), ("#0055aa", "#ffffff"), 24)
+FRAME = WebFrame((10, 20, 640, 720), ("#0055aa", "#ffffff"), 24)
 
 
 def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):

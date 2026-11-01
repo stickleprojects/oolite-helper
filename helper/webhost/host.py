@@ -12,8 +12,12 @@ WebKit's sandboxed web process; the helper starts this process with the
 environment from webhost.sandbox_env() so that sandbox can't see the real
 ~/.cache, a trusted X cookie or the sound server.
 
-A frame is a widgetwindow (#124): one popup with a title bar, whose plugin
-views are packed into it top to bottom instead of getting windows of their own.
+A frame is a widgetwindow (#124): one popup whose views are packed into it
+top to bottom instead of getting windows of their own. The first is its own
+page (#141), the "chrome": the title bar and the helper's widgets, drawn by the
+helper's lib/frame.js. It alone gets window.ooliteFrame, for the bar's buttons
+and for moving the window. Plugins' views go under it. The edit-mode edges, the
+ghost outline and the ⚓ list are still GTK here.
 
 The pure functions at the top (no GTK) are tested in CI.
 """
@@ -24,7 +28,7 @@ import os
 import sys
 import urllib.parse
 
-PROTOCOL = 2
+PROTOCOL = 3
 API = 1  # the version of the page's `oolite` object
 SCHEME = "plugin"
 
@@ -110,7 +114,10 @@ def allowed_navigation(plugin, uri):
     return parsed.scheme == SCHEME and parsed.hostname == plugin.lower()
 
 
-def page_message(raw):
+CHROME = ("edit", "anchor", "close", "move")  # what a frame's own page may ask of it
+
+
+def page_message(raw, chrome=False):
     """A whitelisted message from a page as a dict, or None to drop it.
 
     Version 1: {"type": "resize", "width": w, "height": h},
@@ -118,6 +125,7 @@ def page_message(raw):
     {"type": "log", "text": "..."} (for developers; shown in the helper's log) and
     {"type": "dispatch", "action": {...}}: a UI action, which the helper checks
     against the plugin's manifest before doing anything with it.
+    A frame's own page (chrome) may also send {"type": "chrome", "do": one of CHROME}.
     """
     try:
         msg = json.loads(raw)
@@ -141,6 +149,8 @@ def page_message(raw):
     action = msg.get("action")
     if kind == "dispatch" and isinstance(action, dict) and len(json.dumps(action)) <= ACTION_LIMIT:
         return {"type": "dispatch", "action": action}
+    if kind == "chrome" and chrome and msg.get("do") in CHROME:
+        return {"type": "chrome", "do": msg["do"]}
     return None
 
 
@@ -186,6 +196,22 @@ BRIDGE = """
 """.replace("API_VERSION", str(API))
 
 
+# Injected only into a frame's own page, after BRIDGE.
+CHROME_BRIDGE = """
+(() => {
+  const post = (what) => window.webkit.messageHandlers.oolite.postMessage(
+    JSON.stringify({type: "chrome", do: what}));
+  const frame = Object.freeze({
+    edit() { post("edit"); },
+    anchor() { post("anchor"); },
+    close() { post("close"); },
+    move() { post("move"); },
+  });
+  Object.defineProperty(window, "ooliteFrame", {value: frame, writable: false});
+})();
+"""
+
+
 def receive_script(topic, value):
     return f"__oolite_receive({json.dumps(topic)}, {json.dumps(value)})"
 
@@ -225,13 +251,14 @@ def main():
             gdk_window.raise_()
 
     class FrameWindow:
-        """A widgetwindow: a title bar (title, ✎, ×) over a column of plugin views.
+        """A widgetwindow: its own page (the title bar and the helper's widgets)
+        over a column of plugin views.
 
-        Its ✎ asks the helper to toggle its edit mode. In edit mode its allowed
-        edges light up and dragging one resizes the window, dragging the title
-        bar moves it, and × closes it. Drags follow the pointer here (the window
-        manager doesn't manage popups), telling the helper the rect as they go
-        and when released.
+        The page's ✎ asks the helper to toggle its edit mode. In edit mode its
+        allowed edges light up and dragging one resizes the window, pressing on
+        the page's title bar moves it, ⚓ opens the list of places and × closes
+        it. Drags follow the pointer here (the window manager doesn't manage
+        popups), telling the helper the rect as they go and when released.
         """
 
         def __init__(self, fid):
@@ -241,40 +268,12 @@ def main():
             self.rect = None  # where the helper last placed it
             self.drag = None  # (edge, pointer x, y, rect) while an edge is dragged
             self.sent = 0.0  # when the last drag rect went to the helper
-            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            self.bar = Gtk.Label(xalign=0.5)  # the title, centred on the whole bar
-            self.bar.set_name("title")
-            # ✎ and × over its right end; × only does something in edit mode.
-            self.pencil = self.button("✎", "pencil", self.on_pencil)
-            self.anchor = self.button("⚓", "anchor", self.on_anchor)  # shown while editing
-            close = self.button("×", "close", self.on_close)
-            buttons = Gtk.Box(halign=Gtk.Align.END)
-            buttons.pack_start(self.anchor, False, False, 0)
-            buttons.pack_start(self.pencil, False, False, 0)
-            buttons.pack_start(close, False, False, 0)
-            self.style(self.bar)
-            # The buttons' own area, so they show a pointer, not the title's move cursor.
-            pointer = Gtk.EventBox(visible_window=False, halign=Gtk.Align.END)
-            pointer.add(buttons)
-            pointer.connect(
-                "realize",
-                lambda b: b.get_window().set_cursor(
-                    Gdk.Cursor.new_from_name(b.get_display(), "pointer")
-                ),
-            )
-            title = Gtk.Overlay()
-            title.add(self.bar)
-            title.add_overlay(pointer)
-            # The title bar's own events, for dragging it in edit mode.
-            self.handle = Gtk.EventBox()
-            self.handle.add(title)
-            self.drags(self.handle, "move")
+            self.pressed = None  # (x, y) where button 1 went down on the page, while it's down
+            self.title_height = 0
             self.editing = False
             self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            outer.pack_start(self.handle, False, False, 0)
-            outer.pack_start(self.views, True, True, 0)
             root = Gtk.Overlay()
-            root.add(outer)
+            root.add(self.views)
             self.edges = {side: self.edge(side) for side in EDGE_CURSORS}
             for edge in self.edges.values():
                 root.add_overlay(edge)
@@ -283,7 +282,6 @@ def main():
             for edge in self.edges.values():
                 edge.hide()
             self.ghost = [self.ghost_side() for _ in range(4)]  # top, bottom, left, right
-            self.anchor.hide()
             # The ⚓ list: our own popup of buttons, as GTK's menus would grab the
             # keyboard from the game while open.
             self.list = popup()
@@ -328,8 +326,7 @@ def main():
             button.set_name(name)
             button.set_can_focus(False)  # never takes keyboard focus from the game
             button.set_focus_on_click(False)
-            if clicked is not None:
-                button.connect("clicked", clicked)
+            button.connect("clicked", clicked)
             self.style(button)
             return button
 
@@ -352,36 +349,22 @@ def main():
                     Gdk.Cursor.new_from_name(b.get_display(), EDGE_CURSORS[side])
                 ),
             )
-            self.drags(box, side)
-            return box
-
-        def drags(self, box, what):
-            """Dragging box resizes the window by side what, or moves it ("move")."""
             box.add_events(
                 Gdk.EventMask.BUTTON_PRESS_MASK
                 | Gdk.EventMask.BUTTON_RELEASE_MASK
                 | Gdk.EventMask.BUTTON_MOTION_MASK
             )
-            box.connect("button-press-event", self.on_press, what)
+            box.connect("button-press-event", self.on_press, side)
             box.connect("motion-notify-event", self.on_motion)
             box.connect("button-release-event", self.on_release)
+            return box
 
-        def title(self, text, colours, height, editing=False, edges=(), ghost=None, places=()):
+        def bar(self, colours, height, editing=False, edges=(), ghost=None, places=()):
             background, text_colour = colours
             font = max(8, round(height * 0.5))
-            pencil = EDIT_COLOUR if editing else text_colour
             self.css.load_from_data(
                 (
-                    f"#title {{ background: {background}; color: {text_colour}; "
-                    f"font: bold {font}px sans-serif; padding: 0 {font}px; }}"
-                    f"#close, #pencil {{ background: none; border: none; box-shadow: none; "
-                    f"color: {text_colour}; font: bold {font}px sans-serif; "
-                    f"padding: 0 {font // 2}px; min-height: 0; }}"
-                    f"#pencil {{ color: {pencil}; }}"
                     f"#edge {{ background: {EDIT_COLOUR}; }}"
-                    f"#anchor {{ background: none; border: none; box-shadow: none; "
-                    f"color: {EDIT_COLOUR}; font: bold {font}px sans-serif; "
-                    f"padding: 0 {font // 2}px; min-height: 0; }}"
                     f"#list {{ background: {background}; border: 1px solid {EDIT_COLOUR}; }}"
                     f"#item {{ background: none; border: none; box-shadow: none; "
                     f"color: {text_colour}; font: {font}px sans-serif; "
@@ -391,19 +374,13 @@ def main():
                     f"padding: 2px {font}px; }}"
                 ).encode()
             )
-            self.bar.set_text(text)
-            self.bar.set_size_request(-1, height)
+            self.title_height = height
             for side, edge in self.edges.items():
                 edge.set_visible(editing and side in edges)
             self.editing = editing
-            handle = self.handle.get_window()
-            if handle is not None:
-                cursor = Gdk.Cursor.new_from_name(self.handle.get_display(), "move")
-                handle.set_cursor(cursor if editing else None)
             if not editing:
                 self.drag = None
             self.show_ghost(ghost if editing else None)
-            self.anchor.set_visible(editing)
             if not editing:
                 self.list.hide()
             places = tuple(tuple(place) for place in places)
@@ -434,14 +411,24 @@ def main():
             self.list_box.attach(float_item, 0, len(sides) + 1, max(1, len(columns)), 1)
             self.list_box.show_all()
 
-        def on_anchor(self, button):
+        def chrome(self, what):
+            """What the frame's own page asked: one of CHROME."""
+            if what in ("edit", "close"):  # the helper checks edit mode for ×
+                emit("frame", id=self.id, msg={"type": what})
+            elif what == "anchor" and self.editing:
+                self.toggle_list()
+            elif what == "move" and self.editing and self.pressed and self.rect is not None:
+                # The page tells us after its mousedown: start from where it was.
+                self.drag = ("move", *self.pressed, tuple(self.rect))
+
+        def toggle_list(self):
             """Opens (or closes) the ⚓ list under the title bar's right end."""
             if self.list.get_visible() or self.rect is None:
                 self.list.hide()
                 return
             size = self.list.get_preferred_size()[1]
             x, y, w, _ = self.rect
-            below = y + self.bar.get_allocated_height()
+            below = y + self.title_height
             lx, ly = max(x, x + w - size.width), below
             # Kept on the monitor it opens on: upwards when there's no room below.
             display = self.list.get_display()
@@ -458,12 +445,6 @@ def main():
         def on_place(self, place):
             self.list.hide()
             emit("frame", id=self.id, msg={"type": "dock", "place": place})
-
-        def on_pencil(self, button):
-            emit("frame", id=self.id, msg={"type": "edit"})
-
-        def on_close(self, button):
-            emit("frame", id=self.id, msg={"type": "close"})  # the helper checks edit mode
 
         def on_press(self, box, event, what):
             if event.button == 1 and self.editing and self.rect is not None:
@@ -518,13 +499,31 @@ def main():
         def kind(self):
             return "move" if self.drag[0] == "move" else "resize"
 
-        def add(self, view, index):
-            """Packs view in index order among the views already here."""
+        def add(self, view, index, chrome=False):
+            """Packs view in index order among the views already here; its own
+            page (chrome) takes the room the plugins' views leave."""
             view.frame_index = index
-            self.views.pack_start(view, False, False, 0)
+            self.views.pack_start(view, chrome, chrome, 0)
             ordered = sorted(self.views.get_children(), key=lambda v: v.frame_index)
             for position, child in enumerate(ordered):
                 self.views.reorder_child(child, position)
+            if chrome:
+                # The page's mousedown reaches us (as "move") after GTK's press:
+                # remember where it was, and follow a move drag from here.
+                view.connect("button-press-event", self.on_page_press)
+                view.connect("motion-notify-event", self.on_motion)
+                view.connect("button-release-event", self.on_page_release)
+
+        def on_page_press(self, view, event):
+            if event.button == 1:
+                self.pressed = (event.x_root, event.y_root)
+            return False  # the page gets it too
+
+        def on_page_release(self, view, event):
+            if event.button == 1:
+                self.pressed = None
+            self.on_release(view, event)
+            return False  # the page sees the button go up, so it isn't left pressed
 
         def place(self, rect):
             self.rect = rect
@@ -548,8 +547,11 @@ def main():
             self.window.destroy()
 
     class PluginWindow:
-        def __init__(self, wid, plugin, root, entry, background, extras, frame=None, index=0):
+        def __init__(
+            self, wid, plugin, root, entry, background, extras, frame=None, index=0, chrome=False
+        ):
             self.id = wid
+            self.chrome = chrome and frame is not None  # the frame's own page (#141)
             self.plugin = plugin
             self.root = root
             self.extras = extras  # name -> text, served under _oolite/
@@ -576,6 +578,16 @@ def main():
                     None,
                 )
             )
+            if self.chrome:
+                content.add_script(
+                    WebKit2.UserScript(
+                        CHROME_BRIDGE,
+                        WebKit2.UserContentInjectedFrames.TOP_FRAME,
+                        WebKit2.UserScriptInjectionTime.START,
+                        None,
+                        None,
+                    )
+                )
             content.register_script_message_handler("oolite")
             content.connect("script-message-received::oolite", self.on_page_message)
 
@@ -608,7 +620,7 @@ def main():
             self.frame = frame
             self.framed = frame is not None
             if self.framed:
-                frame.add(self.view, index)
+                frame.add(self.view, index, self.chrome)
                 self.view.hide()  # until placed
             else:
                 self.window = popup()
@@ -682,8 +694,12 @@ def main():
             self.recent = [t for t in self.recent if now - t < 1] + [now]
             if len(self.recent) > PAGE_MESSAGES_PER_SECOND:
                 return
-            msg = page_message(result.get_js_value().to_string())
-            if msg is not None:
+            msg = page_message(result.get_js_value().to_string(), self.chrome)
+            if msg is None:
+                return
+            if msg["type"] == "chrome":
+                self.frame.chrome(msg["do"])
+            else:
                 emit("page", id=self.id, msg=msg)
 
         def run(self, script):
@@ -716,8 +732,7 @@ def main():
         if op == "frame":
             if wid not in frames:
                 frames[wid] = FrameWindow(wid)
-            frames[wid].title(
-                cmd["title"],
+            frames[wid].bar(
                 cmd["colours"],
                 cmd["title_height"],
                 cmd.get("editing", False),
@@ -741,6 +756,7 @@ def main():
                 cmd.get("extras") or {},
                 frames.get(frame),
                 cmd.get("index", 0),
+                cmd.get("chrome", False),
             )
         elif op == "quit":
             Gtk.main_quit()

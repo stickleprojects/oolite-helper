@@ -48,6 +48,7 @@ from .plugin_api import (
     topic_value,
 )
 from .settings import COMPONENTS, WIDGETS, Theme
+from .tk.components.style import LAYOUTS
 from .webhost import WebFrame, WebHost, WebWindow
 from .widgets import (
     dropped,
@@ -158,7 +159,16 @@ def discover(folder=DIR):
 def page_manifest(components, names, widget=None):
     """A Manifest for a widget of the helper's components: its generated page, and
     only those components' topics and actions (and its named widget's, widget)."""
-    page = web.page(components, names, widget)
+    return _page_manifest(web.page(components, names, widget), "_oolite/widget.html")
+
+
+def frame_manifest(components, widgets):
+    """A Manifest for a widgetwindow's own page (#141): its title bar over the
+    helper's widgets in it, [(components, named widget or None), ...]."""
+    return _page_manifest(web.frame_page(components, widgets), "_oolite/frame.html")
+
+
+def _page_manifest(page, entry):
     return PageManifest(
         name=web.HOST,
         root=web.DIR,
@@ -167,10 +177,15 @@ def page_manifest(components, names, widget=None):
         topics=page.topics,
         width=600,
         height=60,
-        entry="_oolite/widget.html",
+        entry=entry,
         actions=page.actions,
         page=page.html,
     )
+
+
+def chrome_id(fid):
+    """The id of a widgetwindow's own page: "/" is in no widget's id."""
+    return f"{fid}/frame"
 
 
 @dataclass(frozen=True)
@@ -200,7 +215,9 @@ class WebWidgets:
         widget of them gets a page built from just its components. None leaves
         them to Tk. fallback(widget ids) is called once if the web host fails
         before it was ever ready, to show them with Tk. theme: settings.Theme ([theme]).
-        The widgetwindows (#124) come from the model's windows topic."""
+        The widgetwindows (#124) come from the model's windows topic; each has a
+        page of its own (#141), its title bar over the helper's widgets in it,
+        with plugins' widgets under that."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
@@ -218,6 +235,8 @@ class WebWidgets:
         self.undrawn = set()  # the helper's pages not drawn yet: hidden whatever hide_empty says
         self.fallback = fallback
         self.ever_ready = False
+        self.chrome = {}  # widgetwindow id -> the manifest of its own page
+        self.in_page = {}  # widget id -> the widgetwindow whose page draws it
         for widget in model.topic("layout"):
             wid, name = widget.id, widget.spec.components[0]
             if name in COMPONENTS or name == web.HOST:
@@ -235,7 +254,15 @@ class WebWidgets:
                 self.sizes[wid] = (manifest.width, manifest.height)
             elif name not in broken:  # broken ones are reported already
                 self.problems[wid] = f"plugin {name}: not installed"
-        self.host = host or (WebHost() if self.widgets else None)
+        for frame in model.topic("windows"):
+            inside = [w for w in model.topic("layout") if w.spec.window == frame.id]
+            inside = [w for w in inside if w.id in self.pages]
+            for widget in inside:
+                self.in_page[widget.id] = frame.id
+                self.undrawn.discard(widget.id)  # its section hides itself
+            parts = [(w.spec.components, WIDGETS.get(w.spec.widget)) for w in inside]
+            self.chrome[frame.id] = frame_manifest(components or {}, parts)
+        self.host = host or (WebHost() if self.widgets or self.chrome else None)
         self.subscriptions = [
             model.watch(lambda m, wid=wid: self.topics(wid), lambda v, wid=wid: self.send(wid, v))
             for wid in self.widgets
@@ -256,8 +283,15 @@ class WebWidgets:
         return tuple(values)
 
     def send(self, wid, values):
+        target = chrome_id(self.in_page[wid]) if wid in self.in_page else wid
         for name, value in values:
-            self.host.publish(wid, name, value)
+            self.host.publish(target, name, value)
+
+    def manifest(self, wid):
+        """The manifest of a window: a widget's, or a widgetwindow's own page's."""
+        if wid in self.widgets:
+            return self.widgets[wid]
+        return next((m for fid, m in self.chrome.items() if chrome_id(fid) == wid), None)
 
     def windows(self, model):
         game_window = model.topic("game_window")
@@ -275,6 +309,7 @@ class WebWidgets:
             return widget.spec.height or self.sizes[widget.id][1]
 
         frames = {}
+        pages = {}  # a widgetwindow's page id -> its "frame" topic
         window_specs = {frame.id: frame.spec for frame in model.topic("windows")}
         inside = {}  # widget id -> its rect in its widgetwindow, or None
         for frame in model.topic("windows"):
@@ -291,7 +326,6 @@ class WebWidgets:
                 ghost = landing(spec, rect, game_window, self.monitors, pointer)
             editing = fid in self.editing
             frames[fid] = WebFrame(
-                spec.title,
                 rect,
                 self.title,
                 title,
@@ -300,12 +334,27 @@ class WebWidgets:
                 ghost=ghost,
                 places=tuple(places(self.monitors, game_window)) if editing else (),
             )
-            heights = [(w.id, height(w), w.spec.fill) for w in widgets if w.spec.window == fid]
-            placed = stacked(rect, title, heights) if rect else {}
+            # Its own page takes what the plugins' widgets under it leave.
+            inner = [w for w in widgets if w.spec.window == fid]
+            heights = [(chrome_id(fid), 0, True)]
+            heights += [(w.id, height(w), False) for w in inner if w.id not in self.in_page]
+            placed = stacked(rect, 0, heights) if rect else {}
             inside.update({wid: placed.get(wid) for wid, _, _ in heights})
+            pages[chrome_id(fid)] = {
+                "title": spec.title,
+                "editing": editing,
+                "shown": [w.id for w in inner if w.id in self.in_page and w.open],
+            }
 
         windows = {}
+        for fid, manifest in self.chrome.items():
+            if fid in frames:
+                windows[chrome_id(fid)] = self.chrome_window(
+                    fid, manifest, window_specs[fid], layout, inside.get(chrome_id(fid))
+                )
         for wid, manifest in self.widgets.items():
+            if wid in self.in_page:
+                continue  # drawn in its widgetwindow's page
             widget = layout[wid]
             spec = widget.spec
             frame = spec.window if spec.window in frames else None
@@ -337,11 +386,54 @@ class WebWidgets:
                 frame=frame,
                 index=index,
             )
-        return windows, frames
+        return windows, frames, pages
+
+    def chrome_window(self, fid, manifest, window, layout, rect):
+        """The WebWindow of widgetwindow fid's own page: its title bar over a
+        section for each of the helper's widgets in it, in layout order."""
+        scale = LAYOUTS[window.layout][0]
+        sections = []
+        for wid, frame in self.in_page.items():
+            if frame != fid:
+                continue
+            spec = layout[wid].spec
+            sections.append(
+                {
+                    "id": wid,
+                    "components": list(spec.components),
+                    "widget": spec.widget,
+                    "topics": list(self.widgets[wid].topics),
+                    "height": None if spec.fill else spec.height,
+                    "fill": spec.fill,
+                    "hide_empty": spec.hide_empty,
+                    "scale": scale * spec.font_scale,
+                }
+            )
+        config = web.frame_config(title_height(window), manifest.topics, sections)
+        extras = (
+            ("theme.css", theme_css(window.layout, 1.0, self.title)),
+            ("dev.js", DEV_JS),
+            ("frame.html", manifest.page),
+            ("frame-config.js", config),
+        )
+        return WebWindow(
+            manifest.name,
+            manifest.root,
+            manifest.entry,
+            rect,
+            extras,
+            frame=fid,
+            index=-1,
+            chrome=True,
+        )
 
     def sync(self, value):
-        if self.host is not None:
-            self.host.sync(*value)
+        if self.host is None:
+            return
+        windows, frames, pages = value
+        self.host.sync(windows, frames)
+        for pid, frame in pages.items():
+            self.host.publish(pid, "frame", frame)
 
     def tick(self):
         if self.host is None:
@@ -358,7 +450,8 @@ class WebWidgets:
         if kind == "frame":
             self.frame_event(wid, event.get("msg") or {})
             return False
-        name = self.widgets[wid].name if wid in self.widgets else None
+        manifest = self.manifest(wid)
+        name = manifest.name if manifest else None
         if kind == "page" and name:
             msg = event["msg"]
             if msg["type"] == "resize":
@@ -441,6 +534,7 @@ class WebWidgets:
         ids = list(self.pages)
         for wid in ids:
             del self.widgets[wid], self.sizes[wid], self.pages[wid]
+            self.in_page.pop(wid, None)
             self.hidden.discard(wid)
             self.undrawn.discard(wid)
         fallback, self.fallback = self.fallback, None
@@ -449,7 +543,7 @@ class WebWidgets:
     def dispatch(self, wid, action):
         """Apply a page's UI action if its manifest (a plugin's, or the one made
         for a page of the helper's components) allows it and it checks out."""
-        manifest = self.widgets[wid]
+        manifest = self.manifest(wid)
         name = manifest.name
         checked = check_action(action, manifest.actions)
         if checked is None:

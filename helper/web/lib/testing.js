@@ -55,6 +55,15 @@ class FakeNode {
     for (const listener of this.listeners.click || []) listener();
   }
 
+  // Runs its listeners for another event, e.g. fire("mousedown", {button: 0}).
+  // stopPropagation() works: the event goes on to parent, if given, unless stopped.
+  fire(type, event = {}, parent = null) {
+    let stopped = false;
+    const full = { ...event, stopPropagation: () => (stopped = true) };
+    for (const listener of this.listeners[type] || []) listener(full);
+    if (parent && !stopped) parent.fire(type, event);
+  }
+
   getBoundingClientRect() {
     return { width: 100, height: 20 };
   }
@@ -126,9 +135,10 @@ function loadComponents(...names) {
 
 // The same, with a named widget's own files (helper/web/widgets/<widget>/)
 // loaded after the components', as the helper's page loads them.
-function load(names, widgetName) {
+function load(names, widgetName, extra = []) {
   const root = new FakeNode("div");
   const sent = [];
+  const asked = [];
   const loaded = [];
   const handlers = [];
   const classes = [];
@@ -151,11 +161,16 @@ function load(names, widgetName) {
       show: () => {},
       log: () => {},
     },
+    // What a widgetwindow's page (lib/frame.js) asks of the web host.
+    ooliteFrame: Object.fromEntries(
+      ["edit", "anchor", "close", "move"].map((name) => [name, () => asked.push(name)]),
+    ),
   };
   context.globalThis = context;
   vm.createContext(context);
   const files = [...LIB, ...withNeeds(names).flatMap((name) => scripts(path.join("components", name)))];
   if (widgetName) files.push(...scripts(path.join("widgets", widgetName)));
+  files.push(...extra);
   for (const file of files) {
     vm.runInContext(fs.readFileSync(path.join(WEB, file), "utf8"), context, { filename: file });
   }
@@ -164,7 +179,24 @@ function load(names, widgetName) {
     for (const listener of loaded) listener();
     for (const [topic, handler] of handlers) if (topic in state) handler(state[topic]);
   };
-  return { Oolite: context.Oolite, root, sent, start, classes };
+  const publish = (topic, value) => {
+    for (const [name, handler] of handlers) if (name === topic) handler(value);
+  };
+  return { Oolite: context.Oolite, context, root, sent, asked, start, publish, classes };
+}
+
+// A widgetwindow's page (#141) started with config as its OOLITE_FRAME, its
+// topics having the values in state: {root, bar, sections, asked, publish},
+// where asked collects what it asked of the web host (window.ooliteFrame) and
+// publish(topic, value) sends it a topic, e.g. "frame".
+function frame(config, state, frameTopic = { title: "Trading", editing: false, shown: null }) {
+  const names = config.widgets.flatMap((widget) => widget.components);
+  const page = load(names, null, ["lib/frame.js"]);
+  page.context.OOLITE_FRAME = config;
+  const shown = frameTopic.shown || config.widgets.map((widget) => widget.id);
+  page.start(undefined, { ...state, frame: { ...frameTopic, shown } });
+  const [bar, column] = page.root.children;
+  return { root: page.root, bar, sections: column.children, asked: page.asked, publish: page.publish };
 }
 
 // A widget's page drawn for a state: {root, sent}. components are its
@@ -199,4 +231,4 @@ function states(name) {
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
 }
 
-module.exports = { FakeNode, load, loadComponents, render, states, widget, WEB };
+module.exports = { FakeNode, frame, load, loadComponents, render, states, widget, WEB };

@@ -1,0 +1,64 @@
+/* A widgetwindow's page (#141): its title bar over a column that scrolls. */
+body { flex-direction: column; align-items: stretch; }
+#root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+}
+.oo-bar {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1em;
+  background: var(--oo-title);
+  color: var(--oo-title-fg);
+  font-weight: bold;
+  font-family: sans-serif;
+}
+.oo-bar.editing { cursor: move; }
+.oo-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Over the bar's right end, so the title stays centred on the whole bar. */
+.oo-buttons { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.oo-buttons button {
+  padding: 0 0.5em;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.oo-anchor { display: none; }
+.editing .oo-anchor { display: block; color: var(--oo-accent); }
+.editing .oo-pencil { color: var(--oo-accent); }
+.oo-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.oo-column::-webkit-scrollbar { width: 6px; }
+.oo-column::-webkit-scrollbar-track { background: transparent; }
+.oo-column::-webkit-scrollbar-thumb { background: var(--oo-dim); border-radius: 3px; }
+/* One widget: its components fill its width, in a column, as a fixed-size
+   widget's page draws them (base.css). Its own text size is its --oo-scale. */
+.oo-widget { display: flex; flex: 0 0 auto; flex-direction: column; font-size: calc(18pt * var(--oo-scale)); }
+/* height = "*": what the others leave, or more, and then the column scrolls. */
+.oo-widget.fills { flex: 1 0 auto; }
+.oo-root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(12px * var(--oo-scale));
+  padding: 1px;
+}
+/* A set height: it scrolls inside that. */
+.oo-widget.sized > .oo-root { min-height: 0; overflow: auto; }

@@ -6,7 +6,7 @@ helper drives it over a pipe:
 
     host = WebHost()
     host.sync({"radar": WebWindow("radar", "/path/to/radar", rect=(10, 10, 300, 200))})
-    host.sync(windows, {"trading": WebFrame("Trading", (0, 0, 640, 720), ...)})  # #124
+    host.sync(windows, {"trading": WebFrame((0, 0, 640, 720), ...)})  # #124
     host.publish("radar", "jump_blocker", {"by": "planet"})
     for event in host.poll():  # call often, e.g. on every tick
         ...
@@ -19,30 +19,33 @@ and the windows and their latest topics are replayed. A window whose page
 fails or crashes is closed and stays closed until retry(id) or a sync() that
 changes it.
 
-A frame is a widgetwindow (#124): one window with a title bar, holding the
-views of the windows opened into it ("frame": its id), top to bottom by
-"index". A framed view's "place" only sets its size (x and y are the frame's
-business); the frame's own "place" moves the whole thing.
+A frame is a widgetwindow (#124): one window holding the views of the
+windows opened into it ("frame": its id), top to bottom by "index". A framed
+view's "place" only sets its size (x and y are the frame's business); the
+frame's own "place" moves the whole thing. Its first view is its own page
+("chrome": true, #141): the title bar with ✎ ⚓ × and the helper's widgets,
+which tells the frame when they're clicked.
 
-PROTOCOL (version 2): JSON objects, one per line.
+PROTOCOL (version 3): JSON objects, one per line.
 
   helper -> host (stdin)
-    {"op": "frame", "id": FID, "title": TEXT, "colours": [BG, FG], "title_height": PX,
+    {"op": "frame", "id": FID, "colours": [BG, FG], "title_height": PX,
      "editing": bool, "edges": ["left", ...], "ghost": [x, y, w, h] or null}
-                                                      opens hidden, or updates its bar;
+                                                      opens hidden, or updates it;
                                                       editing: its edges resize it;
                                                       ghost: an outline where a drag lands;
      "places": [[PLACE, LABEL], ...]                  editing: what its ⚓ list offers
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
-     "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N}
-                                                      opens hidden; extras are
-                                                      served at plugin://NAME/_oolite/
+     "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N,
+     "chrome": bool}                                  opens hidden; extras are
+                                                      served at plugin://NAME/_oolite/;
+                                                      chrome: the frame's own page
     {"op": "place", "id": ID or FID, "rect": [x, y, w, h]}   or "rect": null to hide
     {"op": "topic", "id": ID, "name": TOPIC, "value": JSON}
     {"op": "close", "id": ID or FID}                  a frame after its views
     {"op": "quit"}
   host -> helper (stdout)
-    {"ev": "ready", "protocol": 2, "api": 1, "webkit": "2.52.6"}
+    {"ev": "ready", "protocol": 3, "api": 1, "webkit": "2.52.6"}
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
     {"ev": "page", "id": ID, "msg": {"type": "show", "shown": bool}}
@@ -51,14 +54,14 @@ PROTOCOL (version 2): JSON objects, one per line.
     {"ev": "error", "id": ID or null, "message": "..."}
     {"ev": "crashed", "id": ID, "reason": "crashed" | "exceeded-memory-limit" | ...}
     {"ev": "closed", "id": ID}
-    {"ev": "frame", "id": FID, "msg": {"type": "edit"}}  its ✎ was clicked
+    {"ev": "frame", "id": FID, "msg": {"type": "edit"}}  its page's ✎ was clicked
     {"ev": "frame", "id": FID, "msg": {"type": "resize", "rect": [x, y, w, h], "done": bool}}
                                                       an edge dragged (done: released)
     {"ev": "frame", "id": FID, "msg": {"type": "move", "rect": [x, y, w, h],
                                        "pointer": [x, y], "done": bool}}
-                                                      its title bar dragged
+                                                      its page's title bar dragged
     {"ev": "frame", "id": FID, "msg": {"type": "dock", "place": PLACE}}  picked from its ⚓ list
-    {"ev": "frame", "id": FID, "msg": {"type": "close"}}  its × was clicked
+    {"ev": "frame", "id": FID, "msg": {"type": "close"}}  its page's × was clicked
   made by WebHost.poll() itself
     {"ev": "host_exited", "code": N}                  restarting after a delay
     {"ev": "unavailable", "message": "..."}           couldn't start; retrying
@@ -72,7 +75,7 @@ from dataclasses import dataclass
 
 from ..tk.components.style import BG
 
-PROTOCOL = 2
+PROTOCOL = 3
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "host.py")
 # The system Python, which has the GTK and WebKit bindings (python3-gi,
 # gir1.2-webkit2-4.1); the helper's venv doesn't.
@@ -104,18 +107,26 @@ class WebWindow:
     extras: tuple = ()  # ((name, text), ...): files served at plugin://<plugin>/_oolite/<name>
     frame: str | None = None  # the WebFrame (widgetwindow) it's in, if any
     index: int = 0  # its place, top to bottom, in that frame
+    chrome: bool = False  # the frame's own page: its title bar (#141)
 
     def page(self):
-        return (self.plugin, self.root, self.entry, self.extras, self.frame, self.index)
+        return (
+            self.plugin,
+            self.root,
+            self.entry,
+            self.extras,
+            self.frame,
+            self.index,
+            self.chrome,
+        )
 
 
 @dataclass(frozen=True)
 class WebFrame:
-    """A widgetwindow (#124): a title bar over the WebWindows opened into it."""
+    """A widgetwindow (#124): the WebWindows opened into it, its own page first."""
 
-    title: str
     rect: tuple | None = None  # (x, y, w, h), or None to hide
-    colours: tuple = ("#3c4650", "#e6e6e6")  # the title bar's background and text
+    colours: tuple = ("#3c4650", "#e6e6e6")  # the title bar's background and text: the ⚓ list's
     title_height: int = 24
     editing: bool = False  # in edit mode: its ✎ is lit and its edges resize it
     edges: tuple = ()  # which edges resize it: "left", "right", "top", "bottom"
@@ -124,7 +135,6 @@ class WebFrame:
 
     def bar(self):
         return (
-            self.title,
             self.colours,
             self.title_height,
             self.editing,
@@ -390,11 +400,10 @@ class WebHost:
         for fid, frame in self.frames.items():
             old = self.framed.get(fid)
             if old is None or old.bar() != frame.bar():
-                title, colours, height, editing, edges, ghost, places = frame.bar()
+                colours, height, editing, edges, ghost, places = frame.bar()
                 self._send(
                     op="frame",
                     id=fid,
-                    title=title,
                     colours=list(colours),
                     title_height=height,
                     editing=editing,
@@ -408,7 +417,7 @@ class WebHost:
         for wid, window in wanted.items():
             old = self.opened.get(wid)
             if old is None:
-                plugin, root, entry, extras, frame, index = window.page()
+                plugin, root, entry, extras, frame, index, chrome = window.page()
                 self._send(
                     op="open",
                     id=wid,
@@ -419,6 +428,7 @@ class WebHost:
                     extras=dict(extras),
                     frame=frame,
                     index=index,
+                    chrome=chrome,
                 )
                 for topic, value in self.topics.get(wid, {}).items():
                     self._send(op="topic", id=wid, name=topic, value=value)
