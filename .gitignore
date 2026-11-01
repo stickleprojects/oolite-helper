@@ -5,3 +5,4 @@ squashfs-root/
 *.log
 *.egg-info/
 build/
+.claude/tests-locked

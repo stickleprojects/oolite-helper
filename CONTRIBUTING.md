@@ -25,7 +25,7 @@ python3 -m venv .venv
 node --check oxp/CtxKeys.oxp/Config/script.js    # add-on syntax
 node --test tests/oxp/script.test.js             # add-on tests (Node 20+; name the file, not the folder)
 node --test helper/web/lib/*.test.js helper/web/components/*/*.test.js helper/web/widgets/*/*.test.js  # web tests
-.venv/bin/shellcheck scripts/*.sh                # launcher (shellcheck-py, in the dev extra)
+.venv/bin/shellcheck scripts/*.sh .claude/hooks/*.sh  # launcher and Claude hooks (shellcheck-py, in the dev extra)
 ```
 
 None of these need Oolite or a display.
