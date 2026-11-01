@@ -241,7 +241,7 @@ def main():
         help="check config.toml and layout.toml, list every problem, and exit (0: fine)",
     )
     parser.add_argument("--config", default=paths.CONFIG, help="config.toml to read")
-    parser.add_argument("--layout-file", default=paths.LAYOUT, help="layout.toml to read")
+    parser.add_argument("--layout-file", default=paths.LAYOUT, help="layout.toml to read and save")
     parser.add_argument("--log", default=DEFAULT_LOG, help="path to Oolite's Latest.log")
     parser.add_argument("--stay", action="store_true", help="keep running when the game exits")
     parser.add_argument(
@@ -323,6 +323,7 @@ def main():
         missing_equipment=window.missing_equipment,
         widgets=config.all_widgets,
         widgetwindows=config.widgetwindows,
+        layout_path=args.layout_file,
         setting_warnings=setting_warnings,
         monitors=monitors,
         plugins=(manifests, broken),

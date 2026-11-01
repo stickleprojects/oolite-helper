@@ -1,5 +1,6 @@
 import pytest
 
+from helper import app, paths
 from helper.app import HelperWindow, should_quit_for_messages
 from helper.markets import MarketStore
 from helper.model import Model
@@ -147,3 +148,49 @@ def test_trade_detail_picks_the_best_offer_and_caps_the_quantity(tmp_path):
     assert (commodity, offer.name, quantity, limit.most) == ("furs", "Zaonce", 5, 5)
     model.dispatch({"type": "ui/choose_destination", "system": 9})
     assert model.topic("trade_detail")[3].name == "Diso"
+
+
+# -- main(): command-line options reach the window (#144) ---------------------
+
+
+def run_main(monkeypatch, tmp_path, *argv):
+    """Run main() with no Tk, monitors or plugins; return the window's keyword arguments."""
+    started = {}
+
+    class FakeWindow:
+        def __init__(self, root, source, geometry, **kwargs):
+            started.update(kwargs)
+            self.plugins = WebWidgets(Model(markets=MarketStore(tmp_path / "markets.json")), {})
+
+    class FakeTk:
+        def mainloop(self):
+            pass
+
+    monkeypatch.setattr(app, "HelperWindow", FakeWindow)
+    monkeypatch.setattr(app.tk, "Tk", FakeTk)
+    monkeypatch.setattr(app, "list_monitors", list)
+    monkeypatch.setattr(app, "discover", lambda: ({}, {}))
+    monkeypatch.setattr(app, "single_instance_lock", object)
+    config = tmp_path / "config.toml"
+    argv = ["oolite-helper", "--config", str(config), "--geometry", "100x100+0+0", *argv]
+    monkeypatch.setattr(app.sys, "argv", argv)
+    app.main()
+    return started
+
+
+def test_layout_file_reaches_the_window(monkeypatch, tmp_path):
+    layout = tmp_path / "layout.toml"
+    started = run_main(monkeypatch, tmp_path, "--layout-file", str(layout))
+    assert started["layout_path"] == str(layout)
+
+
+def test_without_layout_file_the_window_uses_the_players_layout(monkeypatch, tmp_path):
+    assert run_main(monkeypatch, tmp_path)["layout_path"] == paths.LAYOUT
+
+
+def test_help_says_the_layout_file_is_saved_too(monkeypatch, capsys):
+    monkeypatch.setattr(app.sys, "argv", ["oolite-helper", "--help"])
+    with pytest.raises(SystemExit):
+        app.main()
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "layout.toml to read and save" in help_text
