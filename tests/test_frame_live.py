@@ -123,9 +123,10 @@ def desktop(tmp_path_factory):
             procs.append(subprocess.Popen(xvfb))
             started = lambda: os.path.exists(f"/tmp/.X11-unix/X{DISPLAY[1:]}")  # noqa: E731
             assert wait(started), "Xvfb didn't start"
+            wm_log = tmp_path_factory.mktemp("wm") / "marco.log"
             wm = ["marco", "--replace"]
-            procs.append(subprocess.Popen(wm, env=env, stderr=subprocess.DEVNULL))
-            time.sleep(1)
+            with open(wm_log, "w") as log:
+                procs.append(subprocess.Popen(wm, env=env, stdout=log, stderr=log))
         game = subprocess.Popen(
             [sys.executable, "-c", GAME], env=env, stdout=subprocess.PIPE, text=True
         )
@@ -137,7 +138,12 @@ def desktop(tmp_path_factory):
 
         assert wait(found), "the stand-in game didn't open"
         window = found().split()[0].decode()
-        xdotool("windowactivate", "--sync", window, env=env)
+        activate = ["xdotool", "windowactivate", "--sync", window]
+        # The window manager may still be starting (slower in CI): until it is, it can't activate.
+        if not wait(lambda: subprocess.run(activate, env=env, capture_output=True).returncode == 0):
+            why = "" if HERE else f"marco {'running' if procs[1].poll() is None else 'exited'}: "
+            why += "" if HERE else wm_log.read_text()[-2000:]
+            pytest.fail(f"couldn't give the stand-in game the keyboard. {why}")
         yield env, game
     finally:
         for proc in reversed(procs):

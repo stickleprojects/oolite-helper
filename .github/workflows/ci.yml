@@ -94,4 +94,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e ".[dev]"
+      # The live web host test uses the display it's given (the UI test starts its own).
+      # No access control, as xvfb-run's cookie-only server refuses the xauth call
+      # that makes the host's untrusted cookie (a desktop admits it as a local user).
+      - name: Start a hidden display
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 -nolisten tcp &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - run: VENV="$pythonLocation" scripts/run-ci-checks.sh --only live
