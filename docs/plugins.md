@@ -4,7 +4,7 @@ A plugin is a small web page (HTML, CSS and JavaScript) that the helper shows in
 
 Pages run in WebKit's sandbox, in a separate process: no network, no files outside the plugin's folder, no access to the rest of your desktop. See [architecture.md](architecture.md) for how that's enforced.
 
-The example in [examples/plugins/keys/](../examples/plugins/keys/) is the Keys tab rebuilt as a plugin. It's a good starting point.
+The example in [examples/plugins/key-list/](../examples/plugins/key-list/) is the Keys tab rebuilt as a plugin. It's a good starting point.
 
 ## Installing and showing a plugin
 
@@ -12,8 +12,8 @@ Put the plugin's folder in `~/.config/oolite-helper/plugins/` (or symlink it the
 
 ```toml
 [[widgets]]
-components = ["keys"]  # the plugin's name; a plugin is alone in its widget
-screen = "eDP-1"       # free on a monitor, or dock = "game:right" etc.
+components = ["key-list"]  # the plugin's name; a plugin is alone in its widget
+screen = "eDP-1"           # free on a monitor, or dock = "game:right" etc.
 x = 0
 y = 0
 width = 900
@@ -23,10 +23,31 @@ layout = "large"       # sets --oo-scale in the theme ("compact" is the default)
 
 Plugins are found when the helper starts. A broken one is named in the helper's status line with the reason; the others carry on.
 
+### In a widgetwindow
+
+A plugin can also be one of the widgets in a widgetwindow, with the helper's own widgets above or below it:
+
+```toml
+[[widgetwindows]]
+id = "trading"
+title = "Trading"
+dock = "game:right"
+width = 640
+widgets = [
+  { components = ["jump-lamp"], height = 60 },  # a plugin, by its name
+  { components = ["trade_table"], height = "*" },
+]
+```
+
+There its page still runs in a view and process of its own, laid over its place in the window's column:
+- **Its width is the column's and its height is its widget's** (`height`, or what `oolite.resize()` last asked for). When the widgets are taller than the window, the column scrolls and your view scrolls with it; the part outside the column is cut off.
+- **The wheel comes to your page first.** If your page can scroll that way, it does; if it can't (no scrollbar, or already at the end), the column scrolls instead, as a scrolling `<div>` does for a child that can't.
+- **It's hidden while the window's ⚓ list is open** (in edit mode), and comes back when it closes. Nothing happens to your page: it keeps its topics and state.
+
 ## plugin.toml
 
 ```toml
-name = "keys"                    # must match the folder; lower case, digits and -, up to 40
+name = "key-list"                # must match the folder; lower case, digits and -, up to 40
 version = "1.0.0"
 api = 1                          # the plugin API version it was written for
 description = "The keys for what you're doing now"   # optional
@@ -136,7 +157,7 @@ The helper's components size text in points times the scale, so `font-size: calc
 
 - Preview a plugin in an ordinary browser with a fake game scenario:
   ```bash
-  .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
+  .venv/bin/python -m helper.preview examples/plugins/key-list --scenario scenarios/trade.yaml
   ```
   Open the printed URL. `--speed` changes the scenario timeline, `--loop` repeats
   it, `--port` selects the local port (default 8565), and `--layout` selects the

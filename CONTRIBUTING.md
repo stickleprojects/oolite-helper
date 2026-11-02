@@ -24,7 +24,7 @@ scripts/run-ci-checks.sh --quick   # only pytest and ruff
 scripts/run-ci-checks.sh --live    # also the two live tests below (need a display)
 ```
 
-You need Python 3.11+ and Node 20+. Every check runs even if one fails, and the failed ones are listed at the end. CI's jobs run the same script, one group each (`--only python`, `lint`, `js` or `shell`). It uses one Python and one Node; CI also tries Python 3.11 to 3.13 and Node 20 and 22. Fix formatting with `.venv/bin/ruff format .`.
+You need Python 3.11+ and Node 20+. Every check runs even if one fails, and the failed ones are listed at the end. CI's jobs run the same script, one group each (`--only python`, `lint`, `js`, `shell` or `live`). It uses one Python and one Node; CI also tries Python 3.11 to 3.13 and Node 20 and 22. Fix formatting with `.venv/bin/ruff format .`.
 
 Without `--live`, none of these need Oolite or a display.
 
@@ -40,6 +40,17 @@ Widgetwindows have a live UI test too (#141). It clicks, drags and scrolls a wid
 OOLITE_HELPER_LIVE_UI=1 .venv/bin/python -m pytest tests/test_frame_live.py
 OOLITE_HELPER_LIVE_UI=here .venv/bin/python -m pytest tests/test_frame_live.py
 ```
+
+It also puts a plugin drawn in one colour in a widgetwindow, finds it in screenshots, and checks it follows the column as it scrolls, is cut off under the title bar, and passes the wheel on when it can't scroll.
+
+CI runs both live tests in its **Live UI** job (not a required check yet), through `scripts/run-live-checks.sh`: a hidden display with no access control, then `run-ci-checks.sh --only live`. The packages it installs are in `scripts/live-ui-packages.txt`. To run it the way CI does, in an Ubuntu 24.04 container (needs Docker):
+
+```bash
+scripts/live-ui-docker.sh          # builds the image the first time (about 10 minutes)
+scripts/live-ui-docker.sh bash     # a shell in it
+```
+
+WebKit's sandbox needs user namespaces, which Ubuntu 24.04's AppArmor only allows for the host's own `bwrap`, not for one in a container. While you run it, set `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` (CI does the same), and set it back to `1` afterwards (a reboot also resets it); the script stops and says so if it's still 1. Not `xvfb-run`: its display only accepts its own cookie and refuses the web host's (#152).
 
 ## Testing tools
 
@@ -64,7 +75,7 @@ OOLITE_HELPER_LIVE_UI=here .venv/bin/python -m pytest tests/test_frame_live.py
 - **Component READMEs**: each component folder has a generated `README.md` (what `component.toml` says, and a picture of each named state in `images/`). **CI refreshes them**: on a pull request that touches `helper/web/`, the Component READMEs workflow runs `python -m helper.harness --readmes --since origin/main` (the components you changed, those that need them, or all of them if a shared file such as `lib/base.css` or the theme changed) and commits any change to your branch, so pull before pushing again. It pushes with the `README_PUSH_TOKEN` repo secret (a fine-grained token for this repo, Contents: read and write), so CI runs on that commit without approval; without the secret it starts CI itself, and those runs need approving. You can run it locally to look, but CI's pictures are the ones kept (fonts differ between machines). A test fails if a README misses a state. Widget folders (`helper/web/widgets/<name>/`) get READMEs the same way, with a picture of the widget in each of its own named states (`[states]` in `widget.toml`, each naming a state of each component); they're remade when the widget's folder, one of its components or `helper/widgets.py` changes.
 - **Plugin browser preview**: serve a plugin with live scenario data, without the helper or WebKit:
   ```bash
-  .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
+  .venv/bin/python -m helper.preview examples/plugins/key-list --scenario scenarios/trade.yaml
   ```
   Open the printed local URL. Use `--speed` to change the timeline or `--loop` to repeat it.
 - **Fake Oolite** (`tests/oxp/fake-oolite.js`): runs the add-on under Node with strict stand-ins for Oolite's script objects. It throws on any property it doesn't know, so typos fail a test instead of failing silently in the game.

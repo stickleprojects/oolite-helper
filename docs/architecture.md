@@ -3,7 +3,7 @@
 ## Terms
 - A **component** renders part of the model: `drive`, `clearance`, `trade_here`, the laptop window's heading, tabs and body, or a **plugin** (a component from outside the helper, run as a sandboxed web page).
 - A **widget** hosts one or more components in a window of its own (`[[widgets]]` in `config.toml`). A widget can also be defined in a folder, `helper/web/widgets/<name>/` (`widget.toml`, optionally its own drawing, and a generated README), and then used by name with `widget = "<name>"`, changing any setting.
-- A **widgetwindow** is a window with its own title that holds one or more widgets, stacked top to bottom (`[[widgetwindows]]` in `config.toml`, #124): component ⊂ widget ⊂ widgetwindow. `widgets.window_rect` places it and `widgets.stacked` places its widgets; in the web host it's one popup (a "frame") holding its own page (#141, [lib/frame.js](../helper/web/lib/frame.js)): the title bar with ✎ ⚓ × over a scrolling column of the helper's widgets in it. Plugins' widgets keep views of their own, under that page. In code it's `WindowSpec`, kept apart from OS windows (`WebWindow`, the game window).
+- A **widgetwindow** is a window with its own title that holds one or more widgets, stacked top to bottom (`[[widgetwindows]]` in `config.toml`, #124): component ⊂ widget ⊂ widgetwindow. `widgets.window_rect` places it and `widgets.stacked` places its widgets; in the web host it's one popup (a "frame") holding its own page (#141, [lib/frame.js](../helper/web/lib/frame.js)): the title bar with ✎ ⚓ × over a scrolling column of the helper's widgets in it. Plugins' widgets keep views of their own, laid over placeholders in that column (see Widgetwindows in the web host below). In code it's `WindowSpec`, kept apart from OS windows (`WebWindow`, the game window).
 - A **dock** is a place: beside the game window (`game:top`, `game:bottom`, `game:left`, `game:right`) where a widget or widgetwindow sits.
 - The **layout** places every widget, either in a dock or free on a monitor (`helper/layout.py`, saved in `layout.toml`).
 - A **panel** is only a box inside a component, such as a key panel, or the planned admin panel. It never means a widget.
@@ -155,6 +155,25 @@ helper (Tk)                                  web host (GTK, system Python)
 - **Constants for logic, text for showing.** Everything meant for the player to read (`text`, `keys`, `description`) comes with constants beside it (`kind`, `status`, `action`, `bindings` in the game's own key names), so plugins never parse display text and keep working if it's in another language. Oolite has language add-ons that replace `descriptions.plist`; the helper reads only the AppImage's copy for now, and its own words are English. A broken plugin or a page that fails shows in the status line; the rest carry on.
 - **Developing a plugin:** `.venv/bin/python -m helper.webhost <plugin folder> --at X,Y` opens it on its own, with a ticking `clock` topic.
 
+### Widgetwindows in the web host (#141)
+A widgetwindow is one popup in the host (a "frame", `FrameWindow`) filled by one web view: its **frame page**, which the helper generates ([lib/frame.js](../helper/web/lib/frame.js), `frame.css`). The page draws everything a player sees of the window itself, so it works the same wherever WebKit runs:
+
+```
+frame popup (GTK)
+├── frame page (one web view, the helper's own code)
+│     title bar ✎ ⚓ ×   edit-mode edges   ⚓ list
+│     column (scrolls): helper widget │ placeholder ─┐ │ helper widget
+└── plugin view (its own web view, process, CSP) ◀────┘ laid over it, clipped to the column
+```
+
+- **The helper's widgets are drawn in the page**, as in a widget's own page (`Oolite.mount`, the `frame` topic), with no iframes: they're trusted code.
+- **A plugin's widget keeps its own web view**: its own ephemeral context, web process, CSP and `plugin://<name>/` scheme, so a plugin that hangs or crashes stalls only itself. The page leaves a placeholder of the widget's height in the column and reports where it and the column are (`ooliteFrame.placeholders`): once drawn, and after a scroll, a resize or a widget above it changing, at most once an animation frame. The host lays the view over its placeholder in a `Gtk.Layout` cut to the part inside the column (`in_column`), so it scrolls with the column and never shows over the title bar. The host forwards the rects as a `placeholders` event, which the helper ignores and the live tests watch.
+- **The wheel chains as in one page.** Over a plugin's view the wheel goes to its page first; if that can't scroll that way, WebKit hands the event back to the view's parent, and the host passes it on (`wheel_lines`, `ooliteFrameWheel`), so the column scrolls by WebKitGTK's own step for a page that high.
+- **Edit mode is in the page too** (#153): the edges that resize it (the column moves in from them, so plugin views don't cover them) and the ⚓ list (plugin views hide while it's open, as they'd cover it). The page says only "move", "resize from this edge" or "dock there"; the host checks the edge against what the helper allows (`drag_start`), follows the pointer as the window manager would and draws the ghost outline as native popups, and the helper checks the place.
+- **Plugins stay as isolated as a plugin in a widget of its own.** Each has its own sandboxed web process, ephemeral context, `plugin://<name>/` scheme and CSP, and its own `oolite` bridge, with only its listed topics and actions. Nothing of a plugin runs in the frame page.
+- **Only the frame page gets `window.ooliteFrame`** (the edit, close, move, resize, dock and placeholders calls), and the host accepts those messages only from the frame page's own view (`page_message(..., chrome=True)`), so a plugin can't send them. The #141 spike planned to register the bridge in a WebKit "isolated world", because plugins were then to be iframes inside the frame page, which can reach any handler the page has. In the hybrid design that was built, only the helper's own code runs in the frame page, so there's nothing to hide the bridge from, and it uses the page's main world like every other page.
+- **Clicks never take the keyboard from the game**: the frame is a popup that never accepts focus. The live UI tests check it after the ✎, a title bar drag, an edge drag, the ⚓ list, the wheel and a click on a plugin's view.
+
 ## Layouts and the admin panel (planned)
 A player-facing admin panel should eventually let the player swap layouts, add widgets and reopen closed ones, by clicking. It isn't built yet, but the pieces are shaped for it:
 
@@ -179,7 +198,7 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and saving `layout.toml`.
 - `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, of the helper's components or a plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
-- `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
+- `examples/plugins/`: example plugins (`key-list`: the Keys tab as a plugin; `laptop`: the laptop window).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
 
 ## Platforms
