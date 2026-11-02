@@ -4,7 +4,7 @@ A plugin is a small web page (HTML, CSS and JavaScript) that the helper shows in
 
 Pages run in WebKit's sandbox, in a separate process: no network, no files outside the plugin's folder, no access to the rest of your desktop. See [architecture.md](architecture.md) for how that's enforced.
 
-The example in [examples/plugins/keys/](../examples/plugins/keys/) is the Keys tab rebuilt as a plugin. It's a good starting point.
+The example in [examples/plugins/key-list/](../examples/plugins/key-list/) is the Keys tab rebuilt as a plugin. It's a good starting point.
 
 ## Installing and showing a plugin
 
@@ -12,8 +12,8 @@ Put the plugin's folder in `~/.config/oolite-helper/plugins/` (or symlink it the
 
 ```toml
 [[widgets]]
-components = ["keys"]  # the plugin's name; a plugin is alone in its widget
-screen = "eDP-1"       # free on a monitor, or dock = "game:right" etc.
+components = ["key-list"]  # the plugin's name; a plugin is alone in its widget
+screen = "eDP-1"           # free on a monitor, or dock = "game:right" etc.
 x = 0
 y = 0
 width = 900
@@ -47,7 +47,7 @@ There its page still runs in a view and process of its own, laid over its place 
 ## plugin.toml
 
 ```toml
-name = "keys"                    # must match the folder; lower case, digits and -, up to 40
+name = "key-list"                # must match the folder; lower case, digits and -, up to 40
 version = "1.0.0"
 api = 1                          # the plugin API version it was written for
 description = "The keys for what you're doing now"   # optional
@@ -157,7 +157,7 @@ The helper's components size text in points times the scale, so `font-size: calc
 
 - Preview a plugin in an ordinary browser with a fake game scenario:
   ```bash
-  .venv/bin/python -m helper.preview examples/plugins/keys --scenario scenarios/trade.yaml
+  .venv/bin/python -m helper.preview examples/plugins/key-list --scenario scenarios/trade.yaml
   ```
   Open the printed URL. `--speed` changes the scenario timeline, `--loop` repeats
   it, `--port` selects the local port (default 8565), and `--layout` selects the

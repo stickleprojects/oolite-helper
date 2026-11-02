@@ -197,7 +197,7 @@ A player-facing admin panel should eventually let the player swap layouts, add w
 - `helper/layout.py`: the layout of the widgets (ids, `layout/...` actions) and saving `layout.toml`.
 - `helper/plugins.py`: plugin discovery and `plugin.toml`, and `WebWidgets`: the web host windows for widgets, of the helper's components or a plugin (#59).
 - `helper/plugin_api.py`: the public plugin API: topics, actions and the theme (#59).
-- `examples/plugins/`: example plugins (`keys`: the Keys tab as a plugin).
+- `examples/plugins/`: example plugins (`key-list`: the Keys tab as a plugin; `laptop`: the laptop window).
 - `helper/webhost/`: plugin web views (#59): the client (`__init__.py`), the host process (`host.py`) and a dev runner (`__main__.py`).
 
 ## Platforms
