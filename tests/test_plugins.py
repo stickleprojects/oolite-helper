@@ -36,6 +36,15 @@ def make_plugin(folder, name="lamp", manifest=LAMP, page=True):
 # -- manifests and discovery -------------------------------------------------
 
 
+EXAMPLES = Path(__file__).parent.parent / "examples" / "plugins"
+
+
+def test_every_example_plugin_loads():
+    found, broken = discover(EXAMPLES)
+    assert broken == {}
+    assert found
+
+
 def test_a_good_manifest_is_read(tmp_path):
     manifest = read_manifest(make_plugin(tmp_path))
     assert (manifest.name, manifest.api, manifest.topics) == ("lamp", 1, ("drive", "context"))
