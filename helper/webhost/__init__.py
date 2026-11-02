@@ -20,13 +20,16 @@ fails or crashes is closed and stays closed until retry(id) or a sync() that
 changes it.
 
 A frame is a widgetwindow (#124): one window holding the views of the
-windows opened into it ("frame": its id), top to bottom by "index". A framed
-view's "place" only sets its size (x and y are the frame's business); the
-frame's own "place" moves the whole thing. Its first view is its own page
-("chrome": true, #141): the title bar with ✎ ⚓ × and the helper's widgets,
-which tells the frame when they're clicked.
+windows opened into it ("frame": its id). Its own page ("chrome": true, #141)
+fills it: the title bar with ✎ ⚓ ×, and a column of its widgets, which
+scrolls. The helper's widgets are drawn in that page; each plugin's widget
+has a placeholder there, and the host lays the plugin's own view over it,
+clipped to the column, from the rects the page sends it (it tells the frame
+when its bar is clicked, too). The frame's "place" moves the whole thing; its
+page's "place" sets its size; a plugin view's "place" only shows or hides it
+(rect null), as its placeholder sizes and places it.
 
-PROTOCOL (version 3): JSON objects, one per line.
+PROTOCOL (version 4): JSON objects, one per line.
 
   helper -> host (stdin)
     {"op": "frame", "id": FID, "colours": [BG, FG], "title_height": PX,
@@ -45,7 +48,7 @@ PROTOCOL (version 3): JSON objects, one per line.
     {"op": "close", "id": ID or FID}                  a frame after its views
     {"op": "quit"}
   host -> helper (stdout)
-    {"ev": "ready", "protocol": 3, "api": 1, "webkit": "2.52.6"}
+    {"ev": "ready", "protocol": 4, "api": 1, "webkit": "2.52.6"}
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
     {"ev": "page", "id": ID, "msg": {"type": "show", "shown": bool}}
@@ -75,7 +78,7 @@ from dataclasses import dataclass
 
 from ..tk.components.style import BG
 
-PROTOCOL = 3
+PROTOCOL = 4
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "host.py")
 # The system Python, which has the GTK and WebKit bindings (python3-gi,
 # gir1.2-webkit2-4.1); the helper's venv doesn't.

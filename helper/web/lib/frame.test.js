@@ -110,3 +110,99 @@ test("a widget redraws when a topic it reads changes", () => {
   publish("tip", ["Undock."]);
   assert.equal(sections[0].textContent, "Undock.");
 });
+
+// -- plugins' widgets: placeholders their views go over -----------------------
+
+const LAMP = { id: "lamp", plugin: true };
+const OPEN = { title: "T", editing: false, shown: ["tip", "status"], plugins: { lamp: 100 } };
+
+// A page with a plugin's widget between the helper's two, placed on screen:
+// the column under a 24 px bar, the lamp's placeholder 60 px down it.
+function withLamp(frameTopic = OPEN) {
+  const made = page([TIP, LAMP, STATUS], STATE, frameTopic);
+  made.column.rect = { x: 0, y: 24, width: 300, height: 500 };
+  made.sections[1].rect = { x: 0, y: 84, width: 294, height: 100 };
+  made.nextFrame();
+  return made;
+}
+
+const lastPlaced = (placed) => placed[placed.length - 1];
+
+test("a plugin's widget leaves a placeholder of its height in its place", () => {
+  const { sections } = withLamp();
+  assert.ok(sections[1].hasClass("oo-placeholder"));
+  assert.equal(sections[1].style.values.height, "100px");
+});
+
+test("once drawn it tells the host where the column and the placeholder are", () => {
+  assert.deepEqual(withLamp().placed, [{ column: [0, 24, 300, 500], rects: { lamp: [0, 84, 294, 100] } }]);
+});
+
+test("after a scroll it tells the host where the placeholder is now", () => {
+  const { column, sections, placed, nextFrame } = withLamp();
+  sections[1].rect = { ...sections[1].rect, y: 30 };
+  column.fire("scroll");
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 30, 294, 100] });
+});
+
+test("after the window is resized it tells the host where the column is now", () => {
+  const { column, placed, nextFrame, fireWindow } = withLamp();
+  column.rect = { ...column.rect, width: 400 };
+  fireWindow("resize");
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).column, [0, 24, 400, 500]);
+});
+
+test("after a widget above it is hidden it tells the host where the placeholder is now", () => {
+  const { sections, placed, publish, nextFrame } = withLamp();
+  sections[1].rect = { ...sections[1].rect, y: 24 };
+  publish("frame", { ...OPEN, shown: ["status"] });
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 24, 294, 100] });
+});
+
+test("after a widget above it redraws taller it tells the host where the placeholder is now", () => {
+  const { sections, placed, publish, nextFrame } = withLamp();
+  sections[1].rect = { ...sections[1].rect, y: 140 };
+  publish("tip", ["Dock now.", "Then sell."]);
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 140, 294, 100] });
+});
+
+test("several changes in one frame are told once", () => {
+  const { column, sections, placed, nextFrame, fireWindow } = withLamp();
+  sections[1].rect = { ...sections[1].rect, y: 30 };
+  column.fire("scroll");
+  column.fire("scroll");
+  fireWindow("resize");
+  nextFrame();
+  assert.equal(placed.length, 2);
+});
+
+test("nothing is told when nothing moved", () => {
+  const { column, placed, nextFrame } = withLamp();
+  column.fire("scroll");
+  nextFrame();
+  assert.equal(placed.length, 1);
+});
+
+test("a plugin's widget that's hidden has no placeholder, and the host is told", () => {
+  const { sections, placed } = withLamp({ ...OPEN, plugins: { lamp: null } });
+  assert.equal(display(sections[1]), "none");
+  assert.deepEqual(placed[0].rects, {});
+});
+
+test("a plugin's widget shown again gets its placeholder back", () => {
+  const { sections, placed, publish, nextFrame } = withLamp({ ...OPEN, plugins: { lamp: null } });
+  publish("frame", OPEN);
+  nextFrame();
+  assert.equal(display(sections[1]), "");
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 84, 294, 100] });
+});
+
+test("a page with no plugins' widgets tells the host nothing", () => {
+  const made = page();
+  made.nextFrame();
+  assert.deepEqual(made.placed, []);
+});

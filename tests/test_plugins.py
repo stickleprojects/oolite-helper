@@ -539,12 +539,37 @@ def test_with_only_the_helpers_widgets_its_page_fills_it():
     assert page.rect == (1382, 200 - 24, 640, 24 + 720 + 2)
 
 
-def test_a_plugins_widget_in_it_goes_under_its_page(tmp_path):
+def with_lamp(tmp_path):
+    """trading_window with a plugin's widget, 100 px high, after the hold."""
     make_plugin(tmp_path)
-    host, _, _ = trading_window(discover(tmp_path)[0], [("lamp", 100)])
-    page, lamp = host.windows[PAGE], host.windows["widget3:lamp"]
-    assert (lamp.frame, lamp.rect) == ("trading", (1382, 176 + 746 - 100, 640, 100))
-    assert page.rect == (1382, 176, 640, 746 - 100)
+    return trading_window(discover(tmp_path)[0], [("lamp", 100)])
+
+
+def test_a_plugins_widget_in_it_has_a_placeholder_in_its_page_in_layout_order(tmp_path):
+    widgets = frame_config(with_lamp(tmp_path)[0])["widgets"]
+    assert [w["id"] for w in widgets] == ["widget1:trade_here", "widget2:hold", "widget3:lamp"]
+    assert widgets[2] == {"id": "widget3:lamp", "plugin": True}
+
+
+def test_with_a_plugins_widget_in_it_its_page_still_fills_it(tmp_path):
+    assert with_lamp(tmp_path)[0].windows[PAGE].rect == (1382, 176, 640, 746)
+
+
+def test_its_page_is_told_the_height_of_each_plugins_widget_in_it(tmp_path):
+    assert frame_topic(with_lamp(tmp_path)[0])["plugins"] == {"widget3:lamp": 100}
+
+
+def test_a_plugins_view_in_it_is_shown_at_its_widgets_height(tmp_path):
+    lamp = with_lamp(tmp_path)[0].windows["widget3:lamp"]
+    assert (lamp.frame, lamp.rect) == ("trading", (0, 0, 640, 100))
+
+
+def test_a_closed_plugins_widget_in_it_is_hidden_and_its_page_told(tmp_path):
+    host, _, model = with_lamp(tmp_path)
+    model.dispatch({"type": "layout/close_widget", "id": "widget3:lamp"})
+    model.notify()
+    assert frame_topic(host)["plugins"] == {"widget3:lamp": None}
+    assert host.windows["widget3:lamp"].rect is None
 
 
 def test_a_closed_widget_in_it_is_left_out_of_its_page():

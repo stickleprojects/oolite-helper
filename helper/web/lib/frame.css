@@ -67,3 +67,5 @@ body { flex-direction: column; align-items: stretch; }
 .oo-root::-webkit-scrollbar { width: 6px; height: 6px; }
 .oo-root::-webkit-scrollbar-track, .oo-root::-webkit-scrollbar-corner { background: transparent; }
 .oo-root::-webkit-scrollbar-thumb { background: var(--oo-dim); border-radius: 3px; }
+/* A plugin's widget: its own view is laid over this box (#141). */
+.oo-placeholder { flex: none; }

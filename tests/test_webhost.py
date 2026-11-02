@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import time
@@ -82,6 +83,69 @@ def test_only_a_frames_own_page_may_ask_it_to_move_or_close():
 
 def test_a_frames_own_page_can_ask_only_for_what_its_bar_does():
     assert host.page_message('{"type": "chrome", "do": "quit"}', chrome=True) is None
+
+
+PLACEHOLDERS = json.dumps(
+    {"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": [0, 84, 294, 100]}}
+)
+
+
+def test_a_frames_own_page_can_say_where_its_placeholders_are():
+    assert host.page_message(PLACEHOLDERS, chrome=True) == {
+        "type": "placeholders",
+        "column": (0, 24, 300, 500),
+        "rects": {"lamp": (0, 84, 294, 100)},
+    }
+
+
+def test_only_a_frames_own_page_may_say_where_placeholders_are():
+    assert host.page_message(PLACEHOLDERS) is None
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        '{"type": "placeholders", "column": [0, 24, 300], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, "500"], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, true], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, -300, 500], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": []}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": [0, 1e9, 1, 1]}}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": null}}',
+    ],
+)
+def test_a_placeholder_message_that_isnt_whole_rects_is_dropped(bad):
+    assert host.page_message(bad, chrome=True) is None
+
+
+def test_a_placeholder_message_with_too_many_rects_is_dropped():
+    rects = {f"w{n}": [0, n, 10, 10] for n in range(host.PLACEHOLDER_LIMIT + 1)}
+    raw = json.dumps({"type": "placeholders", "column": [0, 0, 10, 10], "rects": rects})
+    assert host.page_message(raw, chrome=True) is None
+
+
+COLUMN = (0, 24, 300, 500)  # under a 24 px title bar
+
+
+def test_a_plugin_view_inside_the_column_shows_whole():
+    assert host.in_column((0, 84, 294, 100), COLUMN) == ((0, 84, 294, 100), (0, 0))
+
+
+def test_a_plugin_view_scrolled_under_the_title_bar_is_clipped_to_the_column():
+    # Its top 40 px are above the column: they don't show, and the view keeps its place.
+    assert host.in_column((0, -16, 294, 100), COLUMN) == ((0, 24, 294, 60), (0, -40))
+
+
+def test_a_plugin_view_past_the_column_bottom_is_clipped_to_it():
+    assert host.in_column((0, 474, 294, 100), COLUMN) == ((0, 474, 294, 50), (0, 0))
+
+
+def test_a_plugin_view_wider_than_the_column_is_clipped_to_its_width():
+    assert host.in_column((0, 84, 400, 100), COLUMN) == ((0, 84, 300, 100), (0, 0))
+
+
+def test_a_plugin_view_scrolled_right_out_of_the_column_doesnt_show():
+    assert host.in_column((0, -200, 294, 100), COLUMN) is None
 
 
 def test_a_frames_own_page_is_opened_as_its_chrome(fake_host):
