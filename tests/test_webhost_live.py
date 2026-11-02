@@ -80,7 +80,9 @@ def run():
 def test_the_page_loads_quickly(run):
     events, loaded_after, _ = run
     assert events[0]["ev"] == "ready"
-    assert loaded_after is not None and loaded_after < 5
+    # The first page includes a cold start of the host, GTK and WebKit's web process:
+    # about 2 s here, nearly 7 s on CI's small runner. 10 s still catches a hang.
+    assert loaded_after is not None and loaded_after < 10
 
 
 def test_the_sandbox_refuses_everything_the_probe_tries(run):
