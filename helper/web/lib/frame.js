@@ -127,7 +127,8 @@
     // A wheel turn over a plugin's view that its page didn't use (it can't
     // scroll that way): the host passes it here, in lines, and the column
     // scrolls, as a scrolling div does for a child that can't. A line is
-    // WebKitGTK's own step for a page this high, so both scroll alike.
+    // WebKitGTK's own wheel step for a page this high (measured in 4.1: 44 px
+    // at 300 px high, 62 px at 500), so both scroll alike.
     globalThis.ooliteFrameWheel = (dx, dy) => {
       const step = Math.floor(globalThis.innerHeight ** (2 / 3));
       column.scrollBy({ left: dx * step, top: dy * step, behavior: "smooth" });
