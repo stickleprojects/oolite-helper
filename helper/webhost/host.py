@@ -560,7 +560,7 @@ def main():
         def on_child_position(self, overlay, child, allocation):
             part = self.parts.get(child)
             if part is None:
-                return False  # the edges: GTK's own placing
+                return False  # not a plugin's clip: GTK's own placing
             allocation.x, allocation.y, allocation.width, allocation.height = part
             return True
 

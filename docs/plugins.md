@@ -29,14 +29,13 @@ A plugin can also be one of the widgets in a widgetwindow, with the helper's own
 
 ```toml
 [[widgetwindows]]
-id = "laptop"
-title = "Laptop"
-screen = "eDP-1"
-width = "100%"
-height = "100%"
+id = "trading"
+title = "Trading"
+dock = "game:right"
+width = 640
 widgets = [
+  { components = ["jump-lamp"], height = 60 },  # a plugin, by its name
   { components = ["trade_table"], height = "*" },
-  { components = ["keys"], height = 300 },  # the plugin
 ]
 ```
 

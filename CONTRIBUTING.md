@@ -43,7 +43,7 @@ OOLITE_HELPER_LIVE_UI=here .venv/bin/python -m pytest tests/test_frame_live.py
 
 It also puts a plugin drawn in one colour in a widgetwindow, finds it in screenshots, and checks it follows the column as it scrolls, is cut off under the title bar, and passes the wheel on when it can't scroll.
 
-CI runs both live tests in its **Live UI** job (not a required check yet), through `scripts/run-live-checks.sh`: a hidden display with no access control, then `run-ci-checks.sh --only live`. The packages it installs are in `scripts/live-ui-packages.txt`. To run it the way CI does, in an Ubuntu 24.04 container:
+CI runs both live tests in its **Live UI** job (not a required check yet), through `scripts/run-live-checks.sh`: a hidden display with no access control, then `run-ci-checks.sh --only live`. The packages it installs are in `scripts/live-ui-packages.txt`. To run it the way CI does, in an Ubuntu 24.04 container (needs Docker):
 
 ```bash
 scripts/live-ui-docker.sh          # builds the image the first time (about 10 minutes)
