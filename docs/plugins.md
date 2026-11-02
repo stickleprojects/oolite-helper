@@ -23,6 +23,28 @@ layout = "large"       # sets --oo-scale in the theme ("compact" is the default)
 
 Plugins are found when the helper starts. A broken one is named in the helper's status line with the reason; the others carry on.
 
+### In a widgetwindow
+
+A plugin can also be one of the widgets in a widgetwindow, with the helper's own widgets above or below it:
+
+```toml
+[[widgetwindows]]
+id = "laptop"
+title = "Laptop"
+screen = "eDP-1"
+width = "100%"
+height = "100%"
+widgets = [
+  { components = ["trade_table"], height = "*" },
+  { components = ["keys"], height = 300 },  # the plugin
+]
+```
+
+There its page still runs in a view and process of its own, laid over its place in the window's column:
+- **Its width is the column's and its height is its widget's** (`height`, or what `oolite.resize()` last asked for). When the widgets are taller than the window, the column scrolls and your view scrolls with it; the part outside the column is cut off.
+- **The wheel comes to your page first.** If your page can scroll that way, it does; if it can't (no scrollbar, or already at the end), the column scrolls instead, as a scrolling `<div>` does for a child that can't.
+- **It's hidden while the window's ⚓ list is open** (in edit mode), and comes back when it closes. Nothing happens to your page: it keeps its topics and state.
+
 ## plugin.toml
 
 ```toml
