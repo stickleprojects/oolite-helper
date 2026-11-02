@@ -175,9 +175,9 @@ function load(names, widgetName, extra = []) {
     },
     // What a widgetwindow's page (lib/frame.js) asks of the web host.
     ooliteFrame: {
-      ...Object.fromEntries(
-        ["edit", "anchor", "close", "move"].map((name) => [name, () => asked.push(name)]),
-      ),
+      ...Object.fromEntries(["edit", "close", "move"].map((name) => [name, () => asked.push(name)])),
+      resize: (edge) => asked.push(`resize ${edge}`),
+      dock: (place) => asked.push(`dock ${place}`),
       placeholders: (column, rects) => placed.push(JSON.parse(JSON.stringify({ column, rects }))),
     },
   };
@@ -220,7 +220,8 @@ function load(names, widgetName, extra = []) {
 }
 
 // A widgetwindow's page (#141) started with config as its OOLITE_FRAME, its
-// topics having the values in state: {root, bar, column, sections, asked,
+// topics having the values in state: {root, bar, column, places (the ⚓ list),
+// edges ({left: node, ...}), sections, asked,
 // placed, publish, nextFrame, fireWindow, wheel}, where asked collects what it asked
 // of the web host (window.ooliteFrame), placed the placeholder rects it sent,
 // publish(topic, value) sends it a topic, e.g. "frame", nextFrame() runs what
@@ -233,11 +234,13 @@ function frame(config, state, frameTopic = { title: "Trading", editing: false, s
   page.context.OOLITE_FRAME = config;
   const shown = frameTopic.shown || config.widgets.map((widget) => widget.id);
   page.start(undefined, { ...state, frame: { ...frameTopic, shown } });
-  const [bar, column] = page.root.children;
+  const [bar, column, places, ...edges] = page.root.children;
   return {
     root: page.root,
     bar,
     column,
+    places,
+    edges: Object.fromEntries(edges.map((node) => [node.className.split("-").pop(), node])),
     sections: column.children,
     asked: page.asked,
     placed: page.placed,

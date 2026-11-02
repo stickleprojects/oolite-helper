@@ -11,11 +11,16 @@
 // widget, topics, height: px or null, fill, hide_empty, scale}, or for a
 // plugin's widget {id, plugin: true}]}, in the column's order.
 // The "frame" topic is what changes without a reload:
-// {title, editing, shown: [ids of the helper's widgets that are open],
+// {title, editing, edges: [the window's edges that resize it: "left", ...],
+//  places: [[place, label], ...] its ⚓ list offers while editing,
+//  shown: [ids of the helper's widgets that are open],
 //  plugins: {id: its height in px, or null while it's hidden}}.
 //
-// The bar's buttons, and pressing on the bar in edit mode to move the window,
-// go to the web host through window.ooliteFrame, which only this page gets.
+// In edit mode it draws those edges, and its column moves in from them so
+// plugins' views don't cover them; ⚓ opens the list of places, and while it's
+// open plugins' views hide, as they'd cover it. The bar's buttons, pressing an
+// edge or (in edit mode) the bar to resize or move the window, and a place
+// picked go to the web host through window.ooliteFrame, which only this page gets.
 // The host calls ooliteFrameWheel(dx, dy) with a wheel turn a plugin's view
 // didn't use.
 "use strict";
@@ -69,6 +74,27 @@
     };
   }
 
+  const EDGE_PX = 6; // as the web host's ghost outline
+  const SIDES = ["left", "right", "top", "bottom"];
+
+  // The ⚓ list's cells, in rows: a column per target (the game, each screen)
+  // headed by its name, a row per side, then Float across the bottom.
+  function placeCells(places, pick) {
+    const { el, button } = globalThis.OoliteDom;
+    const columns = new Map(); // "game" or "screen:<name>" -> its heading
+    for (const [place, label] of places) {
+      if (place === "float") continue;
+      const target = place.slice(0, place.lastIndexOf(":"));
+      if (!columns.has(target)) columns.set(target, label.slice(0, label.lastIndexOf(":")));
+    }
+    const cells = [...columns.values()].map((heading) => el("span", "oo-place-head", heading));
+    for (const side of SIDES) {
+      for (const target of columns.keys()) cells.push(button(side, () => pick(`${target}:${side}`), "oo-place"));
+    }
+    cells.push(button("Float", () => pick("float"), "oo-place oo-float"));
+    return { cells, columns: Math.max(1, columns.size) };
+  }
+
   const box = (node) => {
     const r = node.getBoundingClientRect();
     return [r.x, r.y, r.width, r.height].map(Math.round);
@@ -82,7 +108,18 @@
     const state = {};
 
     const title = el("span", "oo-title");
-    const anchor = button("⚓", () => host.anchor(), "oo-anchor");
+    let editing = false;
+    let edges = [];
+    let places = [];
+    const list = el("div", "oo-places");
+    let listOpen = false;
+    let report = () => {}; // set below
+    const showList = (open) => {
+      listOpen = open && editing;
+      list.style.setProperty("display", listOpen ? "grid" : "none");
+      report(); // plugins' views hide while it's open, and come back
+    };
+    const anchor = button("⚓", () => showList(!listOpen), "oo-anchor");
     const pencil = button("✎", () => host.edit(), "oo-pencil");
     const close = button("×", () => host.close(), "oo-close");
     for (const node of [anchor, pencil, close]) {
@@ -92,9 +129,29 @@
     const size = config.title_height;
     bar.style.setProperty("height", `${size}px`);
     bar.style.setProperty("font-size", `${Math.max(8, Math.round(size * 0.5))}px`);
-    let editing = false;
     bar.addEventListener("mousedown", (event) => {
       if (editing && event.button === 0) host.move();
+    });
+    list.style.setProperty("top", `${size}px`);
+    list.style.setProperty("max-height", `calc(100% - ${size}px)`);
+    list.style.setProperty("font-size", `${Math.max(8, Math.round(size * 0.5))}px`);
+    list.style.setProperty("display", "none");
+    const drawList = () => {
+      const { cells, columns } = placeCells(places, (place) => {
+        showList(false);
+        host.dock(place);
+      });
+      list.replaceChildren(...cells);
+      list.style.setProperty("grid-template-columns", `repeat(${columns}, auto)`);
+    };
+
+    const edgeNodes = SIDES.map((side) => {
+      const node = el("div", `oo-edge oo-edge-${side}`);
+      node.addEventListener("mousedown", (event) => {
+        event.stopPropagation(); // the top one is over the bar: a resize, not a move
+        if (editing && event.button === 0) host.resize(side);
+      });
+      return [side, node];
     });
 
     const sections = config.widgets.map((widget) => [
@@ -102,7 +159,16 @@
       widget.plugin ? placeholder() : section(widget, state),
     ]);
     const column = el("div", "oo-column", ...sections.map(([, part]) => part.node));
-    document.getElementById("root").replaceChildren(bar, column);
+    document.getElementById("root").replaceChildren(bar, column, list, ...edgeNodes.map(([, node]) => node));
+    // In edit mode: the edges that resize it, with the column moved in from
+    // them (the top one is over the bar, so the column needs no room there).
+    const drawEdges = () => {
+      for (const [side, node] of edgeNodes) {
+        const on = editing && edges.includes(side);
+        node.style.setProperty("display", on ? "block" : "none");
+        if (side !== "top") column.style.setProperty(`margin-${side}`, on ? `${EDGE_PX}px` : "0");
+      }
+    };
 
     // Where the column and the shown placeholders are, sent at most once an
     // animation frame and only when it changed: after a scroll, a resize, or
@@ -110,13 +176,13 @@
     const plugins = sections.filter(([, part]) => part.plugin);
     let pending = false;
     let last = null;
-    const report = () => {
+    report = () => {
       if (!plugins.length || pending) return;
       pending = true;
       globalThis.requestAnimationFrame(() => {
         pending = false;
         const rects = {};
-        for (const [id, part] of plugins) if (part.shown()) rects[id] = box(part.node);
+        if (!listOpen) for (const [id, part] of plugins) if (part.shown()) rects[id] = box(part.node);
         const where = box(column);
         const text = JSON.stringify([where, rects]);
         if (text === last) return;
@@ -143,7 +209,15 @@
     oolite.on("frame", (frame) => {
       title.textContent = frame.title;
       editing = Boolean(frame.editing);
+      edges = frame.edges || [];
       bar.className = editing ? "oo-bar editing" : "oo-bar";
+      drawEdges();
+      const offered = frame.places || [];
+      if (JSON.stringify(offered) !== JSON.stringify(places)) {
+        places = offered;
+        drawList();
+      }
+      if (!editing && listOpen) showList(false);
       const shown = new Set(frame.shown);
       const heights = frame.plugins || {};
       for (const [id, part] of sections) {
