@@ -1,6 +1,7 @@
 /* A widgetwindow's page (#141): its title bar over a column that scrolls. */
 body { flex-direction: column; align-items: stretch; }
 #root {
+  position: relative; /* for the edges and the list of places */
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -69,3 +70,28 @@ body { flex-direction: column; align-items: stretch; }
 .oo-root::-webkit-scrollbar-thumb { background: var(--oo-dim); border-radius: 3px; }
 /* A plugin's widget: its own view is laid over this box (#141). */
 .oo-placeholder { flex: none; }
+/* Edit mode (#141): the edges that resize the window, over everything. */
+.oo-edge { position: absolute; display: none; z-index: 2; background: var(--oo-accent); }
+.oo-edge-left, .oo-edge-right { top: 0; bottom: 0; width: 6px; }
+.oo-edge-top, .oo-edge-bottom { left: 0; right: 0; height: 6px; }
+.oo-edge-left { left: 0; cursor: w-resize; }
+.oo-edge-right { right: 0; cursor: e-resize; }
+.oo-edge-top { top: 0; cursor: n-resize; }
+.oo-edge-bottom { bottom: 0; cursor: s-resize; }
+/* The ⚓ list, under the bar's right end; it scrolls when the window is too small. */
+.oo-places {
+  position: absolute;
+  right: 0;
+  z-index: 1;
+  max-width: 100%;
+  overflow: auto;
+  column-gap: 4px;
+  background: var(--oo-title);
+  color: var(--oo-title-fg);
+  border: 1px solid var(--oo-accent);
+  font-family: sans-serif;
+}
+.oo-place-head { padding: 2px 1em; color: var(--oo-accent); font-weight: bold; }
+.oo-place { padding: 2px 1em; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.oo-place:hover { background: var(--oo-accent); color: #000000; }
+.oo-float { grid-column: 1 / -1; }

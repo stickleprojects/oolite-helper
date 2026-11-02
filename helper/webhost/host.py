@@ -15,11 +15,12 @@ environment from webhost.sandbox_env() so that sandbox can't see the real
 A frame is a widgetwindow (#124): one popup holding the views opened into
 it instead of windows of their own. Its own page (#141), the "chrome", fills
 it: the title bar and a column of the helper's widgets, drawn by the helper's
-lib/frame.js. It alone gets window.ooliteFrame, for the bar's buttons, for
-moving the window, and to say where the placeholders in its column are: each
+lib/frame.js, with its edit-mode edges and ⚓ list. It alone gets
+window.ooliteFrame, for the bar's buttons, for starting a move or a resize, for
+a place picked, and to say where the placeholders in its column are: each
 plugin's view is laid over its placeholder, clipped to the column (in_column),
-so it scrolls with the column but keeps its own web process. The edit-mode
-edges, the ghost outline and the ⚓ list are still GTK here.
+so it scrolls with the column but keeps its own web process. Drags follow the
+pointer here, and the ghost outline where a moved window lands is GTK.
 
 The pure functions at the top (no GTK) are tested in CI.
 """
@@ -30,7 +31,7 @@ import os
 import sys
 import urllib.parse
 
-PROTOCOL = 4
+PROTOCOL = 5
 API = 1  # the version of the page's `oolite` object
 SCHEME = "plugin"
 
@@ -53,8 +54,9 @@ MIME = {
 }
 SIZE_LIMITS = (16, 4000)  # px: no vanishing or screen-covering windows (oolite.show hides)
 LOG_TEXT_LIMIT = 500
-# Widgetwindows' edit mode (#124): the edge strips and how they behave.
-EDGE_CURSORS = {"left": "w-resize", "right": "e-resize", "top": "n-resize", "bottom": "s-resize"}
+# Widgetwindows' edit mode (#124): the edges its page may resize it from, and
+# the ghost outline's width (as the page's edges, lib/frame.js).
+EDGES = ("left", "right", "top", "bottom")
 EDGE_PX = 6
 MIN_PX = 80  # as widgets.MIN_SIZE
 DRAG_REPORT_SECONDS = 0.04  # how often a dragged edge's rect goes to the helper
@@ -120,7 +122,8 @@ def allowed_navigation(plugin, uri):
     return parsed.scheme == SCHEME and parsed.hostname == plugin.lower()
 
 
-CHROME = ("edit", "anchor", "close", "move")  # what a frame's own page may ask of it
+CHROME = ("edit", "close", "move", "resize", "dock")  # what a frame's own page may ask of it
+PLACE_LIMIT = 100  # characters in a place a frame's page picked
 
 
 def page_message(raw, chrome=False):
@@ -131,7 +134,8 @@ def page_message(raw, chrome=False):
     {"type": "log", "text": "..."} (for developers; shown in the helper's log) and
     {"type": "dispatch", "action": {...}}: a UI action, which the helper checks
     against the plugin's manifest before doing anything with it.
-    A frame's own page (chrome) may also send {"type": "chrome", "do": one of CHROME}
+    A frame's own page (chrome) may also send {"type": "chrome", "do": one of CHROME},
+    with "edge": one of EDGES for "resize" and "place": PLACE for "dock",
     and {"type": "placeholders", "column": [x, y, w, h], "rects": {ID: [x, y, w, h]}}:
     where its column and the placeholders of the plugins' widgets in it are.
     """
@@ -157,11 +161,32 @@ def page_message(raw, chrome=False):
     action = msg.get("action")
     if kind == "dispatch" and isinstance(action, dict) and len(json.dumps(action)) <= ACTION_LIMIT:
         return {"type": "dispatch", "action": action}
-    if kind == "chrome" and chrome and msg.get("do") in CHROME:
-        return {"type": "chrome", "do": msg["do"]}
+    if kind == "chrome" and chrome:
+        return _chrome(msg)
     if kind == "placeholders" and chrome:
         return _placeholders(msg)
     return None
+
+
+def _chrome(msg):
+    what = msg.get("do")
+    if what == "resize":
+        edge = msg.get("edge")
+        return {"type": "chrome", "do": what, "edge": edge} if edge in EDGES else None
+    if what == "dock":
+        place = msg.get("place")
+        if not isinstance(place, str) or not 0 < len(place) <= PLACE_LIMIT:
+            return None
+        return {"type": "chrome", "do": what, "place": place}
+    return {"type": "chrome", "do": what} if what in CHROME else None
+
+
+def drag_start(msg, editing, edges):
+    """Whether a frame page's chrome message msg starts a drag: pressing its
+    title bar ("move"), or an edge that resizes it ("resize"), in edit mode."""
+    if not editing:
+        return False
+    return msg["do"] == "move" or (msg["do"] == "resize" and msg["edge"] in edges)
 
 
 def _rect(value):
@@ -262,13 +287,14 @@ BRIDGE = """
 # Injected only into a frame's own page, after BRIDGE.
 CHROME_BRIDGE = """
 (() => {
-  const post = (what) => window.webkit.messageHandlers.oolite.postMessage(
-    JSON.stringify({type: "chrome", do: what}));
+  const post = (what, more) => window.webkit.messageHandlers.oolite.postMessage(
+    JSON.stringify({type: "chrome", do: what, ...more}));
   const frame = Object.freeze({
     edit() { post("edit"); },
-    anchor() { post("anchor"); },
     close() { post("close"); },
     move() { post("move"); },
+    resize(edge) { post("resize", {edge}); },
+    dock(place) { post("dock", {place}); },
     placeholders(column, rects) {
       window.webkit.messageHandlers.oolite.postMessage(
         JSON.stringify({type: "placeholders", column, rects}));
@@ -321,23 +347,25 @@ def main():
         """A widgetwindow: its own page (the title bar and a column of widgets)
         filling it, with each plugin's view laid over its placeholder there.
 
-        The page's ✎ asks the helper to toggle its edit mode. In edit mode its
-        allowed edges light up and dragging one resizes the window, pressing on
-        the page's title bar moves it, ⚓ opens the list of places and × closes
-        it. Drags follow the pointer here (the window manager doesn't manage
-        popups), telling the helper the rect as they go and when released.
+        The page's ✎ asks the helper to toggle its edit mode. In edit mode the
+        page draws the edges that resize it and its ⚓ list (#141), and says
+        when one of its edges or its title bar is pressed: the drag follows the
+        pointer here (the window manager doesn't manage popups), telling the
+        helper the rect as it goes and when released, with a native ghost
+        outline where a moved window would land.
         """
 
         def __init__(self, fid):
             self.id = fid
             self.window = popup()
             self.css = Gtk.CssProvider()
+            self.css.load_from_data(f"#edge {{ background: {EDIT_COLOUR}; }}".encode())
             self.rect = None  # where the helper last placed it
             self.drag = None  # (edge, pointer x, y, rect) while an edge is dragged
             self.sent = 0.0  # when the last drag rect went to the helper
             self.pressed = None  # (x, y) where button 1 went down on the page, while it's down
-            self.title_height = 0
             self.editing = False
+            self.edges = ()  # those the helper says resize it
             # Its own page is the overlay's child; each plugin's view is in a
             # Gtk.Layout of its own over it, sized to the part of the view
             # inside the column, which so clips it (in_column).
@@ -349,23 +377,9 @@ def main():
             self.rects = {}  # plugin window id -> its placeholder's (x, y, w, h)
             self.parts = {}  # Gtk.Layout -> (x, y, w, h): where in the window it shows
             self.page = None  # its own page's view
-            self.edges = {side: self.edge(side) for side in EDGE_CURSORS}
-            for edge in self.edges.values():
-                root.add_overlay(edge)
             self.window.add(root)
             root.show_all()
-            for edge in self.edges.values():
-                edge.hide()
             self.ghost = [self.ghost_side() for _ in range(4)]  # top, bottom, left, right
-            # The ⚓ list: our own popup of buttons, as GTK's menus would grab the
-            # keyboard from the game while open.
-            self.list = popup()
-            self.list_box = Gtk.Grid(column_spacing=4)
-            self.list_box.set_name("list")
-            self.style(self.list_box)
-            self.list.add(self.list_box)
-            self.list_box.show()
-            self.places = ()
 
         def ghost_side(self):
             """One side of the outline showing where a dragged window would land."""
@@ -396,135 +410,23 @@ def main():
                 self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             )
 
-        def button(self, text, name, clicked):
-            button = Gtk.Button(label=text, relief=Gtk.ReliefStyle.NONE)
-            button.set_name(name)
-            button.set_can_focus(False)  # never takes keyboard focus from the game
-            button.set_focus_on_click(False)
-            button.connect("clicked", clicked)
-            self.style(button)
-            return button
-
-        def edge(self, side):
-            """A strip along one side that resizes the window when dragged."""
-            box = Gtk.EventBox(visible_window=True)
-            box.set_name("edge")
-            self.style(box)
-            across = side in ("left", "right")
-            box.set_size_request(EDGE_PX if across else -1, -1 if across else EDGE_PX)
-            box.set_halign(
-                {"left": Gtk.Align.START, "right": Gtk.Align.END}.get(side, Gtk.Align.FILL)
-            )
-            box.set_valign(
-                {"top": Gtk.Align.START, "bottom": Gtk.Align.END}.get(side, Gtk.Align.FILL)
-            )
-            box.connect(
-                "realize",
-                lambda b: b.get_window().set_cursor(
-                    Gdk.Cursor.new_from_name(b.get_display(), EDGE_CURSORS[side])
-                ),
-            )
-            box.add_events(
-                Gdk.EventMask.BUTTON_PRESS_MASK
-                | Gdk.EventMask.BUTTON_RELEASE_MASK
-                | Gdk.EventMask.BUTTON_MOTION_MASK
-            )
-            box.connect("button-press-event", self.on_press, side)
-            box.connect("motion-notify-event", self.on_motion)
-            box.connect("button-release-event", self.on_release)
-            return box
-
-        def bar(self, colours, height, editing=False, edges=(), ghost=None, places=()):
-            background, text_colour = colours
-            font = max(8, round(height * 0.5))
-            self.css.load_from_data(
-                (
-                    f"#edge {{ background: {EDIT_COLOUR}; }}"
-                    f"#list {{ background: {background}; border: 1px solid {EDIT_COLOUR}; }}"
-                    f"#item {{ background: none; border: none; box-shadow: none; "
-                    f"color: {text_colour}; font: {font}px sans-serif; "
-                    f"padding: 2px {font}px; min-height: 0; }}"
-                    f"#item:hover {{ background: {EDIT_COLOUR}; color: #000000; }}"
-                    f"#head {{ color: {EDIT_COLOUR}; font: bold {font}px sans-serif; "
-                    f"padding: 2px {font}px; }}"
-                ).encode()
-            )
-            self.title_height = height
-            for side, edge in self.edges.items():
-                edge.set_visible(editing and side in edges)
+        def bar(self, editing=False, edges=(), ghost=None):
             self.editing = editing
+            self.edges = tuple(edges)
             if not editing:
                 self.drag = None
             self.show_ghost(ghost if editing else None)
-            if not editing:
-                self.list.hide()
-            places = tuple(tuple(place) for place in places)
-            if places != self.places:
-                self.places = places
-                for child in self.list_box.get_children():
-                    child.destroy()
-                self.fill_list(places)
 
-        def fill_list(self, places):
-            """The ⚓ list as a grid: a column per target (the game, each screen)
-            headed by its name, a row per side, and Float across the bottom."""
-            sides = ("left", "right", "top", "bottom")
-            columns = {}  # "game" or "screen:<name>" -> its heading
-            for place, label in places:
-                if place != "float":
-                    columns.setdefault(place.rsplit(":", 1)[0], label.rsplit(":", 1)[0])
-            for col, (target, heading) in enumerate(columns.items()):
-                head = Gtk.Label(label=heading)
-                head.set_name("head")
-                self.style(head)
-                self.list_box.attach(head, col, 0, 1, 1)
-                for row, side in enumerate(sides, start=1):
-                    place = f"{target}:{side}"
-                    item = self.button(side, "item", lambda b, p=place: self.on_place(p))
-                    self.list_box.attach(item, col, row, 1, 1)
-            float_item = self.button("Float", "item", lambda b: self.on_place("float"))
-            self.list_box.attach(float_item, 0, len(sides) + 1, max(1, len(columns)), 1)
-            self.list_box.show_all()
-
-        def chrome(self, what):
-            """What the frame's own page asked: one of CHROME."""
+        def chrome(self, msg):
+            """What the frame's own page asked (page_message's "chrome")."""
+            what = msg["do"]
             if what in ("edit", "close"):  # the helper checks edit mode for ×
                 emit("frame", id=self.id, msg={"type": what})
-            elif what == "anchor" and self.editing:
-                self.toggle_list()
-            elif what == "move" and self.editing and self.pressed and self.rect is not None:
+            elif what == "dock" and self.editing:  # the helper checks the place
+                emit("frame", id=self.id, msg={"type": "dock", "place": msg["place"]})
+            elif drag_start(msg, self.editing, self.edges) and self.pressed and self.rect:
                 # The page tells us after its mousedown: start from where it was.
-                self.drag = ("move", *self.pressed, tuple(self.rect))
-
-        def toggle_list(self):
-            """Opens (or closes) the ⚓ list under the title bar's right end."""
-            if self.list.get_visible() or self.rect is None:
-                self.list.hide()
-                return
-            size = self.list.get_preferred_size()[1]
-            x, y, w, _ = self.rect
-            below = y + self.title_height
-            lx, ly = max(x, x + w - size.width), below
-            # Kept on the monitor it opens on: upwards when there's no room below.
-            display = self.list.get_display()
-            area = display.get_monitor_at_point(x + w - 1, y).get_geometry()
-            if ly + size.height > area.y + area.height:
-                ly = max(area.y, y - size.height)
-            lx = min(max(lx, area.x), area.x + area.width - size.width)
-            self.list.move(lx, ly)
-            self.list.show()
-            gdk_window = self.list.get_window()
-            if gdk_window is not None:
-                gdk_window.raise_()
-
-        def on_place(self, place):
-            self.list.hide()
-            emit("frame", id=self.id, msg={"type": "dock", "place": place})
-
-        def on_press(self, box, event, what):
-            if event.button == 1 and self.editing and self.rect is not None:
-                self.drag = (what, event.x_root, event.y_root, tuple(self.rect))
-            return True
+                self.drag = (msg.get("edge", "move"), *self.pressed, tuple(self.rect))
 
         def dragged(self, event):
             """The rect the drag so far gives: the dragged edge follows the pointer."""
@@ -582,7 +484,6 @@ def main():
                 clip.put(view, 0, 0)
                 clip.connect("scroll-event", self.on_unused_wheel)
                 self.root.add_overlay(clip)
-                self.root.reorder_overlay(clip, 0)  # under the edit-mode edges
                 self.clips[wid] = (clip, view)
                 self.lay_out()
                 return
@@ -674,7 +575,6 @@ def main():
                 gdk_window.raise_()
 
         def close(self):
-            self.list.destroy()
             for side in self.ghost:
                 side.destroy()
             self.window.destroy()
@@ -842,7 +742,7 @@ def main():
                 self.frame.placeholders(msg["column"], msg["rects"])
                 emit("placeholders", id=self.frame.id, column=msg["column"], rects=msg["rects"])
             elif msg["type"] == "chrome":
-                self.frame.chrome(msg["do"])
+                self.frame.chrome(msg)
             else:
                 emit("page", id=self.id, msg=msg)
 
@@ -881,14 +781,7 @@ def main():
         if op == "frame":
             if wid not in frames:
                 frames[wid] = FrameWindow(wid)
-            frames[wid].bar(
-                cmd["colours"],
-                cmd["title_height"],
-                cmd.get("editing", False),
-                cmd.get("edges", ()),
-                cmd.get("ghost"),
-                cmd.get("places", ()),
-            )
+            frames[wid].bar(cmd.get("editing", False), cmd.get("edges", ()), cmd.get("ghost"))
         elif op == "open":
             if wid in windows:
                 windows.pop(wid).close()

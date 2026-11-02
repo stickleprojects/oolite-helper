@@ -324,21 +324,13 @@ class WebWidgets:
                 # In edit mode it stays shown, even docked to a game that isn't active.
                 kept = spec.changed(show="always") if fid in self.editing else spec
                 rect = self.resizing.get(fid) or window_rect(kept, game_window, self.monitors)
-            title = title_height(spec)
             ghost = None
             if fid in self.moving and fid in self.resizing:
                 rect, pointer = self.resizing[fid], self.moving[fid]
                 ghost = landing(spec, rect, game_window, self.monitors, pointer)
             editing = fid in self.editing
-            frames[fid] = WebFrame(
-                rect,
-                self.title,
-                title,
-                editing=editing,
-                edges=resize_edges(spec),
-                ghost=ghost,
-                places=tuple(places(self.monitors, game_window)) if editing else (),
-            )
+            edges = resize_edges(spec)
+            frames[fid] = WebFrame(rect, editing=editing, edges=edges, ghost=ghost)
             # Its own page fills it. A plugin's view is sized and placed by its
             # placeholder there, so its rect here only says it's shown.
             inner = [w for w in widgets if w.spec.window == fid]
@@ -349,6 +341,9 @@ class WebWidgets:
             pages[chrome_id(fid)] = {
                 "title": spec.title,
                 "editing": editing,
+                "edges": list(edges),
+                # Its ⚓ list's [place, label]s, while editing.
+                "places": [list(p) for p in places(self.monitors, game_window)] if editing else [],
                 "shown": [w.id for w in inner if w.id in self.in_page and w.open],
                 "plugins": plugins,
             }

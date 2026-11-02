@@ -90,6 +90,50 @@ PLACEHOLDERS = json.dumps(
 )
 
 
+def test_a_frames_own_page_may_ask_to_resize_it_from_an_edge():
+    raw = '{"type": "chrome", "do": "resize", "edge": "left"}'
+    assert host.page_message(raw, chrome=True) == {"type": "chrome", "do": "resize", "edge": "left"}
+
+
+def test_a_resize_from_no_edge_is_dropped():
+    raw = '{"type": "chrome", "do": "resize", "edge": "middle"}'
+    assert host.page_message(raw, chrome=True) is None
+
+
+def test_a_frames_own_page_may_pick_a_place_for_it():
+    raw = '{"type": "chrome", "do": "dock", "place": "game:left"}'
+    assert host.page_message(raw, chrome=True) == {
+        "type": "chrome",
+        "do": "dock",
+        "place": "game:left",
+    }
+
+
+@pytest.mark.parametrize("place", ["", 5, None, "x" * 101])
+def test_a_place_that_isnt_a_short_text_is_dropped(place):
+    raw = json.dumps({"type": "chrome", "do": "dock", "place": place})
+    assert host.page_message(raw, chrome=True) is None
+
+
+RESIZE_LEFT = {"type": "chrome", "do": "resize", "edge": "left"}
+
+
+def test_in_edit_mode_pressing_an_edge_that_resizes_it_starts_a_drag():
+    assert host.drag_start(RESIZE_LEFT, True, ("left", "right"))
+
+
+def test_pressing_an_edge_that_doesnt_resize_it_starts_nothing():
+    assert not host.drag_start(RESIZE_LEFT, True, ("right",))
+
+
+def test_outside_edit_mode_pressing_an_edge_starts_nothing():
+    assert not host.drag_start(RESIZE_LEFT, False, ("left",))
+
+
+def test_in_edit_mode_pressing_its_title_bar_starts_a_move():
+    assert host.drag_start({"type": "chrome", "do": "move"}, True, ())
+
+
 def test_a_frames_own_page_can_say_where_its_placeholders_are():
     assert host.page_message(PLACEHOLDERS, chrome=True) == {
         "type": "placeholders",
@@ -300,7 +344,7 @@ def test_sync_closes_removed_windows_and_reopens_changed_ones(fake_host):
     assert sorted(sent(events)) == [("close", "a"), ("close", "b"), ("open", "a"), ("place", "a")]
 
 
-FRAME = WebFrame((10, 20, 640, 720), ("#0055aa", "#ffffff"), 24)
+FRAME = WebFrame((10, 20, 640, 720))
 
 
 def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):

@@ -29,15 +29,14 @@ when its bar is clicked, too). The frame's "place" moves the whole thing; its
 page's "place" sets its size; a plugin view's "place" only shows or hides it
 (rect null), as its placeholder sizes and places it.
 
-PROTOCOL (version 4): JSON objects, one per line.
+PROTOCOL (version 5): JSON objects, one per line.
 
   helper -> host (stdin)
-    {"op": "frame", "id": FID, "colours": [BG, FG], "title_height": PX,
-     "editing": bool, "edges": ["left", ...], "ghost": [x, y, w, h] or null}
-                                                      opens hidden, or updates it;
-                                                      editing: its edges resize it;
-                                                      ghost: an outline where a drag lands;
-     "places": [[PLACE, LABEL], ...]                  editing: what its ⚓ list offers
+    {"op": "frame", "id": FID, "editing": bool, "edges": ["left", ...],
+     "ghost": [x, y, w, h] or null}                   opens hidden, or updates it;
+                                                      editing: its page's edges in edges
+                                                      may resize it;
+                                                      ghost: an outline where a drag lands
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
      "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N,
      "chrome": bool}                                  opens hidden; extras are
@@ -48,7 +47,7 @@ PROTOCOL (version 4): JSON objects, one per line.
     {"op": "close", "id": ID or FID}                  a frame after its views
     {"op": "quit"}
   host -> helper (stdout)
-    {"ev": "ready", "protocol": 4, "api": 1, "webkit": "2.52.6"}
+    {"ev": "ready", "protocol": 5, "api": 1, "webkit": "2.52.6"}
     {"ev": "loaded", "id": ID}
     {"ev": "page", "id": ID, "msg": {"type": "resize", "width": w, "height": h}}
     {"ev": "page", "id": ID, "msg": {"type": "show", "shown": bool}}
@@ -63,7 +62,8 @@ PROTOCOL (version 4): JSON objects, one per line.
     {"ev": "frame", "id": FID, "msg": {"type": "move", "rect": [x, y, w, h],
                                        "pointer": [x, y], "done": bool}}
                                                       its page's title bar dragged
-    {"ev": "frame", "id": FID, "msg": {"type": "dock", "place": PLACE}}  picked from its ⚓ list
+    {"ev": "frame", "id": FID, "msg": {"type": "dock", "place": PLACE}}  picked from its page's
+                                                      ⚓ list: unchecked!
     {"ev": "frame", "id": FID, "msg": {"type": "close"}}  its page's × was clicked
     {"ev": "placeholders", "id": FID, "column": [x, y, w, h], "rects": {ID: [x, y, w, h]}}
                                                       where its page says its column and
@@ -82,7 +82,7 @@ from dataclasses import dataclass
 
 from ..tk.components.style import BG
 
-PROTOCOL = 4
+PROTOCOL = 5
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "host.py")
 # The system Python, which has the GTK and WebKit bindings (python3-gi,
 # gir1.2-webkit2-4.1); the helper's venv doesn't.
@@ -133,22 +133,12 @@ class WebFrame:
     """A widgetwindow (#124): the WebWindows opened into it, its own page first."""
 
     rect: tuple | None = None  # (x, y, w, h), or None to hide
-    colours: tuple = ("#3c4650", "#e6e6e6")  # the title bar's background and text: the ⚓ list's
-    title_height: int = 24
-    editing: bool = False  # in edit mode: its ✎ is lit and its edges resize it
+    editing: bool = False  # in edit mode: its page's edges resize it
     edges: tuple = ()  # which edges resize it: "left", "right", "top", "bottom"
     ghost: tuple | None = None  # while its title bar is dragged: where it would land
-    places: tuple = ()  # editing: ((place, label), ...) its ⚓ list offers
 
     def bar(self):
-        return (
-            self.colours,
-            self.title_height,
-            self.editing,
-            self.edges,
-            self.ghost,
-            self.places,
-        )
+        return (self.editing, self.edges, self.ghost)
 
 
 def runtime_dir(environ=os.environ):
@@ -407,16 +397,13 @@ class WebHost:
         for fid, frame in self.frames.items():
             old = self.framed.get(fid)
             if old is None or old.bar() != frame.bar():
-                colours, height, editing, edges, ghost, places = frame.bar()
+                editing, edges, ghost = frame.bar()
                 self._send(
                     op="frame",
                     id=fid,
-                    colours=list(colours),
-                    title_height=height,
                     editing=editing,
                     edges=list(edges),
                     ghost=list(ghost) if ghost else None,
-                    places=[list(place) for place in places],
                 )
             if old is None or old.rect != frame.rect:
                 self._send(op="place", id=fid, rect=list(frame.rect) if frame.rect else None)

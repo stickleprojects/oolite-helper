@@ -661,10 +661,18 @@ def test_while_its_title_bar_is_dragged_a_ghost_shows_where_it_would_land():
     assert host.frames["trading"].ghost == (1200, 1300, 600, 500)
 
 
-def test_in_edit_mode_its_anchor_list_offers_places():
-    host, made, _ = trading_window()
+def test_in_edit_mode_its_page_is_told_the_places_its_anchor_list_offers():
+    host, made, model = trading_window()
     made.handle({"ev": "frame", "id": "trading", "msg": {"type": "edit"}})
-    assert ("float", "Float") in host.frames["trading"].places
+    assert ["float", "Float"] in frame_topic(host)["places"]
+
+
+def test_outside_edit_mode_its_page_has_no_places():
+    assert frame_topic(trading_window()[0])["places"] == []
+
+
+def test_its_page_is_told_which_edges_resize_it():
+    assert frame_topic(trading_window()[0])["edges"] == ["right"]  # its far edge, beside the game
 
 
 def test_picked_from_its_anchor_list_it_goes_there():

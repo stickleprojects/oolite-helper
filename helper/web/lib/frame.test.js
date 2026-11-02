@@ -46,11 +46,6 @@ test("its cross asks the host to close it", () => {
   assert.deepEqual(asked, ["close"]);
 });
 
-test("its anchor asks the host for the list of places", () => {
-  const { bar, asked } = page();
-  button(bar, "anchor").click();
-  assert.deepEqual(asked, ["anchor"]);
-});
 
 test("in edit mode its bar is marked editing", () => {
   const { bar } = page(undefined, undefined, { title: "T", editing: true });
@@ -225,4 +220,125 @@ test("a touchpad's smooth wheel turn scrolls the column its own distance", () =>
   const { column, wheel } = withLamp();
   wheel(0, -0.5);
   assert.deepEqual(column.scrolled, [{ left: 0, top: -22, behavior: "smooth" }]);
+});
+
+// -- edit mode: its edges and its list of places -----------------------------
+
+const PLACES = [
+  ["game:left", "Game: left"],
+  ["game:right", "Game: right"],
+  ["game:top", "Game: top"],
+  ["game:bottom", "Game: bottom"],
+  ["screen:eDP-1:left", "eDP-1: left"],
+  ["screen:eDP-1:right", "eDP-1: right"],
+  ["screen:eDP-1:top", "eDP-1: top"],
+  ["screen:eDP-1:bottom", "eDP-1: bottom"],
+  ["float", "Float"],
+];
+const EDITING = { title: "T", editing: true, edges: ["left", "bottom"], places: PLACES };
+
+test("in edit mode it draws the edges that resize it", () => {
+  const { edges } = page(undefined, undefined, EDITING);
+  assert.deepEqual(
+    Object.entries(edges).map(([side, node]) => [side, node.style.values.display]),
+    [["left", "block"], ["right", "none"], ["top", "none"], ["bottom", "block"]],
+  );
+});
+
+test("outside edit mode it draws no edges", () => {
+  const { edges } = page(undefined, undefined, { ...EDITING, editing: false });
+  assert.ok(Object.values(edges).every((node) => node.style.values.display === "none"));
+});
+
+test("in edit mode its column is inset from its edges", () => {
+  const { column } = page(undefined, undefined, EDITING);
+  const margins = ["left", "right", "bottom"].map((side) => column.style.values[`margin-${side}`]);
+  assert.deepEqual(margins, ["6px", "0", "6px"]);
+});
+
+test("leaving edit mode its column fills it again", () => {
+  const { column, publish } = page(undefined, undefined, EDITING);
+  publish("frame", { ...EDITING, editing: false, shown: ["tip", "status"] });
+  assert.equal(column.style.values["margin-left"], "0");
+});
+
+test("in edit mode pressing an edge asks the host to resize it from there", () => {
+  const { edges, asked } = page(undefined, undefined, EDITING);
+  edges.left.fire("mousedown", { button: 0 });
+  assert.deepEqual(asked, ["resize left"]);
+});
+
+test("outside edit mode pressing an edge does nothing", () => {
+  const { edges, asked } = page(undefined, undefined, { ...EDITING, editing: false });
+  edges.left.fire("mousedown", { button: 0 });
+  assert.deepEqual(asked, []);
+});
+
+test("pressing its top edge, over the bar, doesn't move it", () => {
+  const { edges, bar, asked } = page(undefined, undefined, { ...EDITING, edges: ["top"] });
+  edges.top.fire("mousedown", { button: 0 }, bar);
+  assert.deepEqual(asked, ["resize top"]);
+});
+
+test("its list of places is closed at first", () => {
+  assert.equal(page(undefined, undefined, EDITING).places.style.values.display, "none");
+});
+
+test("in edit mode its anchor opens its list of places", () => {
+  const { bar, places } = page(undefined, undefined, EDITING);
+  button(bar, "anchor").click();
+  assert.equal(places.style.values.display, "grid");
+});
+
+test("its anchor again closes the list", () => {
+  const { bar, places } = page(undefined, undefined, EDITING);
+  button(bar, "anchor").click();
+  button(bar, "anchor").click();
+  assert.equal(places.style.values.display, "none");
+});
+
+test("its list has a column per target headed by its name, a row per side, and Float", () => {
+  const { places } = page(undefined, undefined, EDITING);
+  assert.deepEqual(
+    places.children.map((cell) => cell.textContent),
+    ["Game", "eDP-1", "left", "left", "right", "right", "top", "top", "bottom", "bottom", "Float"],
+  );
+  assert.equal(places.style.values["grid-template-columns"], "repeat(2, auto)");
+});
+
+test("picking a place asks the host to dock it there and closes the list", () => {
+  const { bar, places, asked } = page(undefined, undefined, EDITING);
+  button(bar, "anchor").click();
+  places.children[3].click(); // eDP-1's left
+  assert.deepEqual(asked, ["dock screen:eDP-1:left"]);
+  assert.equal(places.style.values.display, "none");
+});
+
+test("leaving edit mode closes the list", () => {
+  const { bar, places, publish } = page(undefined, undefined, EDITING);
+  button(bar, "anchor").click();
+  publish("frame", { ...EDITING, editing: false, places: [] });
+  assert.equal(places.style.values.display, "none");
+});
+
+test("outside edit mode its anchor opens nothing", () => {
+  const { bar, places } = page();
+  button(bar, "anchor").click();
+  assert.equal(places.style.values.display, "none");
+});
+
+test("while its list is open the host is told no placeholders, so plugins' views hide", () => {
+  const { bar, placed, nextFrame } = withLamp({ ...OPEN, ...EDITING });
+  button(bar, "anchor").click();
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, {});
+});
+
+test("when its list closes the placeholders come back", () => {
+  const { bar, placed, nextFrame } = withLamp({ ...OPEN, ...EDITING });
+  button(bar, "anchor").click();
+  nextFrame();
+  button(bar, "anchor").click();
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 84, 294, 100] });
 });

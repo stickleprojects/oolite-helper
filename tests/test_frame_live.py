@@ -298,7 +298,7 @@ def test_dragging_its_title_bar_outside_edit_mode_does_nothing(frame):
     assert (spec(model).x, spec(model).y) == (600, 100)
 
 
-def test_dragging_its_right_edge_in_edit_mode_widens_it(frame):
+def test_dragging_its_right_edge_in_edit_mode_widens_it(frame, desktop):
     mouse, model, made = frame
     click(mouse, made, button(model, 1))
     x, y, w, _ = bar(model)
@@ -309,14 +309,25 @@ def test_dragging_its_right_edge_in_edit_mode_widens_it(frame):
     mouse("mouseup", 1)
     made.pump()
     assert spec(model).width > 400
+    assert game_gets_keys(mouse, desktop[1])
 
 
-def test_its_anchor_opens_the_list_of_places_under_its_bar(frame, desktop):
+def place_in_list(model, row):
+    """The middle of a row of its ⚓ list, which opens under the bar's right
+    end: with one screen and no game, one column, headed "V" (row 0), then
+    left, right, top, bottom and Float."""
+    x, y, w, h = bar(model)
+    em = max(8, round(h * 0.5))
+    line = round(em * 1.15) + 4  # its text's line, and 2 px above and below
+    return x + w - 2 * em, y + h + 1 + line * row + line // 2
+
+
+def test_picking_a_place_from_its_anchor_list_docks_it_there(frame, desktop):
     mouse, model, made = frame
     click(mouse, made, button(model, 1))
-    before = mapped(mouse)
     click(mouse, made, button(model, 2))
-    assert len(mapped(mouse)) > len(before)
+    click(mouse, made, place_in_list(model, 1))  # left
+    assert spec(model).dock == "screen:V:left"
     assert game_gets_keys(mouse, desktop[1])
 
 
@@ -350,11 +361,6 @@ def test_the_wheel_scrolls_its_column_and_the_game_keeps_the_keyboard(frame, des
     made.pump(0.5)
     assert shot("after.png") != before
     assert game_gets_keys(mouse, desktop[1])
-
-
-def mapped(mouse):
-    """The ids of the windows shown now."""
-    return set(mouse("search", "--onlyvisible", "--name", "").split())
 
 
 # -- a plugin's view over its placeholder (#141 step 3) ------------------------
