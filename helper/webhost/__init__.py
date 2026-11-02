@@ -65,6 +65,10 @@ PROTOCOL (version 4): JSON objects, one per line.
                                                       its page's title bar dragged
     {"ev": "frame", "id": FID, "msg": {"type": "dock", "place": PLACE}}  picked from its ⚓ list
     {"ev": "frame", "id": FID, "msg": {"type": "close"}}  its page's × was clicked
+    {"ev": "placeholders", "id": FID, "column": [x, y, w, h], "rects": {ID: [x, y, w, h]}}
+                                                      where its page says its column and
+                                                      plugins' placeholders are now (the
+                                                      helper ignores it; tests watch it)
   made by WebHost.poll() itself
     {"ev": "host_exited", "code": N}                  restarting after a delay
     {"ev": "unavailable", "message": "..."}           couldn't start; retrying

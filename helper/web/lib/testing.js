@@ -64,6 +64,11 @@ class FakeNode {
     if (parent && !stopped) parent.fire(type, event);
   }
 
+  // Scrolled by scrollBy(options): each call's options, in order.
+  scrollBy(options) {
+    (this.scrolled ||= []).push(JSON.parse(JSON.stringify(options))); // out of the page's context
+  }
+
   // Where it is: set node.rect = {x, y, width, height} to move it.
   getBoundingClientRect() {
     return { x: 0, y: 0, width: 100, height: 20, ...this.rect };
@@ -147,6 +152,7 @@ function load(names, widgetName, extra = []) {
   const windowListeners = {};
   const frames = []; // requestAnimationFrame callbacks waiting for the next frame
   const context = {
+    innerHeight: 300,
     requestAnimationFrame: (callback) => frames.push(callback),
     addEventListener: (type, listener) => (windowListeners[type] ||= []).push(listener),
     document: {
@@ -215,10 +221,12 @@ function load(names, widgetName, extra = []) {
 
 // A widgetwindow's page (#141) started with config as its OOLITE_FRAME, its
 // topics having the values in state: {root, bar, column, sections, asked,
-// placed, publish, nextFrame, fireWindow}, where asked collects what it asked
+// placed, publish, nextFrame, fireWindow, wheel}, where asked collects what it asked
 // of the web host (window.ooliteFrame), placed the placeholder rects it sent,
 // publish(topic, value) sends it a topic, e.g. "frame", nextFrame() runs what
-// waits for the next animation frame, and fireWindow("resize") resizes it.
+// waits for the next animation frame, fireWindow("resize") resizes it, and
+// wheel(dx, dy) passes it a wheel turn (in lines) as the host does. The window is
+// 300 px high.
 function frame(config, state, frameTopic = { title: "Trading", editing: false, shown: null }) {
   const names = config.widgets.flatMap((widget) => widget.components || []);
   const page = load(names, null, ["lib/frame.js"]);
@@ -236,6 +244,7 @@ function frame(config, state, frameTopic = { title: "Trading", editing: false, s
     publish: page.publish,
     nextFrame: page.nextFrame,
     fireWindow: page.fireWindow,
+    wheel: (dx, dy) => page.context.ooliteFrameWheel(dx, dy),
   };
 }
 

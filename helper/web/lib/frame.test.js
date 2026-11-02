@@ -214,3 +214,15 @@ test("a page with no plugins' widgets tells the host nothing", () => {
   made.nextFrame();
   assert.deepEqual(made.placed, []);
 });
+
+test("a wheel turn a plugin's view didn't use scrolls the column by WebKit's step", () => {
+  const { column, wheel } = withLamp();
+  wheel(0, 1);
+  assert.deepEqual(column.scrolled, [{ left: 0, top: 44, behavior: "smooth" }]); // floor(300^(2/3))
+});
+
+test("a touchpad's smooth wheel turn scrolls the column its own distance", () => {
+  const { column, wheel } = withLamp();
+  wheel(0, -0.5);
+  assert.deepEqual(column.scrolled, [{ left: 0, top: -22, behavior: "smooth" }]);
+});

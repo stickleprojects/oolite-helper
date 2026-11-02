@@ -205,6 +205,18 @@ def in_column(rect, column):
     return (left, top, right - left, bottom - top), (rect[0] - left, rect[1] - top)
 
 
+WHEEL_LINES = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
+
+
+def wheel_lines(direction, deltas=(0, 0)):
+    """How far a wheel turn goes, (dx, dy) in lines: one for a click of a
+    wheel (direction "up", "down", "left" or "right"); a touchpad's "smooth"
+    turn gives its own deltas, in lines too."""
+    if direction == "smooth":
+        return tuple(deltas)
+    return WHEEL_LINES.get(direction, (0, 0))
+
+
 def extra_name(plugin, uri):
     """The helper-provided file a plugin://<plugin>/_oolite/... URI names, or None."""
     parsed = urllib.parse.urlsplit(uri)
@@ -336,6 +348,7 @@ def main():
             self.column = None  # (x, y, w, h): the page's column, as its page last said
             self.rects = {}  # plugin window id -> its placeholder's (x, y, w, h)
             self.parts = {}  # Gtk.Layout -> (x, y, w, h): where in the window it shows
+            self.page = None  # its own page's view
             self.edges = {side: self.edge(side) for side in EDGE_CURSORS}
             for edge in self.edges.values():
                 root.add_overlay(edge)
@@ -567,17 +580,31 @@ def main():
             if not chrome:
                 clip = Gtk.Layout()
                 clip.put(view, 0, 0)
+                clip.connect("scroll-event", self.on_unused_wheel)
                 self.root.add_overlay(clip)
                 self.root.reorder_overlay(clip, 0)  # under the edit-mode edges
                 self.clips[wid] = (clip, view)
                 self.lay_out()
                 return
+            self.page = view
             self.root.add(view)
             # The page's mousedown reaches us (as "move") after GTK's press:
             # remember where it was, and follow a move drag from here.
             view.connect("button-press-event", self.on_page_press)
             view.connect("motion-notify-event", self.on_motion)
             view.connect("button-release-event", self.on_page_release)
+
+        def on_unused_wheel(self, clip, event):
+            """A wheel turn over a plugin's view that its page didn't use (it
+            can't scroll that way, and WebKit passes those to the view's parent):
+            its page scrolls the column instead."""
+            ok, direction = event.get_scroll_direction()
+            _, *deltas = event.get_scroll_deltas()
+            dx, dy = wheel_lines(direction.value_nick if ok else "smooth", deltas)
+            if self.page is not None and (dx or dy):
+                script = f"globalThis.ooliteFrameWheel?.({dx}, {dy})"
+                self.page.evaluate_javascript(script, -1, None, None, None, None, None)
+            return True
 
         def on_page_press(self, view, event):
             if event.button == 1:
@@ -813,6 +840,7 @@ def main():
                 return
             if msg["type"] == "placeholders":
                 self.frame.placeholders(msg["column"], msg["rects"])
+                emit("placeholders", id=self.frame.id, column=msg["column"], rects=msg["rects"])
             elif msg["type"] == "chrome":
                 self.frame.chrome(msg["do"])
             else:

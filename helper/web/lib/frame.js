@@ -16,6 +16,8 @@
 //
 // The bar's buttons, and pressing on the bar in edit mode to move the window,
 // go to the web host through window.ooliteFrame, which only this page gets.
+// The host calls ooliteFrameWheel(dx, dy) with a wheel turn a plugin's view
+// didn't use.
 "use strict";
 
 (() => {
@@ -121,6 +123,14 @@
         last = text;
         host.placeholders(where, rects);
       });
+    };
+    // A wheel turn over a plugin's view that its page didn't use (it can't
+    // scroll that way): the host passes it here, in lines, and the column
+    // scrolls, as a scrolling div does for a child that can't. A line is
+    // WebKitGTK's own step for a page this high, so both scroll alike.
+    globalThis.ooliteFrameWheel = (dx, dy) => {
+      const step = Math.floor(globalThis.innerHeight ** (2 / 3));
+      column.scrollBy({ left: dx * step, top: dy * step, behavior: "smooth" });
     };
     column.addEventListener("scroll", report);
     globalThis.addEventListener("resize", report);

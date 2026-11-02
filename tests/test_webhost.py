@@ -148,6 +148,18 @@ def test_a_plugin_view_scrolled_right_out_of_the_column_doesnt_show():
     assert host.in_column((0, -200, 294, 100), COLUMN) is None
 
 
+def test_a_click_of_the_wheel_down_is_a_line_down():
+    assert host.wheel_lines("down") == (0, 1)
+
+
+def test_a_click_of_the_wheel_left_is_a_line_left():
+    assert host.wheel_lines("left") == (-1, 0)
+
+
+def test_a_touchpads_smooth_turn_goes_its_own_distance():
+    assert host.wheel_lines("smooth", (0.0, -0.5)) == (0.0, -0.5)
+
+
 def test_a_frames_own_page_is_opened_as_its_chrome(fake_host):
     fake_host.sync({"a": WebWindow("probe", PROBE, frame="f", index=-1, chrome=True)}, {"f": FRAME})
     events = run_until(fake_host, lambda ev: len(sent(ev)) == 4)
