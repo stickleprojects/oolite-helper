@@ -579,6 +579,16 @@ def test_a_closed_widget_in_it_is_left_out_of_its_page():
     assert frame_topic(host)["shown"] == ["widget1:trade_here"]
 
 
+def test_a_plugins_widget_in_it_reopened_is_shown_again_and_its_page_told(tmp_path):
+    host, _, model = with_lamp(tmp_path)
+    model.dispatch({"type": "layout/close_widget", "id": "widget3:lamp"})
+    model.notify()
+    model.dispatch({"type": "layout/open_widget", "id": "widget3:lamp"})
+    model.notify()
+    assert frame_topic(host)["plugins"] == {"widget3:lamp": 100}
+    assert host.windows["widget3:lamp"].rect == (0, 0, 640, 100)
+
+
 def test_its_page_may_send_only_its_widgets_actions(capsys):
     _, made, _ = trading_window()
     action = {"type": "ui/choose_tab", "tab": "x"}

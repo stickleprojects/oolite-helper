@@ -798,17 +798,20 @@ def main():
             emit("crashed", id=self.id, reason=reason.value_nick)
 
         def on_page_message(self, manager, result):
-            msg = page_message(result.get_js_value().to_string(), self.chrome)
-            if msg is None:
-                return
+            raw = result.get_js_value().to_string()
+            # Rate-limited before parsing, so a page can't make us parse junk without
+            # end. Only the frame's own page has the placeholders budget.
+            placing = self.chrome and '"placeholders"' in raw
             now = GLib.get_monotonic_time() / 1e6
-            placing = msg["type"] == "placeholders"
             recent = self.recent_places if placing else self.recent
             recent[:] = [t for t in recent if now - t < 1] + [now]
             limit = PLACEHOLDER_MESSAGES_PER_SECOND if placing else PAGE_MESSAGES_PER_SECOND
             if len(recent) > limit:
                 return
-            if placing:
+            msg = page_message(raw, self.chrome)
+            if msg is None:
+                return
+            if msg["type"] == "placeholders":
                 self.frame.placeholders(msg["column"], msg["rects"])
             elif msg["type"] == "chrome":
                 self.frame.chrome(msg["do"])

@@ -299,6 +299,17 @@ def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):
     assert (opened["frame"], opened["index"]) == ("f", 1)
 
 
+def test_a_plugins_view_in_a_frame_is_hidden_and_shown_again_by_its_place(fake_host):
+    shown = WebWindow("probe", PROBE, rect=(0, 0, 640, 100), frame="f")
+    fake_host.sync({"a": shown}, {"f": FRAME})
+    run_until(fake_host, lambda ev: len(sent(ev)) == 4)
+    fake_host.sync({"a": WebWindow("probe", PROBE, rect=None, frame="f")}, {"f": FRAME})
+    fake_host.sync({"a": shown}, {"f": FRAME})
+    events = run_until(fake_host, lambda ev: len(sent(ev)) == 2)
+    places = [e["cmd"]["rect"] for e in events if e["ev"] == "got"]
+    assert places == [None, [0, 0, 640, 100]]
+
+
 def test_a_frame_closes_after_the_views_in_it(fake_host):
     fake_host.sync({"a": WebWindow("probe", PROBE, frame="f")}, {"f": FRAME})
     run_until(fake_host, lambda ev: len(sent(ev)) == 4)

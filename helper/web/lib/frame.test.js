@@ -162,6 +162,14 @@ test("after a widget above it is hidden it tells the host where the placeholder 
   assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 24, 294, 100] });
 });
 
+test("after a widget above it opens it tells the host where the placeholder is now", () => {
+  const { sections, placed, publish, nextFrame } = withLamp({ ...OPEN, shown: ["status"] });
+  sections[1].rect = { ...sections[1].rect, y: 140 };
+  publish("frame", OPEN);
+  nextFrame();
+  assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 140, 294, 100] });
+});
+
 test("after a widget above it redraws taller it tells the host where the placeholder is now", () => {
   const { sections, placed, publish, nextFrame } = withLamp();
   sections[1].rect = { ...sections[1].rect, y: 140 };
