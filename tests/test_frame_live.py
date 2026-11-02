@@ -3,7 +3,8 @@
     OOLITE_HELPER_LIVE_UI=1 .venv/bin/python -m pytest tests/test_frame_live.py
 
 Needs Xvfb, marco (the desktop's window manager, so focus behaves as it does
-in play), xdotool, scrot, GTK 3, WebKit2 4.1 and xauth. Not run in CI.
+in play), xdotool, scrot, GTK 3, WebKit2 4.1 and xauth. CI runs it in its
+Live UI job (scripts/run-ci-checks.sh --only live).
 OOLITE_HELPER_LIVE_UI=here uses the display you're on instead of a hidden one
 (no Xvfb needed): keep your hands off the mouse while it runs.
 
@@ -25,10 +26,11 @@ import pytest
 
 from helper.layout import widgets_from_specs, windows_from_specs
 from helper.model import Model
-from helper.plugins import WebWidgets
+from helper.plugins import WebWidgets, discover
 from helper.screen import Monitor
 from helper.settings import COMPONENTS
 from helper.webhost import WebHost
+from helper.webhost.host import in_column
 from helper.widgets import title_height
 from tests.configs import load_widgets, load_widgetwindows
 
@@ -53,6 +55,37 @@ height = 200
 widgets = [{ components = ["hold"], height = 400 }]
 """
 # The stand-in game: takes focus like a normal window, prints each key it gets.
+# A widgetwindow with a plugin's widget, drawn all in SWATCH, between two holds:
+# scrolled, the swatch goes up under the title bar.
+SWATCH = (255, 0, 255)
+SWATCH_CONFIG = """
+[[widgetwindows]]
+id = "w"
+title = "Test"
+screen = "V"
+x = 600
+y = 100
+width = 400
+height = 300
+widgets = [
+  { components = ["hold"], height = 150 },
+  { components = ["swatch"], height = 120 },
+  { components = ["hold"], height = 400 },
+]
+"""
+SWATCH_MANIFEST = """\
+name = "swatch"
+version = "1.0.0"
+api = 1
+topics = ["context"]
+width = 200
+height = 120
+"""
+SWATCH_PAGE = '<html style="background: #ff00ff; height: 100%"><body></body></html>'
+SCROLLING_SWATCH_PAGE = (
+    '<html style="background: #ff00ff"><body style="margin: 0">'
+    '<div style="height: 240px"></div></body></html>'
+)
 GAME = """
 import sys, tkinter
 root = tkinter.Tk(className="fakegame")
@@ -90,9 +123,10 @@ def desktop(tmp_path_factory):
             procs.append(subprocess.Popen(xvfb))
             started = lambda: os.path.exists(f"/tmp/.X11-unix/X{DISPLAY[1:]}")  # noqa: E731
             assert wait(started), "Xvfb didn't start"
+            wm_log = tmp_path_factory.mktemp("wm") / "marco.log"
             wm = ["marco", "--replace"]
-            procs.append(subprocess.Popen(wm, env=env, stderr=subprocess.DEVNULL))
-            time.sleep(1)
+            with open(wm_log, "w") as log:
+                procs.append(subprocess.Popen(wm, env=env, stdout=log, stderr=log))
         game = subprocess.Popen(
             [sys.executable, "-c", GAME], env=env, stdout=subprocess.PIPE, text=True
         )
@@ -104,7 +138,12 @@ def desktop(tmp_path_factory):
 
         assert wait(found), "the stand-in game didn't open"
         window = found().split()[0].decode()
-        xdotool("windowactivate", "--sync", window, env=env)
+        activate = ["xdotool", "windowactivate", "--sync", window]
+        # The window manager may still be starting (slower in CI): until it is, it can't activate.
+        if not wait(lambda: subprocess.run(activate, env=env, capture_output=True).returncode == 0):
+            why = "" if HERE else f"marco {'running' if procs[1].poll() is None else 'exited'}: "
+            why += "" if HERE else wm_log.read_text()[-2000:]
+            pytest.fail(f"couldn't give the stand-in game the keyboard. {why}")
         yield env, game
     finally:
         for proc in reversed(procs):
@@ -112,34 +151,72 @@ def desktop(tmp_path_factory):
             proc.wait()
 
 
-@pytest.fixture
-def frame(desktop, tmp_path, monkeypatch):
-    """The widgetwindow, shown and loaded: (mouse, model, made, page) where
-    mouse(...) runs xdotool on the hidden display and page is its own page's rect."""
-    env, game = desktop
+def open_frame(tmp_path, monkeypatch, config, manifests=None):
+    """The widgetwindow config.toml's text makes, shown and loaded: (made, model).
+    made.pump(seconds) runs the helper for a while; made.events is every web host
+    event so far."""
     monkeypatch.setenv("DISPLAY", DISPLAY)
     if not HERE:
         monkeypatch.delenv("XAUTHORITY", raising=False)
     path = tmp_path / "config.toml"
-    path.write_text(CONFIG)
-    windows = windows_from_specs(load_widgetwindows(path))
-    model = Model(layout=widgets_from_specs(load_widgets(path)), windows=windows)
+    path.write_text(config)
+    plugins = tuple(manifests or ())
+    windows = windows_from_specs(load_widgetwindows(path, plugins))
+    model = Model(layout=widgets_from_specs(load_widgets(path, plugins)), windows=windows)
     host = WebHost()
     events = []
     poll = host.poll
 
     def recorded():
         found = poll()
-        events.extend(found)
+        events.extend({**e, "at": time.monotonic()} for e in found)
         return found
 
     host.poll = recorded
-    made = WebWidgets(model, {}, host=host, components=COMPONENTS, monitors=[SCREEN])
+    made = WebWidgets(model, manifests or {}, host=host, components=COMPONENTS, monitors=[SCREEN])
     made.pump = lambda seconds=0.3: pump(made, model, seconds)
+    made.events = events
     loaded = lambda: any(e["ev"] == "loaded" for e in events)  # noqa: E731
     assert wait(lambda: pump(made, model, 0) or loaded(), 20), "the page didn't load"
     made.pump(1)  # drawn
+    return made, model
+
+
+@pytest.fixture
+def frame(desktop, tmp_path, monkeypatch):
+    """The widgetwindow, shown and loaded: (mouse, model, made) where
+    mouse(...) runs xdotool on the hidden display."""
+    env, _ = desktop
+    made, model = open_frame(tmp_path, monkeypatch, CONFIG)
     yield (lambda *args: xdotool(*args, env=env)), model, made
+    made.close()
+
+
+def open_swatch(tmp_path, monkeypatch, page):
+    """SWATCH_CONFIG's widgetwindow, its swatch's page being page: (made, model)."""
+    root = tmp_path / "plugins" / "swatch"
+    root.mkdir(parents=True)
+    (root / "plugin.toml").write_text(SWATCH_MANIFEST)
+    (root / "index.html").write_text(page)
+    made, model = open_frame(tmp_path, monkeypatch, SWATCH_CONFIG, discover(root.parent)[0])
+    assert wait(lambda: made.pump(0) or placeholders(made), 10), "no placeholders came"
+    made.pump(0.5)
+    return made, model
+
+
+@pytest.fixture
+def swatch(desktop, tmp_path, monkeypatch):
+    """SWATCH_CONFIG's widgetwindow: (mouse, model, made), as frame."""
+    made, model = open_swatch(tmp_path, monkeypatch, SWATCH_PAGE)
+    yield (lambda *args: xdotool(*args, env=desktop[0])), model, made
+    made.close()
+
+
+@pytest.fixture
+def scrolling_swatch(desktop, tmp_path, monkeypatch):
+    """As swatch, but its page is taller than its widget, so it scrolls itself."""
+    made, model = open_swatch(tmp_path, monkeypatch, SCROLLING_SWATCH_PAGE)
+    yield (lambda *args: xdotool(*args, env=desktop[0])), model, made
     made.close()
 
 
@@ -278,3 +355,158 @@ def test_the_wheel_scrolls_its_column_and_the_game_keeps_the_keyboard(frame, des
 def mapped(mouse):
     """The ids of the windows shown now."""
     return set(mouse("search", "--onlyvisible", "--name", "").split())
+
+
+# -- a plugin's view over its placeholder (#141 step 3) ------------------------
+
+
+def placeholders(made):
+    """Every placeholders event so far with the swatch's in it, oldest first."""
+    return [e for e in made.events if e["ev"] == "placeholders" and e["rects"]]
+
+
+def shown_part(event):
+    """Where the swatch's view should show in the window, (x, y, w, h), as the
+    page's event says: its placeholder cut to the column. None if none shows."""
+    if not event["rects"]:
+        return None
+    (rect,) = event["rects"].values()
+    fit = in_column(tuple(rect), tuple(event["column"]))
+    return None if fit is None else fit[0]
+
+
+def window_shot(env, model, path):
+    """The widgetwindow's pixels now: (width, height, rgb bytes)."""
+    window = spec(model)
+    area = f"{window.x},{window.y},{window.width},{window.height}"
+    subprocess.run(["scrot", "-a", area, "-o", str(path)], env=env, check=True)
+    data = path.read_bytes()
+    fields, at = [], 0
+    while len(fields) < 4:  # P6, width, height, maxval; # starts a comment
+        while data[at : at + 1].isspace():
+            at += 1
+        if data[at : at + 1] == b"#":
+            at = data.index(b"\n", at)
+            continue
+        end = at
+        while not data[end : end + 1].isspace():
+            end += 1
+        fields.append(data[at:end])
+        at = end
+    width, height = int(fields[1]), int(fields[2])
+    return width, height, data[at + 1 : at + 1 + width * height * 3]
+
+
+def swatch_box(env, model, path):
+    """(x, y, w, h) in the window of the pixels drawn in SWATCH, or None."""
+    width, height, rgb = window_shot(env, model, path)
+    near = lambda i: all(abs(rgb[i + c] - SWATCH[c]) < 24 for c in range(3))  # noqa: E731
+    rows = [y for y in range(height) if any(near((y * width + x) * 3) for x in range(width))]
+    if not rows:
+        return None
+    cols = [x for x in range(width) if any(near((y * width + x) * 3) for y in rows)]
+    return cols[0], rows[0], cols[-1] - cols[0] + 1, rows[-1] - rows[0] + 1
+
+
+def close_to(box, part, px=1):
+    if box is None or part is None:
+        return box is part
+    return all(abs(a - b) <= px for a, b in zip(box, part, strict=True))
+
+
+def wheel(mouse, model, clicks=1):
+    """Turns the wheel down over the hold above the swatch."""
+    window = spec(model)
+    mouse("mousemove", window.x + window.width // 2, window.y + 60)
+    for _ in range(clicks):
+        mouse("click", 5)
+
+
+def test_the_wheel_scrolls_a_plugin_view_with_its_column(swatch, desktop, tmp_path):
+    mouse, model, made = swatch
+    before = placeholders(made)[-1]
+    wheel(mouse, model)
+    made.pump(0.1)
+    after = placeholders(made)[-1]
+    assert after["rects"] != before["rects"]
+    assert close_to(swatch_box(desktop[0], model, tmp_path / "shot.ppm"), shown_part(after))
+
+
+def test_a_plugin_view_keeps_up_with_a_long_scroll(swatch, desktop, tmp_path):
+    mouse, model, made = swatch
+    tops = []
+    for step in range(6):
+        wheel(mouse, model)
+        made.pump(0.03)
+        box = swatch_box(desktop[0], model, tmp_path / f"shot{step}.ppm")
+        made.pump(0)
+        tops.append((box, [shown_part(e) for e in placeholders(made)]))
+    for box, parts in tops:
+        # The view is where one of the page's last few reports said: the page
+        # reports once an animation frame, and a wheel step takes several.
+        assert any(close_to(box, part) for part in parts[-3:]), (box, parts[-3:])
+    assert sum(box is not None for box, _ in tops) >= 4  # it was in sight as it scrolled
+
+
+def test_a_plugin_scrolled_under_the_title_bar_is_cut_off_at_the_column(swatch, desktop, tmp_path):
+    mouse, model, made = swatch
+    first = placeholders(made)[-1]
+    (rect,) = first["rects"].values()
+    column = first["column"]
+    for _ in range(20):  # until the swatch is about half out of the column
+        (now,) = placeholders(made)[-1]["rects"].values()
+        if now[1] <= column[1] - rect[3] // 2:
+            break
+        wheel(mouse, model)
+        made.pump(0.2)
+    made.pump(0.3)
+    last = placeholders(made)[-1]
+    (now,) = last["rects"].values()
+    assert column[1] - rect[3] < now[1] < column[1]  # partly scrolled out
+    box = swatch_box(desktop[0], model, tmp_path / "shot.ppm")
+    assert box is not None and box[1] >= column[1]  # none over the title bar
+    assert close_to(box, shown_part(last))
+
+
+def test_clicking_a_plugin_view_keeps_the_games_keyboard(swatch, desktop):
+    mouse, model, made = swatch
+    (rect,) = placeholders(made)[-1]["rects"].values()
+    window = spec(model)
+    click(mouse, made, (window.x + rect[0] + rect[2] // 2, window.y + rect[1] + rect[3] // 2))
+    assert game_gets_keys(mouse, desktop[1])
+
+
+def swatch_top(made):
+    """The top of the swatch's placeholder, as the page last said."""
+    (rect,) = placeholders(made)[-1]["rects"].values()
+    return rect[1]
+
+
+def wheel_over_swatch(mouse, made, model, clicks=1):
+    window = spec(model)
+    mouse("mousemove", window.x + 200, window.y + swatch_top(made) + 60)
+    for _ in range(clicks):
+        mouse("click", 5)
+        made.pump(0.15)
+    made.pump(0.5)
+
+
+def test_a_plugin_that_can_scroll_takes_the_wheel_itself(scrolling_swatch):
+    mouse, model, made = scrolling_swatch
+    top = swatch_top(made)
+    wheel_over_swatch(mouse, made, model)
+    assert swatch_top(made) == top  # the column stayed put
+
+
+def test_at_its_end_a_plugin_passes_the_wheel_to_the_column(scrolling_swatch):
+    mouse, model, made = scrolling_swatch
+    top = swatch_top(made)
+    wheel_over_swatch(mouse, made, model, clicks=6)  # 120 px of its own, then the column's
+    assert swatch_top(made) < top
+
+
+def test_the_wheel_over_a_plugin_that_cant_scroll_scrolls_the_column(swatch):
+    mouse, model, made = swatch
+    top = swatch_top(made)
+    wheel_over_swatch(mouse, made, model)
+    assert swatch_top(made) < top

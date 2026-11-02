@@ -12,12 +12,14 @@ WebKit's sandboxed web process; the helper starts this process with the
 environment from webhost.sandbox_env() so that sandbox can't see the real
 ~/.cache, a trusted X cookie or the sound server.
 
-A frame is a widgetwindow (#124): one popup whose views are packed into it
-top to bottom instead of getting windows of their own. The first is its own
-page (#141), the "chrome": the title bar and the helper's widgets, drawn by the
-helper's lib/frame.js. It alone gets window.ooliteFrame, for the bar's buttons
-and for moving the window. Plugins' views go under it. The edit-mode edges, the
-ghost outline and the ⚓ list are still GTK here.
+A frame is a widgetwindow (#124): one popup holding the views opened into
+it instead of windows of their own. Its own page (#141), the "chrome", fills
+it: the title bar and a column of the helper's widgets, drawn by the helper's
+lib/frame.js. It alone gets window.ooliteFrame, for the bar's buttons, for
+moving the window, and to say where the placeholders in its column are: each
+plugin's view is laid over its placeholder, clipped to the column (in_column),
+so it scrolls with the column but keeps its own web process. The edit-mode
+edges, the ghost outline and the ⚓ list are still GTK here.
 
 The pure functions at the top (no GTK) are tested in CI.
 """
@@ -28,7 +30,7 @@ import os
 import sys
 import urllib.parse
 
-PROTOCOL = 3
+PROTOCOL = 4
 API = 1  # the version of the page's `oolite` object
 SCHEME = "plugin"
 
@@ -58,6 +60,10 @@ MIN_PX = 80  # as widgets.MIN_SIZE
 DRAG_REPORT_SECONDS = 0.04  # how often a dragged edge's rect goes to the helper
 EDIT_COLOUR = "#ffb000"  # the helper's accent: lit ✎ and edges
 PAGE_MESSAGES_PER_SECOND = 20  # more than this from one page are dropped
+# A frame's page sends placeholder rects at most once an animation frame while
+# its column scrolls, so they have a budget of their own.
+PLACEHOLDER_MESSAGES_PER_SECOND = 120
+PLACEHOLDER_LIMIT = 32  # plugin widgets in one widgetwindow
 ACTION_LIMIT = 2000  # characters of JSON in one dispatched action
 # Files the helper provides to every plugin under plugin://<name>/_oolite/
 # (theme.css, dev.js): given in the "open" command, never read from disk.
@@ -125,7 +131,9 @@ def page_message(raw, chrome=False):
     {"type": "log", "text": "..."} (for developers; shown in the helper's log) and
     {"type": "dispatch", "action": {...}}: a UI action, which the helper checks
     against the plugin's manifest before doing anything with it.
-    A frame's own page (chrome) may also send {"type": "chrome", "do": one of CHROME}.
+    A frame's own page (chrome) may also send {"type": "chrome", "do": one of CHROME}
+    and {"type": "placeholders", "column": [x, y, w, h], "rects": {ID: [x, y, w, h]}}:
+    where its column and the placeholders of the plugins' widgets in it are.
     """
     try:
         msg = json.loads(raw)
@@ -151,7 +159,62 @@ def page_message(raw, chrome=False):
         return {"type": "dispatch", "action": action}
     if kind == "chrome" and chrome and msg.get("do") in CHROME:
         return {"type": "chrome", "do": msg["do"]}
+    if kind == "placeholders" and chrome:
+        return _placeholders(msg)
     return None
+
+
+def _rect(value):
+    """[x, y, w, h] of whole numbers within the size limits, as a tuple, or None."""
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    if not all(isinstance(n, int) and not isinstance(n, bool) for n in value):
+        return None
+    x, y, w, h = value
+    far = SIZE_LIMITS[1] * 4  # a column scrolled a long way still has sane numbers
+    if not (-far <= x <= far and -far <= y <= far and 0 <= w <= far and 0 <= h <= far):
+        return None
+    return (x, y, w, h)
+
+
+def _placeholders(msg):
+    column, rects = _rect(msg.get("column")), msg.get("rects")
+    if column is None or not isinstance(rects, dict) or len(rects) > PLACEHOLDER_LIMIT:
+        return None
+    checked = {}
+    for wid, value in rects.items():
+        rect = _rect(value)
+        if not isinstance(wid, str) or len(wid) > 200 or rect is None:
+            return None
+        checked[wid] = rect
+    return {"type": "placeholders", "column": column, "rects": checked}
+
+
+def in_column(rect, column):
+    """Where a plugin's view shows in its widgetwindow (#141). rect is its
+    placeholder and column the page's column, both (x, y, w, h) in the page's
+    (and so the window's) pixels. Returns (part, offset): part, the piece of
+    rect inside column, which shows; offset, where the view's top left is
+    from part's, so a view scrolled partly out keeps its place. None when none
+    of it is inside."""
+    left, top = max(rect[0], column[0]), max(rect[1], column[1])
+    right = min(rect[0] + rect[2], column[0] + column[2])
+    bottom = min(rect[1] + rect[3], column[1] + column[3])
+    if right <= left or bottom <= top:
+        return None
+    return (left, top, right - left, bottom - top), (rect[0] - left, rect[1] - top)
+
+
+WHEEL_LINES = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
+
+
+def wheel_lines(direction, deltas=(0, 0)):
+    """How far a wheel turn goes, (dx, dy) in lines: one for a click of a
+    wheel (direction "up", "down", "left" or "right"); a touchpad's "smooth"
+    turn gives its own deltas, in lines too."""
+    if direction == "smooth":
+        return tuple(deltas)
+    return WHEEL_LINES.get(direction, (0, 0))
 
 
 def extra_name(plugin, uri):
@@ -206,6 +269,10 @@ CHROME_BRIDGE = """
     anchor() { post("anchor"); },
     close() { post("close"); },
     move() { post("move"); },
+    placeholders(column, rects) {
+      window.webkit.messageHandlers.oolite.postMessage(
+        JSON.stringify({type: "placeholders", column, rects}));
+    },
   });
   Object.defineProperty(window, "ooliteFrame", {value: frame, writable: false});
 })();
@@ -251,8 +318,8 @@ def main():
             gdk_window.raise_()
 
     class FrameWindow:
-        """A widgetwindow: its own page (the title bar and the helper's widgets)
-        over a column of plugin views.
+        """A widgetwindow: its own page (the title bar and a column of widgets)
+        filling it, with each plugin's view laid over its placeholder there.
 
         The page's ✎ asks the helper to toggle its edit mode. In edit mode its
         allowed edges light up and dragging one resizes the window, pressing on
@@ -271,9 +338,17 @@ def main():
             self.pressed = None  # (x, y) where button 1 went down on the page, while it's down
             self.title_height = 0
             self.editing = False
-            self.views = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            root = Gtk.Overlay()
-            root.add(self.views)
+            # Its own page is the overlay's child; each plugin's view is in a
+            # Gtk.Layout of its own over it, sized to the part of the view
+            # inside the column, which so clips it (in_column).
+            self.root = root = Gtk.Overlay()
+            root.connect("get-child-position", self.on_child_position)
+            self.clips = {}  # plugin window id -> (its Gtk.Layout, its view)
+            self.shown = set()  # those its helper has placed (not hidden)
+            self.column = None  # (x, y, w, h): the page's column, as its page last said
+            self.rects = {}  # plugin window id -> its placeholder's (x, y, w, h)
+            self.parts = {}  # Gtk.Layout -> (x, y, w, h): where in the window it shows
+            self.page = None  # its own page's view
             self.edges = {side: self.edge(side) for side in EDGE_CURSORS}
             for edge in self.edges.values():
                 root.add_overlay(edge)
@@ -499,20 +574,37 @@ def main():
         def kind(self):
             return "move" if self.drag[0] == "move" else "resize"
 
-        def add(self, view, index, chrome=False):
-            """Packs view in index order among the views already here; its own
-            page (chrome) takes the room the plugins' views leave."""
-            view.frame_index = index
-            self.views.pack_start(view, chrome, chrome, 0)
-            ordered = sorted(self.views.get_children(), key=lambda v: v.frame_index)
-            for position, child in enumerate(ordered):
-                self.views.reorder_child(child, position)
-            if chrome:
-                # The page's mousedown reaches us (as "move") after GTK's press:
-                # remember where it was, and follow a move drag from here.
-                view.connect("button-press-event", self.on_page_press)
-                view.connect("motion-notify-event", self.on_motion)
-                view.connect("button-release-event", self.on_page_release)
+        def add(self, view, wid, chrome=False):
+            """Its own page (chrome) fills it; a plugin's view goes over its
+            placeholder once the page says where that is."""
+            if not chrome:
+                clip = Gtk.Layout()
+                clip.put(view, 0, 0)
+                clip.connect("scroll-event", self.on_unused_wheel)
+                self.root.add_overlay(clip)
+                self.root.reorder_overlay(clip, 0)  # under the edit-mode edges
+                self.clips[wid] = (clip, view)
+                self.lay_out()
+                return
+            self.page = view
+            self.root.add(view)
+            # The page's mousedown reaches us (as "move") after GTK's press:
+            # remember where it was, and follow a move drag from here.
+            view.connect("button-press-event", self.on_page_press)
+            view.connect("motion-notify-event", self.on_motion)
+            view.connect("button-release-event", self.on_page_release)
+
+        def on_unused_wheel(self, clip, event):
+            """A wheel turn over a plugin's view that its page didn't use (it
+            can't scroll that way, and WebKit passes those to the view's parent):
+            its page scrolls the column instead."""
+            ok, direction = event.get_scroll_direction()
+            _, *deltas = event.get_scroll_deltas()
+            dx, dy = wheel_lines(direction.value_nick if ok else "smooth", deltas)
+            if self.page is not None and (dx or dy):
+                script = f"globalThis.ooliteFrameWheel?.({dx}, {dy})"
+                self.page.evaluate_javascript(script, -1, None, None, None, None, None)
+            return True
 
         def on_page_press(self, view, event):
             if event.button == 1:
@@ -529,6 +621,47 @@ def main():
             self.rect = rect
             if self.drag is None:  # mid-drag the pointer, not the helper, places it
                 place_window(self.window, rect)
+
+        def show_plugin(self, wid, shown):
+            (self.shown.add if shown else self.shown.discard)(wid)
+            self.lay_out()
+
+        def remove(self, wid):
+            clip, _ = self.clips.pop(wid)
+            self.parts.pop(clip, None)
+            self.shown.discard(wid)
+            clip.destroy()
+
+        def placeholders(self, column, rects):
+            self.column, self.rects = column, rects
+            self.lay_out()
+
+        def lay_out(self):
+            """Each shown plugin's view over its placeholder, clipped to the column."""
+            for wid, (clip, view) in self.clips.items():
+                rect = self.rects.get(wid)
+                fit = None
+                if wid in self.shown and rect is not None and self.column is not None:
+                    fit = in_column(rect, self.column)
+                if fit is None:
+                    self.parts.pop(clip, None)
+                    clip.hide()
+                    continue
+                part, (dx, dy) = fit
+                self.parts[clip] = part
+                view.set_size_request(rect[2], rect[3])
+                clip.set_size(rect[2], rect[3])
+                clip.move(view, dx, dy)
+                view.show()
+                clip.show()
+                clip.queue_resize()
+
+        def on_child_position(self, overlay, child, allocation):
+            part = self.parts.get(child)
+            if part is None:
+                return False  # the edges: GTK's own placing
+            allocation.x, allocation.y, allocation.width, allocation.height = part
+            return True
 
         def refit(self):
             """Back to its placed size once its views have shrunk to fit it."""
@@ -558,6 +691,7 @@ def main():
             self.loaded = False
             self.topics = {}  # latest value of each topic, replayed after a (re)load
             self.recent = []  # times of recent page messages, for the rate limit
+            self.recent_places = []  # the same for a frame page's placeholder messages
 
             # Ephemeral (nothing on disk), sandboxed, and one per window so the
             # scheme handler can only ever serve this plugin's folder.
@@ -620,8 +754,9 @@ def main():
             self.frame = frame
             self.framed = frame is not None
             if self.framed:
-                frame.add(self.view, index, self.chrome)
-                self.view.hide()  # until placed
+                frame.add(self.view, wid, self.chrome)
+                if self.chrome:
+                    self.view.hide()  # until placed
             else:
                 self.window = popup()
                 self.window.add(self.view)
@@ -690,14 +825,23 @@ def main():
             emit("crashed", id=self.id, reason=reason.value_nick)
 
         def on_page_message(self, manager, result):
+            raw = result.get_js_value().to_string()
+            # Rate-limited before parsing, so a page can't make us parse junk without
+            # end. Only the frame's own page has the placeholders budget.
+            placing = self.chrome and '"placeholders"' in raw
             now = GLib.get_monotonic_time() / 1e6
-            self.recent = [t for t in self.recent if now - t < 1] + [now]
-            if len(self.recent) > PAGE_MESSAGES_PER_SECOND:
+            recent = self.recent_places if placing else self.recent
+            recent[:] = [t for t in recent if now - t < 1] + [now]
+            limit = PLACEHOLDER_MESSAGES_PER_SECOND if placing else PAGE_MESSAGES_PER_SECOND
+            if len(recent) > limit:
                 return
-            msg = page_message(result.get_js_value().to_string(), self.chrome)
+            msg = page_message(raw, self.chrome)
             if msg is None:
                 return
-            if msg["type"] == "chrome":
+            if msg["type"] == "placeholders":
+                self.frame.placeholders(msg["column"], msg["rects"])
+                emit("placeholders", id=self.frame.id, column=msg["column"], rects=msg["rects"])
+            elif msg["type"] == "chrome":
                 self.frame.chrome(msg["do"])
             else:
                 emit("page", id=self.id, msg=msg)
@@ -713,15 +857,20 @@ def main():
         def place(self, rect):
             if not self.framed:
                 place_window(self.window, rect)
+            elif not self.chrome:
+                self.frame.show_plugin(self.id, rect is not None)  # over its placeholder
             elif rect is None:
                 self.view.hide()
             else:
-                self.view.set_size_request(rect[2], rect[3])  # its frame places it
+                self.view.set_size_request(rect[2], rect[3])  # it fills its frame
                 self.view.show()
                 self.frame.refit()
 
         def close(self):
-            (self.view if self.framed else self.window).destroy()
+            if self.framed and not self.chrome:
+                self.frame.remove(self.id)
+            else:
+                (self.view if self.framed else self.window).destroy()
 
     windows = {}
     frames = {}

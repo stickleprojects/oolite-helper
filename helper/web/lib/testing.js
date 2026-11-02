@@ -64,8 +64,14 @@ class FakeNode {
     if (parent && !stopped) parent.fire(type, event);
   }
 
+  // Scrolled by scrollBy(options): each call's options, in order.
+  scrollBy(options) {
+    (this.scrolled ||= []).push(JSON.parse(JSON.stringify(options))); // out of the page's context
+  }
+
+  // Where it is: set node.rect = {x, y, width, height} to move it.
   getBoundingClientRect() {
-    return { width: 100, height: 20 };
+    return { x: 0, y: 0, width: 100, height: 20, ...this.rect };
   }
 
   // Every element below this one (itself included) that matches test(node).
@@ -142,7 +148,13 @@ function load(names, widgetName, extra = []) {
   const loaded = [];
   const handlers = [];
   const classes = [];
+  const placed = [];
+  const windowListeners = {};
+  const frames = []; // requestAnimationFrame callbacks waiting for the next frame
   const context = {
+    innerHeight: 300,
+    requestAnimationFrame: (callback) => frames.push(callback),
+    addEventListener: (type, listener) => (windowListeners[type] ||= []).push(listener),
     document: {
       createElement: (tag) => new FakeNode(tag),
       getElementById: () => root,
@@ -162,9 +174,12 @@ function load(names, widgetName, extra = []) {
       log: () => {},
     },
     // What a widgetwindow's page (lib/frame.js) asks of the web host.
-    ooliteFrame: Object.fromEntries(
-      ["edit", "anchor", "close", "move"].map((name) => [name, () => asked.push(name)]),
-    ),
+    ooliteFrame: {
+      ...Object.fromEntries(
+        ["edit", "anchor", "close", "move"].map((name) => [name, () => asked.push(name)]),
+      ),
+      placeholders: (column, rects) => placed.push(JSON.parse(JSON.stringify({ column, rects }))),
+    },
   };
   context.globalThis = context;
   vm.createContext(context);
@@ -182,21 +197,55 @@ function load(names, widgetName, extra = []) {
   const publish = (topic, value) => {
     for (const [name, handler] of handlers) if (name === topic) handler(value);
   };
-  return { Oolite: context.Oolite, context, root, sent, asked, start, publish, classes };
+  // Runs what's waiting for the next animation frame.
+  const nextFrame = () => {
+    for (const callback of frames.splice(0)) callback();
+  };
+  const fireWindow = (type) => {
+    for (const listener of windowListeners[type] || []) listener({});
+  };
+  return {
+    Oolite: context.Oolite,
+    context,
+    root,
+    sent,
+    asked,
+    placed,
+    start,
+    publish,
+    classes,
+    nextFrame,
+    fireWindow,
+  };
 }
 
 // A widgetwindow's page (#141) started with config as its OOLITE_FRAME, its
-// topics having the values in state: {root, bar, sections, asked, publish},
-// where asked collects what it asked of the web host (window.ooliteFrame) and
-// publish(topic, value) sends it a topic, e.g. "frame".
+// topics having the values in state: {root, bar, column, sections, asked,
+// placed, publish, nextFrame, fireWindow, wheel}, where asked collects what it asked
+// of the web host (window.ooliteFrame), placed the placeholder rects it sent,
+// publish(topic, value) sends it a topic, e.g. "frame", nextFrame() runs what
+// waits for the next animation frame, fireWindow("resize") resizes it, and
+// wheel(dx, dy) passes it a wheel turn (in lines) as the host does. The window is
+// 300 px high.
 function frame(config, state, frameTopic = { title: "Trading", editing: false, shown: null }) {
-  const names = config.widgets.flatMap((widget) => widget.components);
+  const names = config.widgets.flatMap((widget) => widget.components || []);
   const page = load(names, null, ["lib/frame.js"]);
   page.context.OOLITE_FRAME = config;
   const shown = frameTopic.shown || config.widgets.map((widget) => widget.id);
   page.start(undefined, { ...state, frame: { ...frameTopic, shown } });
   const [bar, column] = page.root.children;
-  return { root: page.root, bar, sections: column.children, asked: page.asked, publish: page.publish };
+  return {
+    root: page.root,
+    bar,
+    column,
+    sections: column.children,
+    asked: page.asked,
+    placed: page.placed,
+    publish: page.publish,
+    nextFrame: page.nextFrame,
+    fireWindow: page.fireWindow,
+    wheel: (dx, dy) => page.context.ooliteFrameWheel(dx, dy),
+  };
 }
 
 // A widget's page drawn for a state: {root, sent}. components are its

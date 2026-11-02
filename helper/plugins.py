@@ -58,7 +58,6 @@ from .widgets import (
     places,
     resize_edges,
     resized,
-    stacked,
     title_height,
     window_rect,
 )
@@ -216,8 +215,9 @@ class WebWidgets:
         them to Tk. fallback(widget ids) is called once if the web host fails
         before it was ever ready, to show them with Tk. theme: settings.Theme ([theme]).
         The widgetwindows (#124) come from the model's windows topic; each has a
-        page of its own (#141), its title bar over the helper's widgets in it,
-        with plugins' widgets under that."""
+        page of its own (#141), its title bar over its widgets: the helper's
+        are drawn in it, and each plugin's has a placeholder there, which its
+        own view is laid over."""
         broken = dict(broken)
         self.model = model
         self.monitors = monitors
@@ -237,6 +237,7 @@ class WebWidgets:
         self.ever_ready = False
         self.chrome = {}  # widgetwindow id -> the manifest of its own page
         self.in_page = {}  # widget id -> the widgetwindow whose page draws it
+        self.placeheld = {}  # plugin's widget id -> the widgetwindow it has a placeholder in
         for widget in model.topic("layout"):
             wid, name = widget.id, widget.spec.components[0]
             if name in COMPONENTS or name == web.HOST:
@@ -260,6 +261,10 @@ class WebWidgets:
             for widget in inside:
                 self.in_page[widget.id] = frame.id
                 self.undrawn.discard(widget.id)  # its section hides itself
+            for widget in model.topic("layout"):
+                wid = widget.id
+                if widget.spec.window == frame.id and wid in self.widgets and wid not in self.pages:
+                    self.placeheld[wid] = frame.id
             parts = [(w.spec.components, WIDGETS.get(w.spec.widget)) for w in inside]
             self.chrome[frame.id] = frame_manifest(components or {}, parts)
         self.host = host or (WebHost() if self.widgets or self.chrome else None)
@@ -334,16 +339,18 @@ class WebWidgets:
                 ghost=ghost,
                 places=tuple(places(self.monitors, game_window)) if editing else (),
             )
-            # Its own page takes what the plugins' widgets under it leave.
+            # Its own page fills it. A plugin's view is sized and placed by its
+            # placeholder there, so its rect here only says it's shown.
             inner = [w for w in widgets if w.spec.window == fid]
-            heights = [(chrome_id(fid), 0, True)]
-            heights += [(w.id, height(w), False) for w in inner if w.id not in self.in_page]
-            placed = stacked(rect, 0, heights) if rect else {}
-            inside.update({wid: placed.get(wid) for wid, _, _ in heights})
+            plugins = {w.id: height(w) for w in inner if w.id in self.placeheld}
+            inside[chrome_id(fid)] = rect
+            for wid, tall in plugins.items():
+                inside[wid] = (0, 0, rect[2], tall) if rect and tall else None
             pages[chrome_id(fid)] = {
                 "title": spec.title,
                 "editing": editing,
                 "shown": [w.id for w in inner if w.id in self.in_page and w.open],
+                "plugins": plugins,
             }
 
         windows = {}
@@ -390,13 +397,16 @@ class WebWidgets:
 
     def chrome_window(self, fid, manifest, window, layout, rect):
         """The WebWindow of widgetwindow fid's own page: its title bar over a
-        section for each of the helper's widgets in it, in layout order."""
+        section for each of the helper's widgets in it, and a placeholder for
+        each plugin's, in layout order."""
         scale = LAYOUTS[window.layout][0]
         sections = []
-        for wid, frame in self.in_page.items():
-            if frame != fid:
+        for wid, widget in layout.items():
+            if self.placeheld.get(wid) == fid:
+                sections.append({"id": wid, "plugin": True})
+            if self.in_page.get(wid) != fid:
                 continue
-            spec = layout[wid].spec
+            spec = widget.spec
             sections.append(
                 {
                     "id": wid,

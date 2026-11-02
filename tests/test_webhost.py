@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import time
@@ -82,6 +83,81 @@ def test_only_a_frames_own_page_may_ask_it_to_move_or_close():
 
 def test_a_frames_own_page_can_ask_only_for_what_its_bar_does():
     assert host.page_message('{"type": "chrome", "do": "quit"}', chrome=True) is None
+
+
+PLACEHOLDERS = json.dumps(
+    {"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": [0, 84, 294, 100]}}
+)
+
+
+def test_a_frames_own_page_can_say_where_its_placeholders_are():
+    assert host.page_message(PLACEHOLDERS, chrome=True) == {
+        "type": "placeholders",
+        "column": (0, 24, 300, 500),
+        "rects": {"lamp": (0, 84, 294, 100)},
+    }
+
+
+def test_only_a_frames_own_page_may_say_where_placeholders_are():
+    assert host.page_message(PLACEHOLDERS) is None
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        '{"type": "placeholders", "column": [0, 24, 300], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, "500"], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, true], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, -300, 500], "rects": {}}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": []}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": [0, 1e9, 1, 1]}}',
+        '{"type": "placeholders", "column": [0, 24, 300, 500], "rects": {"lamp": null}}',
+    ],
+)
+def test_a_placeholder_message_that_isnt_whole_rects_is_dropped(bad):
+    assert host.page_message(bad, chrome=True) is None
+
+
+def test_a_placeholder_message_with_too_many_rects_is_dropped():
+    rects = {f"w{n}": [0, n, 10, 10] for n in range(host.PLACEHOLDER_LIMIT + 1)}
+    raw = json.dumps({"type": "placeholders", "column": [0, 0, 10, 10], "rects": rects})
+    assert host.page_message(raw, chrome=True) is None
+
+
+COLUMN = (0, 24, 300, 500)  # under a 24 px title bar
+
+
+def test_a_plugin_view_inside_the_column_shows_whole():
+    assert host.in_column((0, 84, 294, 100), COLUMN) == ((0, 84, 294, 100), (0, 0))
+
+
+def test_a_plugin_view_scrolled_under_the_title_bar_is_clipped_to_the_column():
+    # Its top 40 px are above the column: they don't show, and the view keeps its place.
+    assert host.in_column((0, -16, 294, 100), COLUMN) == ((0, 24, 294, 60), (0, -40))
+
+
+def test_a_plugin_view_past_the_column_bottom_is_clipped_to_it():
+    assert host.in_column((0, 474, 294, 100), COLUMN) == ((0, 474, 294, 50), (0, 0))
+
+
+def test_a_plugin_view_wider_than_the_column_is_clipped_to_its_width():
+    assert host.in_column((0, 84, 400, 100), COLUMN) == ((0, 84, 300, 100), (0, 0))
+
+
+def test_a_plugin_view_scrolled_right_out_of_the_column_doesnt_show():
+    assert host.in_column((0, -200, 294, 100), COLUMN) is None
+
+
+def test_a_click_of_the_wheel_down_is_a_line_down():
+    assert host.wheel_lines("down") == (0, 1)
+
+
+def test_a_click_of_the_wheel_left_is_a_line_left():
+    assert host.wheel_lines("left") == (-1, 0)
+
+
+def test_a_touchpads_smooth_turn_goes_its_own_distance():
+    assert host.wheel_lines("smooth", (0.0, -0.5)) == (0.0, -0.5)
 
 
 def test_a_frames_own_page_is_opened_as_its_chrome(fake_host):
@@ -233,6 +309,17 @@ def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):
     assert sent(events) == [("frame", "f"), ("place", "f"), ("open", "a"), ("place", "a")]
     opened = [e["cmd"] for e in events if e["ev"] == "got"][2]
     assert (opened["frame"], opened["index"]) == ("f", 1)
+
+
+def test_a_plugins_view_in_a_frame_is_hidden_and_shown_again_by_its_place(fake_host):
+    shown = WebWindow("probe", PROBE, rect=(0, 0, 640, 100), frame="f")
+    fake_host.sync({"a": shown}, {"f": FRAME})
+    run_until(fake_host, lambda ev: len(sent(ev)) == 4)
+    fake_host.sync({"a": WebWindow("probe", PROBE, rect=None, frame="f")}, {"f": FRAME})
+    fake_host.sync({"a": shown}, {"f": FRAME})
+    events = run_until(fake_host, lambda ev: len(sent(ev)) == 2)
+    places = [e["cmd"]["rect"] for e in events if e["ev"] == "got"]
+    assert places == [None, [0, 0, 640, 100]]
 
 
 def test_a_frame_closes_after_the_views_in_it(fake_host):

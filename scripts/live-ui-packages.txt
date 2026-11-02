@@ -1,0 +1,14 @@
+# The apt packages the live checks need (Ubuntu 24.04), one per line. CI's Live UI
+# job and scripts/live-ui.Dockerfile both install these, with --no-install-recommends.
+xvfb
+xauth
+xdotool
+scrot
+# The window manager the desktop uses, so focus behaves as in play, and the
+# schemas it reads at start (it exits without them).
+marco
+mate-settings-daemon-common
+# The web host's GTK and WebKit, for the system Python it runs under.
+python3-gi
+gir1.2-gtk-3.0
+gir1.2-webkit2-4.1

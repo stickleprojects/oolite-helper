@@ -3,8 +3,8 @@
 # each, so the two can't drift. Locally it uses one Python and one Node, not CI's matrix.
 #
 # Usage: scripts/run-ci-checks.sh [--quick] [--live] [--only GROUP]...
-#   --only   python (Tkinter, pytest), lint (ruff, mypy), js (syntax, add-on and web tests)
-#            or shell (shellcheck); repeat for several. Default: all four.
+#   --only   python (Tkinter, pytest), lint (ruff, mypy), js (syntax, add-on and web tests),
+#            shell (shellcheck) or live (as --live); repeat for several. Default: the first four.
 #   --quick  only pytest and ruff
 #   --live   also the live web host and widgetwindow tests (need a display; the UI one uses xvfb)
 #
@@ -27,8 +27,8 @@ while (($#)); do
     --only)
       (($# > 1)) || usage_error "--only needs a group"
       case "$2" in
-        python | lint | js | shell) groups+=("$2") ;;
-        *) usage_error "unknown group: $2 (python, lint, js or shell)" ;;
+        python | lint | js | shell | live) groups+=("$2") ;;
+        *) usage_error "unknown group: $2 (python, lint, js, shell or live)" ;;
       esac
       shift
       ;;
@@ -39,6 +39,7 @@ while (($#)); do
 done
 ((${#groups[@]})) || groups=(python lint js shell)
 wants() { printf '%s\n' "${groups[@]}" | grep -qx "$1"; }
+wants live && live=1
 
 bin="${VENV:-.venv}/bin"
 if [[ ! -x "$bin/python" ]] && { wants python || wants lint || wants shell || ((live)); }; then
