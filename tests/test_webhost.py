@@ -347,6 +347,13 @@ def test_sync_closes_removed_windows_and_reopens_changed_ones(fake_host):
 FRAME = WebFrame((10, 20, 640, 720))
 
 
+def test_a_frame_is_told_only_its_edit_mode_edges_and_ghost(fake_host):
+    fake_host.sync({}, {"f": WebFrame((10, 20, 640, 720), editing=True, edges=("left",))})
+    events = run_until(fake_host, lambda ev: sent(ev) == [("frame", "f"), ("place", "f")])
+    frame = next(e["cmd"] for e in events if e["ev"] == "got")
+    assert frame == {"op": "frame", "id": "f", "editing": True, "edges": ["left"], "ghost": None}
+
+
 def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):
     fake_host.sync({"a": WebWindow("probe", PROBE, frame="f", index=1)}, {"f": FRAME})
     events = run_until(fake_host, lambda ev: len(sent(ev)) == 4)

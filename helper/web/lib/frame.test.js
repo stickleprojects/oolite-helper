@@ -46,7 +46,6 @@ test("its cross asks the host to close it", () => {
   assert.deepEqual(asked, ["close"]);
 });
 
-
 test("in edit mode its bar is marked editing", () => {
   const { bar } = page(undefined, undefined, { title: "T", editing: true });
   assert.ok(bar.hasClass("editing"));
@@ -288,6 +287,12 @@ test("in edit mode its anchor opens its list of places", () => {
   const { bar, places } = page(undefined, undefined, EDITING);
   button(bar, "anchor").click();
   assert.equal(places.style.values.display, "grid");
+});
+
+test("its list opens under its bar, and no taller than the window below it, so it scrolls", () => {
+  const { places } = page(undefined, undefined, EDITING);
+  assert.equal(places.style.values.top, "24px");
+  assert.equal(places.style.values["max-height"], "calc(100% - 24px)");
 });
 
 test("its anchor again closes the list", () => {
