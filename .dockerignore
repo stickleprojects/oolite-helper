@@ -1,0 +1,7 @@
+# What scripts/live-ui.Dockerfile doesn't copy.
+.git
+.venv
+.claude
+**/__pycache__
+**/node_modules
+*.egg-info
