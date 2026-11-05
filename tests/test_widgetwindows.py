@@ -10,6 +10,7 @@ from helper.widgets import (
     dropped,
     landing,
     move_to,
+    place_in_window,
     places,
     resize_edges,
     resized,
@@ -108,6 +109,24 @@ def test_with_the_filler_hidden_the_last_shown_widget_fills():
     assert rects["hold"] == (0, 24, 640, 696)
 
 
+def test_the_filler_never_goes_below_its_minimum():
+    rects = stacked((0, 0, 640, 300), 24, [("trade", 50, True), ("hold", 310, False)], floor=100)
+    assert rects["trade"] == (0, 24, 640, 100)
+
+
+def test_widgets_past_the_windows_bottom_keep_their_heights():
+    rects = stacked((0, 0, 640, 300), 24, [("trade", 50, True), ("hold", 310, False)], floor=100)
+    assert rects["hold"] == (0, 124, 640, 310)
+
+
+def test_a_widgetwindows_filler_has_its_min_height(tmp_path):
+    text = TRADING.replace('height = "*"', 'height = "*", min_height = 120').replace("310", "900")
+    widgets = widgets_from_specs(load_widgets(config(tmp_path, text)))
+    window = load_widgetwindows(config(tmp_path, text))[0]
+    rect = place_in_window(widgets, window, widgets[0].id, GAME, lambda w: w.spec.height or 0)
+    assert rect[3] == 120
+
+
 def test_the_title_bar_follows_the_layouts_text_size():
     big = WindowSpec(id="w", title="W", dock="game:right", width=640, layout="large")
     assert title_height(big) > title_height(
@@ -136,6 +155,10 @@ def test_a_named_widget_in_a_widgetwindow_keeps_its_name_as_its_id(tmp_path):
         (("width = 640", 'width = 640\nscreen = "eDP-1"'), "docked, it can't set screen"),
         (('dock = "game:right"', 'dock = "screen:eDP-1:middle"'), "dock must be one of"),
         (('dock = "game:right"\n', ""), "floating, it needs a screen"),
+        (("height = 310", "height = 310, min_height = 50"), 'min_height only works with height = "\\*"'),
+        (('height = "*"', 'height = "*", min_height = 1.5'), "min_height must be a whole number of pixels"),
+        (("width = 640", "width = 640\nmin_width = \"10%\""), "min_width must be a whole number of pixels"),
+        (("width = 640", "width = 640\nmin_height = -1"), "min_height must be a whole number of pixels"),
     ],
 )
 def test_a_widgetwindow_set_up_badly_is_explained(tmp_path, change, message):
@@ -254,6 +277,21 @@ def test_a_resized_widgetwindow_beside_the_game_changes_only_its_width():
 def test_a_widgetwindow_cant_be_resized_too_small():
     window = WindowSpec(id="w", title="W", dock="game:top", height=60)
     assert resized(window, (0, 0, 999, 5), [])[0]["height"] == MIN_SIZE
+
+
+def test_a_resize_stops_at_the_widgetwindows_min_height():
+    window = WindowSpec(id="w", title="W", dock="game:top", height=300, min_height=200)
+    assert resized(window, (0, 0, 999, 150), [])[0]["height"] == 200
+
+
+def test_a_resize_stops_at_the_widgetwindows_min_width():
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640, min_width=400)
+    assert resized(window, (0, 0, 300, 999), [])[0]["width"] == 400
+
+
+def test_a_widgetwindows_minimums_default_to_min_size():
+    window = WindowSpec(id="w", title="W", dock="game:right", width=640)
+    assert window.minimum == (MIN_SIZE, MIN_SIZE)
 
 
 ON_GAME_RIGHT = WindowSpec(id="w", title="W", dock="game:right", width=640)
