@@ -25,6 +25,7 @@ import time
 import pytest
 
 from helper.layout import widgets_from_specs, windows_from_specs
+from helper.markets import MarketStore
 from helper.model import Model
 from helper.plugins import WebWidgets, discover
 from helper.screen import Monitor
@@ -361,6 +362,49 @@ def test_the_wheel_scrolls_its_column_and_the_game_keeps_the_keyboard(frame, des
     made.pump(0.5)
     assert shot("after.png") != before
     assert game_gets_keys(mouse, desktop[1])
+
+
+# A narrow widgetwindow: its trade table is wider than it (#131).
+NARROW_CONFIG = """
+[[widgetwindows]]
+id = "w"
+title = "Test"
+screen = "V"
+x = 600
+y = 100
+width = 160
+height = 300
+widgets = [{ components = ["trade_table"], height = "*" }]
+"""
+
+
+def test_a_widget_wider_than_its_window_scrolls_sideways(desktop, tmp_path, monkeypatch):
+    made, model = open_frame(tmp_path, monkeypatch, NARROW_CONFIG)
+    model.markets = MarketStore(tmp_path / "markets.json")
+    model.dispatch({"type": "ready", "docked": True, "alert": 0})
+    row = {"price": 700, "quantity": 5, "legality_export": "0", "legality_import": "0"}
+    market = {"computers": row, "food": {**row, "price": 30}}
+    model.dispatch({"type": "market", "galaxy": 0, "systemID": 7, "market": market})
+    made.pump(1)
+    mouse = lambda *args: xdotool(*args, env=desktop[0])  # noqa: E731
+    try:
+        x, y, w, h = bar(model)
+        column = f"{x},{y + h},{w},{300 - h}"
+
+        def shot(name):
+            path = tmp_path / name
+            subprocess.run(["scrot", "-a", column, "-o", str(path)], env=desktop[0], check=True)
+            return path.read_bytes()
+
+        before = shot("before.png")
+        mouse("mousemove", x + w // 2, y + h + 40)
+        for _ in range(5):
+            mouse("click", 7)  # wheel right
+        made.pump(0.5)
+        assert shot("after.png") != before
+        assert game_gets_keys(mouse, desktop[1])
+    finally:
+        made.close()
 
 
 # -- a plugin's view over its placeholder (#141 step 3) ------------------------
