@@ -130,6 +130,21 @@ def test_outside_edit_mode_pressing_an_edge_starts_nothing():
     assert not host.drag_start(RESIZE_LEFT, False, ("left",))
 
 
+def test_an_edge_drag_stops_at_the_frames_minimum_width():
+    drag = ("right", 100, 100, (0, 0, 500, 400))
+    assert host.drag_rect(drag, -300, 100, (200, 80)) == [0, 0, 200, 400]
+
+
+def test_a_left_edge_drag_stops_at_the_minimum_without_moving_further():
+    drag = ("left", 100, 100, (0, 0, 500, 400))
+    assert host.drag_rect(drag, 600, 100, (200, 80)) == [300, 0, 200, 400]
+
+
+def test_a_top_edge_drag_stops_at_the_frames_minimum_height():
+    drag = ("top", 100, 100, (0, 0, 500, 400))
+    assert host.drag_rect(drag, 100, 500, (80, 150)) == [0, 250, 500, 150]
+
+
 def test_in_edit_mode_pressing_its_title_bar_starts_a_move():
     assert host.drag_start({"type": "chrome", "do": "move"}, True, ())
 
@@ -351,7 +366,21 @@ def test_a_frame_is_told_only_its_edit_mode_edges_and_ghost(fake_host):
     fake_host.sync({}, {"f": WebFrame((10, 20, 640, 720), editing=True, edges=("left",))})
     events = run_until(fake_host, lambda ev: sent(ev) == [("frame", "f"), ("place", "f")])
     frame = next(e["cmd"] for e in events if e["ev"] == "got")
-    assert frame == {"op": "frame", "id": "f", "editing": True, "edges": ["left"], "ghost": None}
+    assert frame == {
+        "op": "frame",
+        "id": "f",
+        "editing": True,
+        "edges": ["left"],
+        "ghost": None,
+        "minimum": [80, 80],
+    }
+
+
+def test_a_frame_is_told_its_minimum_size(fake_host):
+    fake_host.sync({}, {"f": WebFrame((10, 20, 640, 720), minimum=(300, 200))})
+    events = run_until(fake_host, lambda ev: sent(ev) == [("frame", "f"), ("place", "f")])
+    frame = next(e["cmd"] for e in events if e["ev"] == "got")
+    assert frame["minimum"] == [300, 200]
 
 
 def test_a_frame_opens_before_the_views_that_go_into_it(fake_host):

@@ -128,8 +128,9 @@ title_text = "system"
 # title = "Trading"
 # dock = "game:right"
 # width = 640
+# min_height = 400        # optional: edge drags stop here (px; min_width too; default 80)
 # widgets = [
-#   { widget = "trade-beside", height = "*" },
+#   { widget = "trade-beside", height = "*", min_height = 200 },  # never shorter: the column scrolls
 #   { widget = "hold-beside", height = 310 },
 # ]
 #

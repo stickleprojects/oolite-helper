@@ -33,9 +33,9 @@ PROTOCOL (version 5): JSON objects, one per line.
 
   helper -> host (stdin)
     {"op": "frame", "id": FID, "editing": bool, "edges": ["left", ...],
-     "ghost": [x, y, w, h] or null}                   opens hidden, or updates it;
+     "ghost": [x, y, w, h] or null, "minimum": [w, h]}  opens hidden, or updates it;
                                                       editing: its page's edges in edges
-                                                      may resize it;
+                                                      may resize it, down to minimum;
                                                       ghost: an outline where a drag lands
     {"op": "open", "id": ID, "plugin": NAME, "root": DIR, "entry": "index.html",
      "background": "#101418", "extras": {NAME: TEXT}, "frame": FID or null, "index": N,
@@ -136,9 +136,10 @@ class WebFrame:
     editing: bool = False  # in edit mode: its page's edges resize it
     edges: tuple = ()  # which edges resize it: "left", "right", "top", "bottom"
     ghost: tuple | None = None  # while its title bar is dragged: where it would land
+    minimum: tuple = (80, 80)  # (w, h): an edge drag stops there (WindowSpec.minimum)
 
     def bar(self):
-        return (self.editing, self.edges, self.ghost)
+        return (self.editing, self.edges, self.ghost, self.minimum)
 
 
 def runtime_dir(environ=os.environ):
@@ -397,13 +398,14 @@ class WebHost:
         for fid, frame in self.frames.items():
             old = self.framed.get(fid)
             if old is None or old.bar() != frame.bar():
-                editing, edges, ghost = frame.bar()
+                editing, edges, ghost, minimum = frame.bar()
                 self._send(
                     op="frame",
                     id=fid,
                     editing=editing,
                     edges=list(edges),
                     ghost=list(ghost) if ghost else None,
+                    minimum=list(minimum),
                 )
             if old is None or old.rect != frame.rect:
                 self._send(op="place", id=fid, rect=list(frame.rect) if frame.rect else None)

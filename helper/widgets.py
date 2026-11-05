@@ -25,7 +25,7 @@ have a Tk version (TK_COMPONENTS) and leaves the others out.
 import tkinter as tk
 
 from .layout import find
-from .settings import SCREEN_DOCK
+from .settings import MIN_WINDOW, SCREEN_DOCK
 from .tk.components.chips import ClearanceBadge, DriveChips
 from .tk.components.style import BG, LAYOUTS, Style
 from .tk.components.trade_here import TradeHere
@@ -88,12 +88,14 @@ def window_rect(window, game_window, monitors=()):
     return (m.x, m.y if side == "top" else m.y + m.height - h, m.width, h)
 
 
-def stacked(rect, title, heights):
+def stacked(rect, title, heights, floor=0):
     """Where a widgetwindow's widgets go, top to bottom under its title bar.
 
     rect is the widgetwindow's; heights is [(id, height or None if hidden,
     fills)] in order. The widget that fills (else the last shown one) takes
-    what the others leave. Returns {id: (x, y, width, height) or None}.
+    what the others leave, but never less than floor (its min_height): then
+    the widgets reach below the window and its column scrolls.
+    Returns {id: (x, y, width, height) or None}.
     """
     x, y, w, h = rect
     shown = [(wid, height, fills) for wid, height, fills in heights if height is not None]
@@ -104,7 +106,7 @@ def stacked(rect, title, heights):
         if height is None:
             rects[wid] = None
             continue
-        height = max(0, left) if wid == filler else height
+        height = max(floor, left) if wid == filler else height
         rects[wid] = (x, top, w, height)
         top += height
     return rects
@@ -138,7 +140,7 @@ def place(spec, game_window, size, monitors=()):
     return (x + spec.x, gy + spec.y, w, h)
 
 
-MIN_SIZE = 80  # px: a widgetwindow can't be resized smaller
+MIN_SIZE = MIN_WINDOW  # px: a widgetwindow can't be resized smaller unless it says so
 
 
 def resize_edges(window):
@@ -157,7 +159,8 @@ def resized(window, rect, monitors=()):
     """The layout actions that make a widgetwindow the size (and, floating, the
     place) of rect, (x, y, w, h), after an edge was dragged."""
     x, y, w, h = rect
-    w, h = max(MIN_SIZE, w), max(MIN_SIZE, h)
+    min_w, min_h = window.minimum
+    w, h = max(min_w, w), max(min_h, h)
     wid = window.id
     if window.dock is None:
         m = next((m for m in monitors if m.name == window.screen), None)
@@ -311,7 +314,16 @@ def place_in_window(widgets, window, wid, game_window, height, monitors=(), titl
     inside = [w for w in widgets if w.spec.window == window.id]
     heights = [(w.id, height(w), w.spec.fill) for w in inside]
     title = title_height(window) if title is None else title
-    return stacked(rect, title, heights)[wid]
+    # A hidden "*" widget's minimum doesn't pass to the one that fills instead.
+    floor = next(
+        (
+            w.spec.min_height or 0
+            for w, (_, h, f) in zip(inside, heights, strict=True)
+            if f and h is not None
+        ),
+        0,
+    )
+    return stacked(rect, title, heights, floor)[wid]
 
 
 def _configured_height(widget):

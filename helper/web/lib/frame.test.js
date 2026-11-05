@@ -347,3 +347,8 @@ test("when its list closes the placeholders come back", () => {
   nextFrame();
   assert.deepEqual(lastPlaced(placed).rects, { lamp: [0, 84, 294, 100] });
 });
+
+test("the widget that fills is never shorter than its min_height", () => {
+  const { sections } = page([widget("tip", ["tip"], { fill: true, min_height: 120 })]);
+  assert.equal(sections[0].style.values["min-height"], "120px");
+});

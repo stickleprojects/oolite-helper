@@ -8,8 +8,8 @@
 // The helper generates the page: it loads lib/, the widgets' components' files,
 // this file, and _oolite/frame-config.js, which sets
 // OOLITE_FRAME = {title_height: px, topics: [...], widgets: [{id, components,
-// widget, topics, height: px or null, fill, hide_empty, scale}, or for a
-// plugin's widget {id, plugin: true}]}, in the column's order.
+// widget, topics, height: px or null, fill, min_height: px or null,
+// hide_empty, scale}, or for a plugin's widget {id, plugin: true}]}, in the column's order.
 // The "frame" topic is what changes without a reload:
 // {title, editing, edges: [the window's edges that resize it: "left", ...],
 //  places: [[place, label], ...] its ⚓ list offers while editing,
@@ -32,6 +32,7 @@
     const node = el("div", `oo-widget fixed${widget.fill ? " fills" : ""}${sized}`);
     node.style.setProperty("--oo-scale", String(widget.scale));
     if (widget.height) node.style.setProperty("height", `${widget.height}px`);
+    if (widget.fill && widget.min_height) node.style.setProperty("min-height", `${widget.min_height}px`);
     const root = el("div", "oo-root");
     node.append(root);
     let open = true;

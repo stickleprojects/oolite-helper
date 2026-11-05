@@ -45,6 +45,9 @@ Configured in config.toml as an array of [[widgets]] tables:
     widgets = [{widget = "trade-beside", height = "*"}, {widget = "hold-beside", height = 310}]
 
 The widget with height = "*" takes what the others leave; with none, the last does.
+It never gets less than its min_height (px), if it sets one; when the widgets need
+more height than the widgetwindow has, its column scrolls. min_width and
+min_height (px, default 80) on a widgetwindow stop an edge drag shrinking it further.
 A widgetwindow can also dock to a monitor's edge (dock = "screen:eDP-1:right",
 its width in px or "%") or float on one (no dock; screen, x, y, width, height).
 
@@ -311,6 +314,7 @@ class WidgetSpec(_Model):
     widget: str | None = None  # the named widget it came from, if any
     window: str | None = None  # the widgetwindow it's in (#124); set by it, not a setting
     fill: bool = False  # in a widgetwindow: takes the height the others leave (height = "*")
+    min_height: int | None = None  # px: the height = "*" widget never gets less (#131)
 
     @property
     def shown(self):
@@ -368,7 +372,7 @@ class WidgetSpec(_Model):
             raise ValueError(f"{info.field_name} must be a whole number of pixels")
         return value
 
-    @field_validator("width", "height", mode="before")
+    @field_validator("width", "height", "min_height", mode="before")
     @classmethod
     def _sizes(cls, value, info):
         return _pixels(info.field_name, value)
@@ -410,6 +414,8 @@ class WidgetSpec(_Model):
     def _declared(self, info):
         if self.fill and self.window is None:
             raise ValueError('height = "*" only works in a widgetwindow')
+        if self.min_height is not None and not self.fill:
+            raise ValueError('min_height only works with height = "*"')
         if info.context is None:
             return self  # a copy the helper made (changed()): checked when it was read
         plugins = info.context.get("plugins")
@@ -438,6 +444,8 @@ def _check_titled(components):
 
 # -- [[widgetwindows]] ------------------------------------------------------
 
+MIN_WINDOW = 80  # px: a widgetwindow's default minimum size (widgets.MIN_SIZE)
+
 PLACED = {"dock", "screen", "x", "y", "width", "window", "fill"}  # a widgetwindow sets these
 
 
@@ -460,6 +468,13 @@ class WindowSpec(_Model):
     font_scale: float = 1.0
     show: str | None = None  # SHOW; default with_game on the game, else always
     widgets: tuple[WidgetSpec, ...] = ()  # its widgets, in order, top to bottom
+    min_width: int | None = None  # px: an edge drag stops here; None: MIN_WINDOW (#131)
+    min_height: int | None = None
+
+    @property
+    def minimum(self):
+        """(width, height) it can't be resized below."""
+        return (self.min_width or MIN_WINDOW, self.min_height or MIN_WINDOW)
 
     @property
     def on_game(self):
@@ -523,6 +538,11 @@ class WindowSpec(_Model):
         if not _whole(value):
             raise ValueError(f"{info.field_name} must be a whole number of pixels")
         return value
+
+    @field_validator("min_width", "min_height", mode="before")
+    @classmethod
+    def _minimum(cls, value, info):
+        return _pixels(info.field_name, value)
 
     @field_validator("width", "height", mode="before")
     @classmethod
