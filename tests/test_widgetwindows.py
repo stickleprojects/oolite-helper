@@ -155,10 +155,22 @@ def test_a_named_widget_in_a_widgetwindow_keeps_its_name_as_its_id(tmp_path):
         (("width = 640", 'width = 640\nscreen = "eDP-1"'), "docked, it can't set screen"),
         (('dock = "game:right"', 'dock = "screen:eDP-1:middle"'), "dock must be one of"),
         (('dock = "game:right"\n', ""), "floating, it needs a screen"),
-        (("height = 310", "height = 310, min_height = 50"), 'min_height only works with height = "\\*"'),
-        (('height = "*"', 'height = "*", min_height = 1.5'), "min_height must be a whole number of pixels"),
-        (("width = 640", "width = 640\nmin_width = \"10%\""), "min_width must be a whole number of pixels"),
-        (("width = 640", "width = 640\nmin_height = -1"), "min_height must be a whole number of pixels"),
+        (
+            ("height = 310", "height = 310, min_height = 50"),
+            'min_height only works with height = "\\*"',
+        ),
+        (
+            ('height = "*"', 'height = "*", min_height = 1.5'),
+            "min_height must be a whole number of pixels",
+        ),
+        (
+            ("width = 640", 'width = 640\nmin_width = "10%"'),
+            "min_width must be a whole number of pixels",
+        ),
+        (
+            ("width = 640", "width = 640\nmin_height = -1"),
+            "min_height must be a whole number of pixels",
+        ),
     ],
 )
 def test_a_widgetwindow_set_up_badly_is_explained(tmp_path, change, message):

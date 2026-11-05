@@ -330,7 +330,9 @@ class WebWidgets:
                 ghost = landing(spec, rect, game_window, self.monitors, pointer)
             editing = fid in self.editing
             edges = resize_edges(spec)
-            frames[fid] = WebFrame(rect, editing=editing, edges=edges, ghost=ghost)
+            frames[fid] = WebFrame(
+                rect, editing=editing, edges=edges, ghost=ghost, minimum=spec.minimum
+            )
             # Its own page fills it. A plugin's view is sized and placed by its
             # placeholder there, so its rect here only says it's shown.
             inner = [w for w in widgets if w.spec.window == fid]
@@ -410,6 +412,7 @@ class WebWidgets:
                     "topics": list(self.widgets[wid].topics),
                     "height": None if spec.fill else spec.height,
                     "fill": spec.fill,
+                    "min_height": spec.min_height,
                     "hide_empty": spec.hide_empty,
                     "scale": scale * spec.font_scale,
                 }

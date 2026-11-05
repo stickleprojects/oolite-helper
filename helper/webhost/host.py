@@ -58,7 +58,7 @@ LOG_TEXT_LIMIT = 500
 # the ghost outline's width (as the page's edges, lib/frame.js).
 EDGES = ("left", "right", "top", "bottom")
 EDGE_PX = 6
-MIN_PX = 80  # as widgets.MIN_SIZE
+MIN_PX = 80  # as widgets.MIN_SIZE: a frame's minimum when the helper sends none
 DRAG_REPORT_SECONDS = 0.04  # how often a dragged edge's rect goes to the helper
 EDIT_COLOUR = "#ffb000"  # the helper's accent: lit ✎ and edges
 PAGE_MESSAGES_PER_SECOND = 20  # more than this from one page are dropped
@@ -187,6 +187,35 @@ def drag_start(msg, editing, edges):
     if not editing:
         return False
     return msg["do"] == "move" or (msg["do"] == "resize" and msg["edge"] in edges)
+
+
+def drag_rect(drag, x_root, y_root, minimum):
+    """The rect a drag so far gives, the pointer now at (x_root, y_root): the
+    dragged edge follows it, but the frame stays at least minimum (w, h).
+    drag is (side or "move", where it was pressed x, y, the rect then)."""
+    side, px, py, (x, y, w, h) = drag
+    dx, dy = round(x_root - px), round(y_root - py)
+    min_w, min_h = minimum
+    if side == "move":
+        x, y = x + dx, y + dy
+    elif side == "left":
+        dx = min(dx, w - min_w)
+        x, w = x + dx, w - dx
+    elif side == "right":
+        w = max(min_w, w + dx)
+    elif side == "top":
+        dy = min(dy, h - min_h)
+        y, h = y + dy, h - dy
+    else:
+        h = max(min_h, h + dy)
+    return [x, y, w, h]
+
+
+def _minimum(value):
+    """A frame command's minimum [w, h], or MIN_PX each."""
+    ok = isinstance(value, list) and len(value) == 2
+    ok = ok and all(isinstance(n, int) and not isinstance(n, bool) and n > 0 for n in value)
+    return tuple(value) if ok else (MIN_PX, MIN_PX)
 
 
 def _rect(value):
@@ -365,6 +394,7 @@ def main():
             self.sent = 0.0  # when the last drag rect went to the helper
             self.pressed = None  # (x, y) where button 1 went down on the page, while it's down
             self.editing = False
+            self.minimum = (MIN_PX, MIN_PX)
             self.edges = ()  # those the helper says resize it
             # Its own page is the overlay's child; each plugin's view is in a
             # Gtk.Layout of its own over it, sized to the part of the view
@@ -410,8 +440,9 @@ def main():
                 self.css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             )
 
-        def bar(self, editing=False, edges=(), ghost=None):
+        def bar(self, editing=False, edges=(), ghost=None, minimum=None):
             self.editing = editing
+            self.minimum = _minimum(minimum)
             self.edges = tuple(edges)
             if not editing:
                 self.drag = None
@@ -430,21 +461,7 @@ def main():
 
         def dragged(self, event):
             """The rect the drag so far gives: the dragged edge follows the pointer."""
-            side, px, py, (x, y, w, h) = self.drag
-            dx, dy = round(event.x_root - px), round(event.y_root - py)
-            if side == "move":
-                x, y = x + dx, y + dy
-            elif side == "left":
-                dx = min(dx, w - MIN_PX)
-                x, w = x + dx, w - dx
-            elif side == "right":
-                w = max(MIN_PX, w + dx)
-            elif side == "top":
-                dy = min(dy, h - MIN_PX)
-                y, h = y + dy, h - dy
-            else:
-                h = max(MIN_PX, h + dy)
-            return [x, y, w, h]
+            return drag_rect(self.drag, event.x_root, event.y_root, self.minimum)
 
         def on_motion(self, box, event):
             if self.drag is None:
@@ -781,7 +798,12 @@ def main():
         if op == "frame":
             if wid not in frames:
                 frames[wid] = FrameWindow(wid)
-            frames[wid].bar(cmd.get("editing", False), cmd.get("edges", ()), cmd.get("ghost"))
+            frames[wid].bar(
+                cmd.get("editing", False),
+                cmd.get("edges", ()),
+                cmd.get("ghost"),
+                cmd.get("minimum"),
+            )
         elif op == "open":
             if wid in windows:
                 windows.pop(wid).close()
